@@ -1,5 +1,9 @@
 # FreeLunch — Demo/MVP Features: Implementation Order
 
+## Mock
+
+[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/freelunch_ide_mock.html)
+
 ## Glossary (Revised)
 
 | Term | Definition |
