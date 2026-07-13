@@ -1,5 +1,3 @@
-This is a living document. Last edited 03/07/2026.
-
 # Freelunch Founding Document
 
 ## Vision & Business Model
