@@ -19,15 +19,13 @@
 | **Hotfix** | A permission grantable by Platform Admin to any Persona. Allows merging directly to main without CI gates. |
 | **Ephemeral Staging Environment** | A short-lived isolated environment spun up per PR, torn down after merge/close. |
 | **Blue-Green Deployment** | Argo Rollouts-managed promotion between active (blue) and preview (green) versions, with the previous revision retained for a configured rollback window. |
-| **Portability and Detach** | Continuous verification that L2 and the GitOps pipeline operate without a FreeLunch runtime dependency, plus a controlled process for removing FreeLunch-specific integrations. |
-| **Agent Integration Layer** | Read-only REST, OpenAPI, MCP, and first-party skill interfaces through which coding agents query workload, pipeline, error, cost, and observability data. |
+| **Agent Integration Layer** | A read-only REST API with an OpenAPI contract and a first-party skill through which coding agents query workload, pipeline, error, cost, and observability data. |
 | **Coding/Experimenting Environment** | A girus-powered production simulation sandbox. Reads live SigNoz/OTel data to seed simulations. Used to anticipate production problems. |
 
 ---
 
 ## Deferred Decisions and Scope
 
-- **Public/Private Hub for reusable Workload templates** — whether it is in the Demo or post-MVP. If included, it is a Theia-integrated registry for sharing templates across teams.
 - **Vanilla K8s vs LocalStack EKS** — both are supported; which the Demo primarily targets is TBD.
 - **Remaining tool choices** (Kargo, Bazel, etc.) — Argo Rollouts and OpenCost are selected below; other conceptual roles are finalized during implementation of each feature.
 - **Post-MVP scope** — stateful-service wiring and datastore or queue migration are excluded from the Demo/MVP and require separate engine-specific designs.
@@ -53,7 +51,6 @@ monorepo/
     └── workflows/         ← CI/CD pipeline (managed by FreeLunch)
 ```
 
-- Platform versioning declared in `platform/` (e.g., `freelunch.yaml: platform-version: x.y.z`)
 - Separation between platform config (Platform Engineers) and canvas-maintained Workload definitions (Developers)
 
 ### 1.2 Local K8s Infrastructure
@@ -279,6 +276,7 @@ Controlled application promotion through standard Argo Rollouts resources.
 - Promotion occurs only after readiness and configured pre-promotion analysis succeed
 - **Manual rollback:** restore a retained previous revision within the configured rollback window and reconcile Git with cluster state
 - Provider propagation delays and rollback eligibility are surfaced rather than described as universally instant or zero-downtime
+- Stateful migration, database or queue synchronization, and schema migration orchestration are outside the MVP; this feature covers application rollout only
 
 ### 5.2 Ephemeral Staging Environments
 One isolated environment per PR for parallel testing.
@@ -358,24 +356,18 @@ Primary user interface — IDE and Dev Portal are the same unified surface.
 ### 7.2 FreeLunch CLI
 Minimal CLI for setup and day-to-day inspection.
 
-> **Story:** As a Platform Admin, I run `freelunch init my-company` to scaffold the monorepo, then `freelunch install` to bring up the full FreeLunch stack locally. Later, from my terminal, I run `freelunch status` and see the health of every Workload and environment at a glance, or run `freelunch portability check` to verify that L2 remains independently operable.
+> **Story:** As a Platform Admin, I run `freelunch init my-company` to scaffold the monorepo, then `freelunch install` to bring up the full FreeLunch stack locally. Later, from my terminal, I run `freelunch status` and see the health of every Workload and environment at a glance.
 
 **Setup commands** (run by Platform Admin):
 - `freelunch init` — bootstrap a new monorepo with FreeLunch structure
 - `freelunch install` — install FreeLunch components into the K8s cluster, including Theia, ArgoCD, Argo Rollouts, SigNoz, OpenCost, its Prometheus-compatible metrics dependency, Keycloak, and Vault
 - `freelunch install --adopt` — install onto an existing cluster without disruption
 - `freelunch configure` — set IP whitelists, cluster targets, rollback policies, Role permission overrides
-- `freelunch upgrade` — apply a new platform version; flags breaking changes for Platform Engineer resolution
 
 **Inspection commands** (any authorized Persona):
 - `freelunch status` — health of all Workloads, environments, and pipeline
 - `freelunch logs` — tail logs for a Workload
 - `freelunch rollback` — trigger a manual rollback to the previous blue
-- `freelunch portability check` — verify that existing L2 and GitOps assets have no FreeLunch runtime dependency
-
-**Lifecycle commands** (run by Platform Admin):
-- `freelunch detach --dry-run` — preview removal of FreeLunch-specific integrations and credentials
-- `freelunch detach` — apply the reviewed detachment while preserving the existing repository, L2, Git history, and customer-owned components
 
 ---
 
@@ -399,16 +391,15 @@ Canonical read-only HTTP API for coding agents to query platform state outside o
 - Read-only authorization is enforced by Keycloak scopes and server routes; no write endpoints are registered
 - **Out of Demo scope:** ticket creation, notifications, agent management, and every platform mutation
 
-### 8.2 MCP Server + First-Party Skill
-Agent-native tools and workflows backed by the Coding Agent API.
+### 8.2 First-Party Skill
+Agent diagnostic workflows backed by the Coding Agent API.
 
-> **Story:** As a Developer, I install the FreeLunch skill in my coding agent and ask, "Why is `service-b` degraded?" The skill uses authenticated, read-only MCP tools to correlate Workload health, Argo Rollouts and pipeline state, recent errors, resource usage, and cost data. It returns an evidence-backed diagnosis with timestamps and links to the relevant Theia views, but it cannot deploy or modify anything.
+> **Story:** As a Developer, I install the FreeLunch skill in my coding agent and ask, "Why is `service-b` degraded?" The skill uses the authenticated, read-only Coding Agent API to correlate Workload health, Argo Rollouts and pipeline state, recent errors, resource usage, and cost data. It returns an evidence-backed diagnosis with timestamps and links to the relevant Theia views, but it cannot deploy or modify anything.
 
-- The MCP server is a thin adapter over the same authorized service layer as the REST API; it does not query Kubernetes, GitHub, SigNoz, or OpenCost independently
-- Task-oriented tools include `list_workloads`, `get_workload_health`, `get_pipeline_status`, `get_recent_errors`, `get_cost_breakdown`, and `get_observability_summary`
+- The skill uses the OpenAPI-described REST API in 8.1
+- The skill correlates Workload health, pipeline state, recent errors, cost data, and observability summaries through the authorized API
 - The first-party skill defines diagnostic workflows such as degraded-Workload analysis, PR readiness, deployment regression analysis, and monthly cost investigation
 - Credentials are provided by the agent runtime or secure environment and are never embedded in the skill
-- Agents without MCP can use the OpenAPI-described REST API or structured CLI output
 
 ---
 
@@ -428,29 +419,6 @@ Allows Platform Engineers to configure supported defaults, constraints, and enfo
 - **Not in Demo:** creating entirely new L1 abstraction types from scratch (post-Demo)
 - Changes are tracked via Git (who changed what, who approved)
 
-### 9.2 Platform Versioning
-Declarative platform version management with automated upgrade detection.
-
-> **Story:** As a Platform Engineer, I run `freelunch upgrade` after a new FreeLunch version is published. The CLI diffs the new L1 schema against our current `platform/freelunch.yaml`, reports zero breaking changes, and applies the upgrade. In a separate scenario with a breaking change, it shows the incompatible canvas and policy fields and blocks the upgrade until I resolve them.
-
-- Platform version declared in `platform/freelunch.yaml` in the monorepo
-- FreeLunch team publishes new versioned releases
-- `freelunch upgrade` diffs the new version's L1 schema against the current monorepo's L1 config
-- Non-breaking schema upgrades are applied automatically
-- Breaking changes are flagged as conflicts; the Platform Engineer resolves supported fields through the canvas or Policy Editor, or uses advanced CUE mode, then re-runs upgrade
-
-### 9.3 Continuous Portability and Detach
-Customer L2 and GitOps assets remain independently operable throughout the FreeLunch lifecycle.
-
-> **Story:** As a Platform Admin considering leaving FreeLunch, I run `freelunch portability check`. The CLI verifies that the existing L2 artifacts and GitOps pipeline contain no FreeLunch runtime dependency and reports anything that must be resolved. I then preview and run `freelunch detach`; ArgoCD continues deploying the same L2 from the same repository, while Keycloak, Vault, SigNoz, OpenCost, Prometheus, ArgoCD, and Argo Rollouts remain under customer ownership.
-
-- Portability is continuously testable; no duplicate `./ejected/` directory or disconnected source of truth is created
-- `freelunch portability check` verifies standard L2 resources, independently available images and Helm dependencies, runnable GitHub Actions and ArgoCD configuration, and current operational documentation
-- `freelunch detach --dry-run` reports the FreeLunch-specific IDE, compiler, credentials, and integration changes before any mutation
-- `freelunch detach` applies the reviewed changes on a Git branch, archives L1 as non-compiling configuration, and preserves L2, Git history, and the existing GitOps paths
-- FreeLunch-installed open-source components remain in the customer's cluster for the customer to own, upgrade, or remove
-- After detach, day-two deployment and rollback procedures must not require the FreeLunch CLI or Theia IDE
-
 ---
 
 ## Group 10 — Documentation + Sample App
@@ -459,7 +427,7 @@ Customer L2 and GitOps assets remain independently operable throughout the FreeL
 ### 10.1 Sample Application
 A purpose-built Demo application that exercises the full FreeLunch workflow.
 
-> **Story:** As a new customer evaluating FreeLunch, I clone the Demo monorepo and run `freelunch install`. On the canvas I inspect a stateless HTTP service, compile its generated CUE, and call `POST /echo` to receive my request payload. SigNoz shows its metrics and traces, OpenCost shows its estimated allocation, and the FreeLunch skill can summarize its health through read-only tools.
+> **Story:** As a new customer evaluating FreeLunch, I clone the Demo monorepo and run `freelunch install`. On the canvas I inspect a stateless HTTP service, compile its generated CUE, and call `POST /echo` to receive my request payload. SigNoz shows its metrics and traces, OpenCost shows its estimated allocation, and the FreeLunch skill can summarize its health through the read-only Coding Agent API.
 
 - A stateless HTTP service with health, echo, controlled-error, and latency endpoints for exercising deployment and observability paths
 - Deployed and observable in the Demo monorepo
@@ -469,10 +437,10 @@ A purpose-built Demo application that exercises the full FreeLunch workflow.
 ### 10.2 Documentation
 Auto-generated documentation website + LLM-friendly export.
 
-> **Story:** As a Platform Engineer onboarding to FreeLunch, I open the MKDocs documentation website and find complete guides to the canvas, generated CUE, platform policies, GitOps deployment, Argo Rollouts, observability, cost allocation, agent integration, and portability. I can also download a single `freelunch-docs.md` file for accurate offline or LLM-assisted reference.
+> **Story:** As a Platform Engineer onboarding to FreeLunch, I open the MKDocs documentation website and find complete guides to the canvas, generated CUE, platform policies, GitOps deployment, Argo Rollouts, observability, cost allocation, and agent integration. I can also download a single `freelunch-docs.md` file for accurate offline or LLM-assisted reference.
 
 - Built from Markdown files via MKDocs
-- Includes the sample app, canvas-to-CUE workflow, platform policy model, operational runbooks, and detach procedure
+- Includes the sample app, canvas-to-CUE workflow, platform policy model, and operational runbooks
 - Full documentation exportable as a single `.md` file for LLM consumption
 
 ---
@@ -493,20 +461,6 @@ A girus-powered sandbox for anticipating production problems.
 
 ---
 
-## Group 12 — Pending Team Decision
-
-### 12.1 Public/Private Hub for Reusable Workload Templates *(decision pending)*
-A registry/marketplace for sharing reusable Workload templates.
-
-> **Story:** As a Platform Engineer, I publish a reusable `background-worker` Workload template to the Private Hub directly from the Theia IDE. A Developer on another product team selects it, configures the resulting canvas blocks, and FreeLunch maintains the new L1 definition in `products/my-product/workflows/`.
-
-- Listed as part of the IDE's Innovative Features in `features_overview.md`
-- Would allow teams to publish and consume reusable Service and Workflow templates
-- Team input needed to confirm whether this is Demo scope or post-Demo
-- If in Demo: scoped to the Theia IDE, private sharing only within the customer organisation; public Hub is post-Demo
-
----
-
 ## Summary Table
 
 | Group | Features | Key Dependency |
@@ -518,8 +472,7 @@ A registry/marketplace for sharing reusable Workload templates.
 | **5** | Argo Rollouts blue-green integration, ephemeral staging, autoscaling | Groups 2–4 |
 | **6** | SigNoz, customer workload observability, OpenCost cost observability | Groups 1, 5 |
 | **7** | Theia canvas and integrated platform surfaces, FreeLunch CLI | Groups 1, 3, 4, 6 |
-| **8** | Coding Agent API, OpenAPI, MCP server, first-party skill | Groups 1, 5, 6 |
-| **9** | Platform Policy Editor, platform versioning, portability and detach | Groups 3, 7 |
+| **8** | Coding Agent API, OpenAPI, first-party skill | Groups 1, 5, 6 |
+| **9** | Platform Policy Editor | Groups 3, 7 |
 | **10** | Stateless sample app, documentation | Groups 1–9 |
 | **11** | Coding/Experimenting Environment (low priority) | Groups 5, 6 |
-| **12** | Public/Private Workload Template Hub (pending team decision) | Group 7 |
