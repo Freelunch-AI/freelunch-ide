@@ -1,10 +1,10 @@
-# [dev + ops mode] [declarative] [self-contained] Project Management & AI-assisted Engineering Front — lunch-vibekill: for project management & ai-assisted engineering
+# [dev + ops mode] [declarative] [self-contained] Project Management & AI-assisted Engineering Front — lunch-vibes: for project management & ai-assisted engineering
 
 AI-assisted Development and Project management, with github/jira/linear/etc integrations, best practices enforced and team-based development built-in. 
 
 Relevant Benchmark to optimize agaist: Horizon-SWE.
 
-Reference projects: opencode, devika, vibe-kanban.
+Reference projects: vibe-kanban.
 
 It’s vibe-kanban on steroids. Added features:
 - helps with spec-generation (vision spec and PR spec), with available spec templates
