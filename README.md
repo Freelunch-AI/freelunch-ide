@@ -55,7 +55,8 @@ Demo Limitations: (1) fully local & aws-only (local aws cloud emulation); (2) no
 What's missing to become an MVP? Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
 
 **Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, Kargo, CUE, ArgoCD, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, MKDocs, Cloudflare.
-Coding/Experimenting Environment Estimated Stack: linux/wsl, pixi, git, girus
+
+**Our own Coding/Experimenting Environment Estimated Stack**: linux/wsl, pixi, git, girus
 
 Basic setup for us to start development: github repo & access control, virtual environment & package management; linting/formatting; building; testing; publishing IDE binary and CLI Golang package; updating docs website.
 
