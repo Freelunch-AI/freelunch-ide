@@ -10,8 +10,8 @@ The core platform we provide is the devops/mlops platform, but we also will prov
 **Business Model**: We take one of these 3 approaches: (1) bring in founders after validating the idea, giving them 40% equity + salary; (2) bring in pre-scale companies via y combinator-like form application, taking 20% equity of them; (3) bring in founders for an edge city-like idea exploration phase (or with an idea already), validating the idea together with the founder and starting the company together with the founder taking 30% equity. In all cases we help with eventual fundraising through our VC network. Since we operate essentially as a cofounder, we also get diluted as much as the founders in funding rounds. 
 
 Similar Orgs: 
-- Result: from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity. They also aren't focused on the product side that much (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond Demos), instead on the ERP side (finance/marketing/hr/etc). Another important difference is the business model: they are a PaaS, while we are a venture-studio.
-- Shiva: a new brazilian vc/accelerator that is backing small hyper productive teams with salaries + AI/Cloud credits instead of large investments.
+- [Result](https://www.ycombinator.com/companies/result): from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity. They also aren't focused on the product side that much (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond Demos), instead on the ERP side (finance/marketing/hr/etc). Another important difference is the business model: they are a PaaS, while we are a venture-studio.
+- [Shiva](https://www.omshiva.ai/): a new brazilian vc/accelerator that is backing small hyper productive teams with salaries + AI/Cloud credits instead of large investments.
 
 ## Strategy
 
