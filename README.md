@@ -18,12 +18,12 @@ Similar Orgs:
 
 First, we need to focus on the core devops platform and validate that it actually makes company scaling easy. We need to build the Demo (freelunch devops platform), migrate an existing SaaS app to it and artificially scale it. We also need to compare it to existing open source options and popular PaaS vendors (in terms of devex, capabilities, lock-in & cost).
 
-### Demo Goal
-1. Docs: A developer has access to documentation explaining how an example app  was migrated from a pre-existing k8s setup, deployed and operated with freelunch. 
+### Developer Using the Demo
+1. Docs: A developer has access to documentation explaining how an example app was migrated from a pre-existing k8s setup, deployed and operated with freelunch. 
 2. Building: The same developer then creates his hello world app: creates two services visually, writes source code inside one of them and imports a container for the other, connects them, adds an external Postgres dependency, telemetry configs, clicks Deploy, and the platform generates standard Terraform, Kubernetes manifests, CI/CD statuses & logs, with observability, secrets, API Gateway, networking all built-in.
 3. Scaling: The developer increases inbound traffic artificially to emulate real world product adoption. The infra & services scale automatically to match the increased traffic in a cost-efficient manner.
 4. Incident Resolution: Later, when production fails, he inspect traces, topology, logs, deployments, and costs in the same workspace, with the help of Claude Code that has access to the complete picture through the unified agent API. He then does a rollback to the previous prod commit.
-5. Ejection: Finally, the developer ejects form the platform maintaining his artifacts and gitflow.
+5. Ejection: Finally, the developer ejects from the platform maintaining his artifacts and gitflow, with no freelunch dependencies.
 
 ## Demo (showing the idea, but not an MVP yet)
 
