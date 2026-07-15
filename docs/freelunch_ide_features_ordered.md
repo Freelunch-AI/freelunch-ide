@@ -141,7 +141,7 @@ IAM-inspired capability-based permission system.
 ### 3.1 L1 Abstraction Schema
 The CUE-based schema validating what the canvas maintains for Developers.
 
-> **Story:** As a Developer, I add an API Service block to the canvas and specify its name, port, and language. FreeLunch deterministically maintains `products/my-product/services/api-server.cue`, validates it against the L1 schema, and makes it ready to compile. I do not write a Dockerfile, K8s YAML, or CUE by hand.
+> **Story:** As a Developer, I add an API Service block to the canvas and specify its name, port, and language. FreeLunch deterministically maintains `products/my-product/services/api-server.cue` and validates it against the L1 schema. Cloud Native Buildpacks turn my source code into a container image without a Dockerfile; the CUE records the Workload configuration, metadata, and image reference that FreeLunch compiles into a versioned Helm chart. I do not write K8s YAML or CUE by hand.
 
 - Defines the L1 types: `Service`, `Workflow`, and platform config
 - One deterministic CUE file per Workload is committed to Git and remains usable by the CLI and CI without the canvas
@@ -149,15 +149,17 @@ The CUE-based schema validating what the canvas maintains for Developers.
 - Unsupported advanced CUE expressions are surfaced and never silently overwritten by the canvas
 - Platform Engineers configure defaults, constraints, and enforced policies through the Platform Policy Editor
 - Creating entirely new L1 abstraction types from scratch is **post-Demo**
+- Cloud Native Buildpacks own source-to-image builds; L1 CUE owns Workload configuration, metadata, and the resulting image reference
 - A Service definition in L1 requires no Dockerfile and no K8s YAML from the Developer
 
 ### 3.2 L1→L2 Compilation Engine
-Manually triggered engine that compiles L1 abstractions into K8s/Helm artifacts.
+Manually triggered engine that compiles L1 configuration, metadata, and image references into versioned Helm artifacts.
 
 > **Story:** As a Developer, I click "Compile" in the Theia IDE after saving my Service on the canvas. FreeLunch validates the canvas-maintained CUE and produces K8s manifests and Helm charts in the `platform/` directory. If a Platform Engineer previously edited a Deployment manifest in L2 directly, FreeLunch shows a conflict diff and waits for resolution — it never silently overwrites the manual change.
 
 - **Manually triggered** by the developer (via Theia command or `freelunch compile`)
 - Validates canvas-maintained L1 CUE against the versioned schema and platform policies
+- Packages the generated K8s manifests and Argo Rollouts resources as a versioned Helm chart
 - Compiles L1 → L2 (K8s manifests, Helm charts, and Argo Rollouts resources)
 - **Conflict detection:** If the customer has directly edited L2, the engine detects conflicts between the new L1 output and existing L2 manual overrides. Customer sees a diff and resolves conflicts before accepting the new L2 state
 - Raw L2 edits are **never silently discarded** — they are always surfaced for review
@@ -327,12 +329,13 @@ Per-Workload cost breakdown (visibility only — no budget enforcement in Demo).
 
 > **Story:** As a Platform Admin, I open the cost panel in the Theia IDE and see OpenCost's estimated month-to-date compute cost for every product and Workload, including idle and unallocated cluster cost. I can identify that `service-b` is the largest active consumer and inspect its CPU, memory, storage, and network allocation. No alerts fire and no deployments are blocked — it is visibility only.
 
-- OpenCost is installed via Helm and queries a Prometheus-compatible metrics backend for Kubernetes allocation data
+- For the Demo, OpenCost is installed via Helm with its Prometheus backend while SigNoz remains the platform observability backend
 - FreeLunch-generated resources carry stable `freelunch.io/product`, `freelunch.io/workload`, and `freelunch.io/workload-id` labels
-- A FreeLunch Cost Service queries OpenCost, normalizes product and Workload identities, caches expensive historical queries, and enforces authorization
+- The Demo embeds the OpenCost and SigNoz UIs in FreeLunch through Theia-integrated plugins so users can inspect cost and observability without leaving the IDE
 - The local Kind Demo uses explicit custom CPU, memory, storage, and network prices; the UI labels all values as estimates
 - Idle and unallocated costs remain visible so Workload percentages have a defined cluster-cost denominator
 - Cost profiling surfaces through the Theia IDE and Agent Integration Layer; budget enforcement, alerts, and deployment gates are out of Demo scope
+- **Post-Demo:** send OpenCost metrics to the SigNoz backend, remove the dedicated Prometheus backend and OpenCost UI, and replace them with a unified FreeLunch cost experience that queries SigNoz
 
 ---
 
@@ -360,7 +363,7 @@ Minimal CLI for setup and day-to-day inspection.
 
 **Setup commands** (run by Platform Admin):
 - `freelunch init` — bootstrap a new monorepo with FreeLunch structure
-- `freelunch install` — install FreeLunch components into the K8s cluster, including Theia, ArgoCD, Argo Rollouts, SigNoz, OpenCost, its Prometheus-compatible metrics dependency, Keycloak, and Vault
+- `freelunch install` — install FreeLunch components into the K8s cluster, including Theia, ArgoCD, Argo Rollouts, SigNoz, OpenCost with its Prometheus backend, Keycloak, and Vault
 - `freelunch install --adopt` — install onto an existing cluster without disruption
 - `freelunch configure` — set IP whitelists, cluster targets, rollback policies, Role permission overrides
 
@@ -391,15 +394,18 @@ Canonical read-only HTTP API for coding agents to query platform state outside o
 - Read-only authorization is enforced by Keycloak scopes and server routes; no write endpoints are registered
 - **Out of Demo scope:** ticket creation, notifications, agent management, and every platform mutation
 
-### 8.2 First-Party Skill
-Agent diagnostic workflows backed by the Coding Agent API.
+### 8.2 First-Party FreeLunch Skill
+Documentation-backed workflows for using FreeLunch interactively or headlessly.
 
-> **Story:** As a Developer, I install the FreeLunch skill in my coding agent and ask, "Why is `service-b` degraded?" The skill uses the authenticated, read-only Coding Agent API to correlate Workload health, Argo Rollouts and pipeline state, recent errors, resource usage, and cost data. It returns an evidence-backed diagnosis with timestamps and links to the relevant Theia views, but it cannot deploy or modify anything.
+> **Story:** As a Developer, I install the FreeLunch skill in my coding agent. I can ask how to model and compile a Workload, inspect the same repository and platform state exposed by the IDE, or diagnose why `service-b` is degraded. The skill combines packaged FreeLunch documentation with the authenticated, read-only Coding Agent API, structured CLI output, and Git-backed project files so the workflows also work headlessly.
 
-- The skill uses the OpenAPI-described REST API in 8.1
+- Packages the FreeLunch documentation, concepts, repository conventions, and operational runbooks for agent use
+- Uses the OpenAPI-described REST API in 8.1 for authorized platform reads and structured CLI or Git-backed files for headless workflows
+- Covers Workload modeling, source-to-image builds, L1 validation and compilation, pipeline and rollout inspection, and links back to equivalent Theia views
 - The skill correlates Workload health, pipeline state, recent errors, cost data, and observability summaries through the authorized API
 - The first-party skill defines diagnostic workflows such as degraded-Workload analysis, PR readiness, deployment regression analysis, and monthly cost investigation
 - Credentials are provided by the agent runtime or secure environment and are never embedded in the skill
+- The skill registers no MCP server; platform mutations continue to follow the documented GitOps and CLI paths
 
 ---
 
@@ -427,12 +433,14 @@ Allows Platform Engineers to configure supported defaults, constraints, and enfo
 ### 10.1 Sample Application
 A purpose-built Demo application that exercises the full FreeLunch workflow.
 
-> **Story:** As a new customer evaluating FreeLunch, I clone the Demo monorepo and run `freelunch install`. On the canvas I inspect a stateless HTTP service, compile its generated CUE, and call `POST /echo` to receive my request payload. SigNoz shows its metrics and traces, OpenCost shows its estimated allocation, and the FreeLunch skill can summarize its health through the read-only Coding Agent API.
+> **Story:** As a new customer evaluating FreeLunch, I clone the Demo monorepo and run `freelunch install`. On the canvas I create one stateless Service from source, import a container image as a second Service, connect them, and add a virtual Service block for an externally managed database dependency. I compile the generated CUE and exercise the services while SigNoz shows their telemetry, OpenCost shows their estimated allocation, and the FreeLunch skill can summarize their health through the read-only Coding Agent API.
 
-- A stateless HTTP service with health, echo, controlled-error, and latency endpoints for exercising deployment and observability paths
+- Multiple stateless Services: one built from source with Cloud Native Buildpacks and one using an imported container image
+- A virtual Service block represents the external database dependency without FreeLunch hosting, migrating, or synchronizing the database
+- Includes health, echo, controlled-error, and latency paths for exercising deployment and observability
 - Deployed and observable in the Demo monorepo
 - Demonstrates: canvas authoring, CUE validation, L1→L2 compilation, GitOps deployment, Argo Rollouts blue-green promotion, observability, cost allocation, and agent diagnosis
-- Requires no database, queue, persistent volume, or stateful-service wiring
+- Requires no FreeLunch-hosted database, queue, persistent volume, or stateful-service wiring
 
 ### 10.2 Documentation
 Auto-generated documentation website + LLM-friendly export.
