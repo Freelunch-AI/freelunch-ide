@@ -30,8 +30,11 @@
   - can give feedback by drawing rectangles, recording the rectangles and writing text feedback on top of it (e.g., showing that a button is not working correctly because it opens up a pop up that is not centralized on the screen)
 
 ## Most similar tools:
+
 - plasmicapp/plasmic
 - penpot/penpot
 - 21st.dev
 
-## Estimated Tech Stack: react, vite, react native+expo, fastlane, electron, Tailwind, nextjs, plasmic, storybook, WASM, sqlitebrowser, playwright, mkdocs, lighthouse, Source Map Explorer, ImageOptim, SVGO, tigervnc, Android Studio, Xcode, Appium, React Native DevTools, Framer, Lottie, openpanel, openreplay, metalang
+## Estimated Tech Stack
+
+react, vite, react native+expo, fastlane, electron, Tailwind, nextjs, plasmic, storybook, WASM, sqlitebrowser, playwright, mkdocs, lighthouse, Source Map Explorer, ImageOptim, SVGO, tigervnc, Android Studio, Xcode, Appium, React Native DevTools, Framer, Lottie, openpanel, openreplay, metalang
