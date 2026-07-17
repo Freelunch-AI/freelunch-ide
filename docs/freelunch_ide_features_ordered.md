@@ -52,6 +52,7 @@ monorepo/
 ```
 
 - Separation between platform config (Platform Engineers) and canvas-maintained Workload definitions (Developers)
+- Platform version declared in `platform/freelunch.yaml` in the monorepo
 
 ### 1.2 Local K8s Infrastructure
 The fully-local runtime environment for the Demo.
@@ -366,6 +367,7 @@ Minimal CLI for setup and day-to-day inspection.
 - `freelunch install` — install FreeLunch components into the K8s cluster, including Theia, ArgoCD, Argo Rollouts, SigNoz, OpenCost with its Prometheus backend, Keycloak, and Vault
 - `freelunch install --adopt` — install onto an existing cluster without disruption
 - `freelunch configure` — set IP whitelists, cluster targets, rollback policies, Role permission overrides
+- `freelunch upgrade` — check and apply a new platform version, blocking on unresolved breaking schema changes
 
 **Inspection commands** (any authorized Persona):
 - `freelunch status` — health of all Workloads, environments, and pipeline
@@ -425,6 +427,16 @@ Allows Platform Engineers to configure supported defaults, constraints, and enfo
 - **Not in Demo:** creating entirely new L1 abstraction types from scratch (post-Demo)
 - Changes are tracked via Git (who changed what, who approved)
 
+### 9.2 Platform Versioning
+Declarative platform version management with automated compatibility checks.
+
+> **Story:** As a Platform Engineer, I run `freelunch upgrade` after a new FreeLunch version is published. The CLI diffs the new L1 schema against our current `platform/freelunch.yaml`, reports compatible changes, and applies the upgrade. If it finds a breaking change, it identifies the incompatible canvas and policy fields and blocks the upgrade until I resolve them.
+
+- The FreeLunch team publishes versioned platform releases and L1 schemas
+- `freelunch upgrade` compares the target schema with the monorepo's current platform version and L1 configuration
+- Compatible schema upgrades can be applied after review
+- Breaking changes are reported as actionable conflicts; the Platform Engineer resolves supported fields through the canvas or Policy Editor, or uses advanced CUE mode, before re-running the upgrade
+
 ---
 
 ## Group 10 — Documentation + Sample App
@@ -481,6 +493,6 @@ A girus-powered sandbox for anticipating production problems.
 | **6** | SigNoz, customer workload observability, OpenCost cost observability | Groups 1, 5 |
 | **7** | Theia canvas and integrated platform surfaces, FreeLunch CLI | Groups 1, 3, 4, 6 |
 | **8** | Coding Agent API, OpenAPI, first-party skill | Groups 1, 5, 6 |
-| **9** | Platform Policy Editor | Groups 3, 7 |
+| **9** | Platform Policy Editor, platform versioning | Groups 3, 7 |
 | **10** | Stateless sample app, documentation | Groups 1–9 |
 | **11** | Coding/Experimenting Environment (low priority) | Groups 5, 6 |
