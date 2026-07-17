@@ -12,7 +12,57 @@ The core platform we provide is the devops/mlops platform, but we also will prov
 
 Similar Orgs: 
 - [Result](https://www.ycombinator.com/companies/result): from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity. They also aren't focused on the product side that much (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond Demos), instead on the ERP side (finance/marketing/hr/etc). Another important difference is the business model: they are a PaaS, while we are a venture-studio.
+- [Wildlife Studios](https://wildlifestudios.com/): Venture Studio focused on mobile games with mature platform engineering.
 - [Shiva](https://www.omshiva.ai/): a new brazilian vc/accelerator that is backing small hyper productive teams with salaries + AI/Cloud credits instead of large investments.
+
+## Vision of the Core Product via Analogies with existing Tools
+
+Analogy: Freelunch: platform = \
+for_distributed_apps_and_ai_powered(Unreal Engine: visual & all-in-one IDE) +
+
+ for_distributed_apps_and_all_in_one(Cursor: ai-powered IDE) + 
+ 
+ lunch_platform_native(Paperclip: agent orchestration plane) +
+ 
+ just_similar_visuals_and_marketplace(N8N: node-based IDE) +
+ 
+ just_similar_visuals(Meshery: mesh-agnostic service & infra topology design & observability) +
+ 
+multi_language_and_build_time_and_k8s_native(Spring Boot: microservices framework) +
+
+ multi_language_and_build_time_and_made_for_services_on_top_of_k8s(Ray: distributed programming framework) +
+ 
+developer_friendly_and_with_finops(Kubefirst: gitops k8s developer platform template) +
+
+ Karmada: single-cluster abstraction for multi-cluster
+ 
+ build_time_platform_with_infra_support_and_with_environment_progression_and_layer_conflict_resolution(Kubero: k8s developer platform)
+ 
+ inferred_from_code(Infisical: secrets & config management) +
+ 
+ Rancher: k8s cluster management +
+ 
+ Terraform/Crossplane: IaC +
+ 
+ Talscale: Modern VPNs +
+ 
+ decoupled_from_programming_language(ZenML: tool-agnostic DAGs) + integrated_within_devops(Langfuse: LM Systems Observability) +
+ 
+ Marimo: structured notebooks +
+
+ SkyPilot: ephemeral workloads layer +
+ 
+ integrated_within_devops(MLFlow: Artifact Experiment Tracking) +
+
+ declarative_with_visuals_write_audit_publish_pattern_and_data_transformation_management(Ibis tool-agnostic data transformation) +
+ 
+ Beam: cross-storage data transformation engine + 
+ 
+ with_copy_on_write_and_anonymization_support(Kubeblocks: k8s structured data storage management) +
+ 
+ Rook: k8s raw data storage management +
+ 
+ ready_made_and_webmcp_powered_portal(Backstage: unified dashbaords & control planes in a single view) +
 
 ## Strategy
 
