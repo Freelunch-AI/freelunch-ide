@@ -5,8 +5,7 @@
 Freelunch is the next-gen venture-studio that goes beyond spawning startups.
 
 We partner with founders and provide scaleup-infra-as-a-service for our scaleups, via our ai-native platform stack that allows small teams to seamlessly scale with low head count, after they have already reached bootstrapped Product-Market Fit (PMF). We create and support startups building apps (excludes dev tool companies).
-
-The core platform we provide is the devops/mlops platform, but we also will provide ERP (adapted for scaleup needs), internal tech upskilling platform and offices in the future, so that founders can focus all their efforts on their specific business needs. All these platforms are free, ejectable (leave with artifacts + gitflow) and forkable for our startups (but not publicly forkable) creating a strong inner source (but not open source) ecosystem & community.
+The core platform we provide is the devops/mlops platform, but we also will provide ERP (adapted for scaleup needs), internal tech upskilling platform and offices in the future, so that founders can focus all their efforts on their specific business needs. All these platforms are free and designed for portability: customers retain the standard artifacts and GitOps flow. Dedicated detach or eject automation is post-MVP. The platforms are forkable for our startups (but not publicly forkable), creating a strong inner source (but not open source) ecosystem & community.
 
 **Business Model**: We take one of these 3 approaches: (1) bring in founders after validating the idea, giving them 40% equity + salary; (2) bring in pre-scale companies via y combinator-like form application, taking 20% equity of them; (3) bring in founders for an edge city-like idea exploration phase (or with an idea already), validating the idea together with the founder and starting the company together with the founder taking 30% equity. In all cases we help with eventual fundraising through our VC network. Since we operate essentially as a cofounder, we also get diluted as much as the founders in funding rounds. 
 
@@ -16,14 +15,13 @@ Similar Orgs:
 
 ## Strategy
 
-First, we need to focus on the core devops platform and validate that it actually makes company scaling easy. We need to build the Demo (freelunch devops platform), migrate an existing SaaS app to it and artificially scale it. We also need to compare it to existing open source options and popular PaaS vendors (in terms of devex, capabilities, lock-in & cost).
+First, we need to focus on the core devops platform and validate that it actually makes company scaling easy. We need to build the Demo (freelunch devops platform), deploy a representative stateless app, and artificially scale it. We also need to compare it to existing open source options and popular PaaS vendors (in terms of devex, capabilities, lock-in & cost).
 
-### Developer Using the Demo
-1. Docs: A developer has access to documentation explaining how an example app was migrated from a pre-existing k8s setup, deployed and operated with freelunch. 
-2. Building: The same developer then creates his hello world app: creates two services visually, writes source code inside one of them and imports a container for the other, connects them, adds an external Postgres dependency, telemetry configs, clicks Deploy, and the platform generates standard Terraform, Kubernetes manifests, CI/CD statuses & logs, with observability, secrets, API Gateway, networking all built-in.
+### Demo Goal
+1. Docs: A developer has access to documentation explaining how the stateless sample app is modeled, deployed, and operated with Freelunch.
+2. Building: The same developer creates multiple services on the canvas: writes source code for one, imports a container image for another, connects them, and adds a virtual Service block for an externally managed database dependency. Cloud Native Buildpacks turn the source into an image, while the canvas-maintained CUE captures configuration, metadata, and image references that compile into versioned Helm charts. The workspace surfaces CI/CD status and logs with observability, secrets, API Gateway, and networking built in.
 3. Scaling: The developer increases inbound traffic artificially to emulate real world product adoption. The infra & services scale automatically to match the increased traffic in a cost-efficient manner.
-4. Incident Resolution: Later, when production fails, he inspect traces, topology, logs, deployments, and costs in the same workspace, with the help of Claude Code that has access to the complete picture through the unified agent API. He then does a rollback to the previous prod commit.
-5. Ejection: Finally, the developer ejects from the platform maintaining his artifacts and gitflow, with no freelunch dependencies.
+4. Incident Resolution: Later, when production fails, the developer inspects traces, topology, logs, deployments, and costs in the same workspace. Claude Code uses the documentation-backed FreeLunch skill and read-only Coding Agent API to correlate the evidence, and the developer rolls back to the retained previous revision through Argo Rollouts.
 
 ## Demo (showing the idea, but not an MVP yet)
 
@@ -35,28 +33,26 @@ The most similar open source projects out there are currently Kubero (easy sourc
 
 [Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/freelunch_ide_mock.html)
 
-Demo Innovative Features: (1) K8s-based, with layer 1 API (platform abstractions) that gets compiled to layer 2 (k8s artifacts) which triggers GitOps Deploy Flow; (2) Visual Cloud-native IDE (Backwards-compatible with VSCode) where you build scalable apps by writing, composing & visually debugging building blocks working together; (3) API for Coding Agents to query everything outside of code (think of it as the Dev Portal, but for agents) statuses, state, errors, costs, infra observability data, app observability data, tickets; and create tickets & send notifications to human engineers/devs. (We will be implementing Observality for the customers only in the demo/mvp).
+The mock is an exploratory interface prototype. The [ordered feature specification](docs/freelunch_ide_features_ordered.md) is the source of truth for Demo/MVP implementation scope.
+
+Demo Innovative Features: (1) K8s-based, with a canvas-maintained layer 1 API (platform abstractions) that deterministically compiles configuration, metadata, and Buildpacks-produced image references into versioned Helm charts and triggers the GitOps deployment flow; (2) a visual cloud-native IDE (backwards-compatible with VS Code) where developers compose and debug scalable building blocks; (3) a read-only Coding Agent API with an OpenAPI contract and a documentation-backed first-party FreeLunch skill for interactive and headless platform workflows. Agent-triggered mutations, ticket creation, and notifications are post-MVP.
 
 
 ### Demo Expected Features 
 
-- Infra: (1) Blue-green deploys/rollbacks (with db sync & scaling level sync); (5) Auth: CI/CD uses Github as OIDC Provider, IDE uses Keycloak as OIDC Provider, Pods use K8s as OIDC Provider and Vault as Application Secrets Store; (5) IaC knowledge not necessary for getting services running and observing them; (6) Only superficial K8s knowledge necessary; (7) Autoscaling: pod, node vertical and horizontal autoscaling; (7) Local Dev Environment for developing/validating services powered by K8s-in-Docker (Kind); (8) Backups & Restores already set up; (9) Support for using existing EKS clusters.
+- Infra: (1) Argo Rollouts-managed blue-green deploys and rollbacks for stateless applications; (2) Auth: CI/CD uses GitHub as OIDC Provider, IDE uses Keycloak as OIDC Provider, Pods use K8s as OIDC Provider and Vault as Application Secrets Store; (3) IaC knowledge not necessary for getting services running and observing them; (4) Only superficial K8s knowledge necessary; (5) Autoscaling: pod, node vertical and horizontal autoscaling; (6) Local Dev Environment for developing/validating services powered by K8s-in-Docker (Kind); (7) Backups & Restores already set up; (8) Support for using existing EKS clusters.
 Interfaces: (1) IDE + Dev Portal being the same thing; (2) Minimal CLI for set up and inspection; (3) GitOps for actual modifications to the systems (unit tests -> integration tests (ephemeral) -> staging (ephemeral) -> prod); (4) Personas: platform admin, platform engineer, developer, tech lead (developer that can merge PRs)
-Docs: (1) comes with an example app deployed and documentation explaining how it was migrated from a pre-existing k8s setup
-ch.
-- Observability: (1) Infra & App Observability; (2) Cost observability
+Docs: (1) comes with a stateless sample app and documentation explaining how it is modeled, deployed, and operated
+- Observability: (1) Infra & App Observability through SigNoz; (2) OpenCost with its Prometheus backend for Demo cost observability; (3) SigNoz and OpenCost UIs embedded in FreeLunch as plugins, with a unified FreeLunch-owned experience planned later
 - Application: (1) Easily build and deploy stateless services without dealing necessarily with containers (powered by cloud-native buildpacks)
-- Lock-in: (1) option to eject and maintain artifacts + gitops flow.
-- Migration to Freelunch: (1) blue-green stateless migration
+- Platform lifecycle: (1) Declarative platform versioning with compatibility checks and guided resolution for breaking schema changes
+- Lock-in: (1) standard, customer-owned L2 artifacts and GitOps flow remain inspectable and directly operable; automated detach/eject workflows are post-MVP
 - Extensions: any Open VSX extension should work
 - Language support: any language since its based on containers (later, freelunch’s distributed programming framework will require language-specific work, but this is not for the Demo)
-
-Demo Limitations: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services; (3) no gpu, a/b testing, frontend, data engineering or mlops support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) No Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) Public/Private Hub for reusable blocks; (13) No support for DAGs; (14) No native AI-assisted Engineering; (15) No budget-enforcement & deployment cost gates; (16) No IDE action logging; (15) DORA metrics & IDE usage analytics; (16 No support for system-wide experiment tracking; (17) No widgets for doing monitoring actions; (18) No DataOps: pushing data do prod storage systems via gitflow (e.g., nocde deployment of AI agents)
-
+- Demo Limitations: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services or orchestrating database/queue migration; (3) no gpu, a/b testing, frontend, data engineering or mlops support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) no Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) no Public/Private Hub for reusable blocks; (13) no support for DAGs; (14) no detach/eject automation or agent-triggered platform mutations; (15) no budget enforcement or deployment cost gates; (16) no IDE action logging; (17) no DORA metrics or IDE usage analytics; (18) no system-wide experiment tracking; (19) no widgets for performing monitoring actions; (20) no DataOps promotion of data into production storage systems through GitOps; (21) no lineage-full observability through OpenLineage.
 What's missing to become an MVP? Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
 
-**Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, Kargo, CUE, ArgoCD, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, MKDocs, Cloudflare.
-
+**Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, CUE, ArgoCD, Argo Rollouts, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, Prometheus, MKDocs, Cloudflare.
 **Our own Coding/Experimenting Environment Estimated Stack**: linux/wsl, pixi, git, girus
 
 Basic setup for us to start development: github repo & access control, virtual environment & package management; linting/formatting; building; testing; publishing IDE binary and CLI Golang package; updating docs website.
