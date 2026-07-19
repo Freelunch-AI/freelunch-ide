@@ -176,15 +176,15 @@ Follow the Conventional Commits specification.
 Examples:
 
 ```
-feat(auth): add OAuth login
+add OAuth login
 
-fix(api): handle timeout
+handle timeout
 
-docs: update installation guide
+update installation guide
 
-refactor(cli): simplify parser
+simplify parser
 
-test(cache): add Redis integration tests
+add Redis integration tests
 ```
 
 ---
