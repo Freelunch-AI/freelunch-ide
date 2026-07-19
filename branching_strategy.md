@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository follows a lightweight GitHub Flow with tag-based production releases.
+This repository follows a lightweight GitHub Flow with tag-based production releases for the Freelunch repository itself.
 
 ### Goals
 
@@ -95,7 +95,7 @@ This ensures that `main` is continuously validated in a production-like environm
 
 ## Production
 
-Production deployments are triggered **only by Git tags**.
+Production (freelunch package + template) deployments are triggered **only by Git tags**.
 
 Create a release tag:
 
@@ -149,7 +149,7 @@ Automatic Staging deployment
   ↓
 Create new version tag
   ↓
-Production deployment
+Production deployment (freelunch package + template)
 ```
 
 Hotfixes should **not** be pushed directly to `main`.
@@ -213,5 +213,5 @@ Automatic Staging Deployment
 Create Tag (vX.Y.Z)
       │
       ▼
-Automatic Production Deployment
+Automatic Production Deployment (freelunch package + template)
 ```
