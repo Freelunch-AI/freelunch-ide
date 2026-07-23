@@ -4,9 +4,10 @@ This is a first-pass mapping of capability to tool choice, derived from the Free
 
 Notes:
 
+- these are not strict requirements, think of it as an implementaion guide
 - we might realize during implementation that some tools are worth more borrowing ideas/code than to actually just use them out-of-the-box
 - embedded tool UIs doesnt mean we wont provide our code-centric user experience for it, just means we can provide to the user, easily via plugin, a good UI that is already battle tested, as our baseline.
-- Most influential decisions: **Theia**, **ProxMox**, **Talos Linux**, **Go**, **Bazel**
+- Most influential decisions: **Theia**, **ProxMox**, **Talos Linux**, **Go**
 
 ## 1. Stack for the FreeLunch repo itself
 
@@ -18,7 +19,6 @@ This covers the tooling used to build, test, document, and ship the FreeLunch pa
 - Version control and collaboration for the repo itself → **Git** + **GitHub**
 - CI/CD for the FreeLunch repo and templates → **GitHub Actions**
 - Build orchestration → **Task**
-- Static checks, formatting, and pre-commit enforcement → **pre-commit hooks**
 - Testing for the repo and platform engine → **Go tests**, with **Testcontainers**/**WireMock** for integration-style coverage and **Loft** using **vCluster** for controlled cluster environments
 - Primary language for the core engine / CLI → **Go**
 - Primary language for the IDE frontend → **TypeScript**
