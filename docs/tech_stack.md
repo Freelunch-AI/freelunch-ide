@@ -41,6 +41,8 @@ This covers the runtime, delivery, and operations stack used to demonstrate the 
 - Identity provider for human authentication in the IDE → **Keycloak**
 - Secrets management for application credentials → **Vault**
 - Secret synchronization from Vault into Kubernetes → **external-secrets-operator**
+- DNS -> **ExternalDNS** with **Cloudflare** as the DNS Provider
+- TLS -> **cert-manager**
 - Abstraction/schema language for platform configuration and L1 definitions → **CUE**
 - CI/CD pipeline for customer workloads → **GitHub Actions** + **Dagger** (embedded UI via plugin)
 - Container Image Build from source without Dockerfiles → **Cloud Native Buildpacks**

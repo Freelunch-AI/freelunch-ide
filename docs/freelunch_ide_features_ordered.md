@@ -4,11 +4,14 @@
 
 [Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/freelunch_ide_mock.html)
 
-## Design References
-We are intentionally borrowing patterns from:
-- Kubero — a Kubernetes-based, developer-friendly platform experience that helps shape the local workflow and developer ergonomics.
-- Tilt — a strong local dev/experimentation experience for Kubernetes that informs how we make the Demo feel fast and iterative.
-- Backstage — an internal developer platform interface that can inspire the FreeLunch IDE experience and how platform capabilities are surfaced.
+## OSS Design References
+
+We will probably borrow patterns from:
+
+- Kubero — a Kubernetes-based, developer-friendly platform
+- OKD - open source edition of Red Hat OpenShift, a k8s-based complete platform focused on enterprises
+- Tilt — a strong dev/experimentation experience for Kubernetes
+- Backstage — a plugin-based internal developer platform interface
 
 The goal is to take ideas from these tools to simplify the developer experience without copying their implementation wholesale.
 
