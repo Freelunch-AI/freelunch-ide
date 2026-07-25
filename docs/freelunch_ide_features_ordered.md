@@ -9,9 +9,10 @@
 We will probably borrow patterns from:
 
 - Kubero — a Kubernetes-based, developer-friendly platform
-- OKD - open source edition of Red Hat OpenShift, a k8s-based complete platform focused on enterprises
+- OKD — open source edition of Red Hat OpenShift, a k8s-based complete platform focused on enterprises
 - Tilt — a strong dev/experimentation experience for Kubernetes
 - Backstage — a plugin-based internal developer platform interface
+- Ray — modern distributed programming framework for Python
 
 The goal is to take ideas from these tools to simplify the developer experience without copying their implementation wholesale.
 
