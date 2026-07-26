@@ -23,7 +23,7 @@ The goal is to take ideas from these tools to simplify the developer experience 
 | **Monorepo** | The single Git repository for a customer organisation. Contains all products, services, workflows, and platform config. One monorepo per customer. Replaces "Product Repo." |
 | **Workload** | Any single deployable unit inside the monorepo. Either a Service or a Workflow. |
 | **Service** | A long-running, always-on, request-driven Workload (HTTP, gRPC, event consumer, etc.). |
-| **Workflow** | A trigger-driven Workload that runs to completion. Has per-run execution state. |
+| **Workflow (DAG)** | A trigger-driven Workload that runs to completion. Has per-run execution state. |
 | **Layer 1 (L1)** | FreeLunch's abstraction API. Developers model Workloads on the canvas, which maintains CUE files as the Git-backed representation and gets compiled into L2. |
 | **Layer 2 (L2)** | K8s/Helm artifacts. Source of truth for deployment. Customers can view and edit directly. Conflicts between L1 and L2 are surfaced during recompile, which need to be resolved by a platform engineer. For the platform engineer to stop resolving conflicts all the time he needs to modify defaults or modify l1 abstractions via CUE (but the latter will be only after Demo)
 
@@ -76,9 +76,9 @@ The fully-local runtime environment for the Demo.
 > **Story:** As a Platform Admin, I run `freelunch install` on a fresh machine with Docker installed and a local development environment appears with Kubernetes provisioned into an emulated VPC via Ansible/Terraform and Floci emulating AWS services alongside it. All FreeLunch components deploy into it without touching the internet.
 
 - **Kubernetes** — primary runtime target for the Demo
-- **Floci** — emulates the selected AWS APIs needed by the local Demo
-- **Provisioning** — the local environment is provisioned into an emulated VPC using Ansible/Terraform, rather than relying on a simple Kind-only setup that wont translate directly to real cloud deployment later.
-- **Fresh install only** — `freelunch install` creates the environment from scratch for the Demo
+- **ProxMox** + **Talos Linux** — local Talix Linux VM cluster
+- **Provisioning** — the local environment is provisioned into a virtual local VPC using Terraform, rather than relying on a simple Kind-only setup that wont translate directly to real cloud deployment later that will require IaC.
+- **Fresh start only** — `freelunch start` creates the environment from scratch for the Demo
 
 ### 1.3 Auth Service (Local Instance)
 OIDC identity provider for the IDE.
