@@ -4,11 +4,12 @@ ide plugin, notebook-based, for experimenting, building, tracking, publishing to
 
 Note: models can only be used by developers once they are evaluated and vetted by an Data/AI Scientist.
 
-Notebook run on an optionally GPU-powered remote dev environment with access to a ready-to-use ephemeral worklads cluster (e.g., slurm, ray, ray.jl, distributed.jl, skypilot, hf accelerate, jax, dask, spark, deepspeed, kubeflow trainer, kubetorch, NVIDIA NeMo) running on the data/ai experimentation k8s+kueue cluster. In which cloud the ephemeral workloads cluster runs on? That will depend on the configuration set (e.g., TPU → GCP; High-end GPU → Nebius; Simple GPU → AWS; CPU → Azure)
+Notebook run on an optionally GPU-powered remote dev environment with access to a ready-to-use ephemeral worklads cluster (SkyPilot + KubeRay/slurm/NVIDIA NeMo/hf accelerate/jax/dask/spark/deepspeed/kubeflow trainer/kubetorch) running on the data/ai experimentation k8s+kueue cluster. In which cloud the ephemeral workloads cluster runs on? That will depend on the configuration set (e.g., TPU → GCP; High-end GPU → Nebius; Simple GPU → AWS; CPU → Azure) and on cost analysis.
 
 Note: this front works on top of a separate artifacts-specific repo folder (but user doesnt interact directly with the repo) use git-based experiment tracking where an experiment is defined as a commit with: command to run to generate artifacts, artifacts generated schema and locations, command to run to evaluate each artifact. Artifacts per se are not tracked by git, they have pointer file (that points a file that has the verison tree tracked with cloud pointers to each artifact version in the tree) that is tracked by git and lakefs is used to do git-like versioning on the cloud
 
 Artifacts can be stored with the following info:
+
 - reproducibility: git-commit experiement that produces and evaluates it. Its a git commit with: conatiner image that things run inside, artifact build script, artifact evaluation script
 - ownership: who built that artifact
 - versioning: the version of the artifact
