@@ -3,20 +3,8 @@ description: Report reproducible behavior that is not working as expected
 title: "[Bug]: "
 labels:
   - bug
+type: Bug
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Search existing issues before filing a report. Do not include secrets or security-sensitive details in a public issue.
-
-  - type: checkboxes
-    id: checks
-    attributes:
-      label: Before submitting
-      options:
-        - label: I searched the existing issues and did not find a duplicate.
-          required: true
-
   - type: dropdown
     id: area
     attributes:

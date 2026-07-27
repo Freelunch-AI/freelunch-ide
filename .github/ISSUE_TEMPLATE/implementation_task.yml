@@ -1,11 +1,12 @@
 name: Implementation task
 description: Turn an approved roadmap item or design decision into buildable work
 title: "[Task]: "
+type: Task
 body:
   - type: markdown
     attributes:
       value: |
-        Use this form for agreed work, not for proposing a new product capability. Keep one issue small enough to complete in one pull request when practical.
+        Use this form to define agreed work and track its implementation.
 
   - type: dropdown
     id: area
@@ -23,15 +24,6 @@ body:
         - Documentation / sample application
         - Post-Demo module
         - Other / cross-cutting
-    validations:
-      required: true
-
-  - type: input
-    id: source
-    attributes:
-      label: Source or parent issue
-      description: Link the approved feature, parent issue, or exact ordered-spec item that authorizes this work.
-      placeholder: "Example: #123 or docs/freelunch_ide_features_ordered.md section 3.2"
     validations:
       required: true
 
