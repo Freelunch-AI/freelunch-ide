@@ -59,8 +59,8 @@ body:
     id: version
     attributes:
       label: Version, branch, or commit
-      description: Identify the code version where the problem occurs.
-      placeholder: v0.1.0, main, or a commit SHA
+      description: Change this if the problem occurs on a release, another branch, or a specific commit.
+      value: main
     validations:
       required: true
 
