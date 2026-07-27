@@ -7,6 +7,7 @@ Relevant Benchmark to optimize agaist: Horizon-SWE.
 Reference projects: vibe-kanban.
 
 It’s vibe-kanban on steroids. Added features:
+- automatic setup & autoscaling of self-hosted Coding LLM API with the best current coding model & model routing (local fast/cheap SLM, cloud ok LLM, cloud slow/constly gigantic LLM).
 - helps with spec-generation (vision spec and PR spec), with available spec templates
 - built-in cost management per agent and per LLM API, with side-by-side agent comparisons for the same task
 - agent imporovement: easily create skills and assign them to agents, finetune (if using open model), evaluate, track experiments and promote agents. Agetns also self-improve by leveraging its interactions with you and its failures via prompt optimization, skill optimization and/or automatic finetuning.
