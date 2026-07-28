@@ -17,7 +17,7 @@ This covers the tooling used to build, test, document, and ship the FreeLunch pa
 - Experimentation (optional): **Girus** (locked version in pixi)
 - Virtual Dev Environment for freelunch development itself & Task runner → **Pixi**
 - Version control and collaboration for the repo itself → **Git** + **GitHub**
-- CI/CD for the FreeLunch repo and templates → **GitHub Actions**
+- CI/CD for the FreeLunch repo and templates → **Github Actions**
 - Testing for the repo and platform engine → **Go tests**, with **Testcontainers**/**WireMock** (locked version in pixi) for integration-style coverage and **Loft** (locked version in pixi) using **vCluster** for controlled cluster environments
 - Primary language for the core engine / CLI → **Go**
 - Primary language for the IDE frontend → **TypeScript**
@@ -43,7 +43,7 @@ This covers the runtime, delivery, and operations stack used to demonstrate the 
 - DNS -> **ExternalDNS** with **Cloudflare** as the DNS Provider
 - TLS -> **cert-manager**
 - Abstraction/schema language for platform configuration and L1 definitions → **CUE** (locked version in pixi)
-- CI/CD pipeline for customer workloads → **GitHub Actions** + **Dagger** (embedded UI via plugin)
+- CI/CD pipeline for customer workloads → **Act** + **Dagger** (embedded UI via plugin)
 - Container Image Build from source without Dockerfiles → **Cloud Native Buildpacks** (locked version in pixi)
 - Ephemeral Environment Management → **Loft** (embedded UI via plugin) using k8s namespaces 
 - Progressive delivery / deployment automation → **Kargo** (locked version in pixi) (embedded UI via plugin)
