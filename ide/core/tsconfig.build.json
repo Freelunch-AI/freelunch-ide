@@ -1,0 +1,13 @@
+// Emitting build for the published package. Tests are excluded so they never
+// reach lib/.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./lib",
+    "tsBuildInfoFile": "./lib/.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

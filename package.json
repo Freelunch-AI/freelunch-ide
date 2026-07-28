@@ -1,0 +1,40 @@
+{
+  "name": "@freelunch/ide-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript workspace for the FreeLunch IDE frontend",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Freelunch-AI/freelunch-ide.git"
+  },
+  "engines": {
+    "node": "^22.13.0 || >=24"
+  },
+  "workspaces": [
+    "ide/*"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "comments": {
+    "typescript": "Held on the 5.x line: typescript-eslint 8.x declares a peer range of >=4.8.4 <6.1.0, so TypeScript 6/7 cannot be type-check-linted yet. Revisit when typescript-eslint widens the range."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
+  }
+}

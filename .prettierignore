@@ -1,0 +1,14 @@
+# Build output
+lib/
+dist/
+node_modules/
+
+# Go is formatted by gofmt, not Prettier
+*.go
+go.sum
+
+# Frozen project documentation and the exploratory interface mock are formatted
+# by hand; see docs/ in the repository root.
+docs/
+post-demo/
+*.md

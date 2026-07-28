@@ -1,0 +1,146 @@
+# Build orchestration for the FreeLunch repository.
+#
+# Every target assumes the tools declared in pixi.toml are on PATH. Run them
+# through `pixi run <target>` (or from inside `pixi shell`) so every contributor
+# uses the same tool versions.
+version: '3'
+
+vars:
+  # Explicit package patterns rather than ./... — some npm packages vendor Go
+  # sources under node_modules, and the Go tool would otherwise build them.
+  GO_PKGS: ./cmd/... ./internal/...
+  BIN_DIR: bin
+  CLI_BINARY: freelunch
+  LDFLAGS_PKG: github.com/Freelunch-AI/freelunch-ide/internal/buildinfo
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: Install Go and Node dependencies
+    cmds:
+      - go mod download
+      - npm ci
+
+  # --- Formatting ---------------------------------------------------------
+
+  fmt:
+    desc: Format all Go and TypeScript sources
+    deps: [fmt:go, fmt:ts]
+
+  fmt:go:
+    desc: Format Go sources
+    cmds:
+      - golangci-lint fmt
+
+  fmt:ts:
+    desc: Format TypeScript sources and configs
+    cmds:
+      - npm run format
+
+  fmt:check:
+    desc: Verify formatting without rewriting files
+    cmds:
+      - golangci-lint fmt --diff
+      - npm run format:check
+
+  # --- Linting ------------------------------------------------------------
+
+  lint:
+    desc: Lint all Go and TypeScript sources
+    deps: [lint:go, lint:ts]
+
+  lint:go:
+    desc: Lint Go sources
+    cmds:
+      - golangci-lint run {{.GO_PKGS}}
+
+  lint:ts:
+    desc: Lint TypeScript sources
+    cmds:
+      - npm run lint
+
+  # --- Testing ------------------------------------------------------------
+
+  test:
+    desc: Run all Go and TypeScript tests
+    deps: [test:go, test:ts]
+
+  test:go:
+    desc: Run Go tests
+    cmds:
+      - go test -race {{.GO_PKGS}}
+
+  test:ts:
+    desc: Run TypeScript tests
+    cmds:
+      - npm test
+
+  test:cover:
+    desc: Run Go tests and write an HTML coverage report
+    cmds:
+      - go test -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
+      - go tool cover -html=coverage.out -o coverage.html
+      - 'echo "coverage report: coverage.html"'
+
+  # --- Building -----------------------------------------------------------
+
+  build:
+    desc: Build the CLI and the TypeScript workspace
+    deps: [build:cli, build:ts]
+
+  build:cli:
+    desc: Build the freelunch CLI into bin/
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - >-
+        go build
+        -trimpath
+        -ldflags "-X {{.LDFLAGS_PKG}}.version={{.VERSION}} -X {{.LDFLAGS_PKG}}.commit={{.COMMIT}} -X {{.LDFLAGS_PKG}}.date={{.BUILD_DATE}}"
+        -o {{.BIN_DIR}}/{{.CLI_BINARY}}
+        ./cmd/{{.CLI_BINARY}}
+      - '{{.BIN_DIR}}/{{.CLI_BINARY}} version'
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev
+      COMMIT:
+        sh: git rev-parse HEAD 2>/dev/null || echo unknown
+      BUILD_DATE:
+        sh: date -u +%Y-%m-%dT%H:%M:%SZ
+
+  build:ts:
+    desc: Compile the TypeScript workspace
+    cmds:
+      - npm run build
+
+  # --- Packaging ----------------------------------------------------------
+
+  package:
+    desc: Build release archives locally without publishing
+    cmds:
+      - goreleaser release --snapshot --clean
+
+  package:check:
+    desc: Validate the GoReleaser configuration
+    cmds:
+      - goreleaser check
+
+  # --- Aggregates ---------------------------------------------------------
+
+  check:
+    desc: Run the full check suite before pushing
+    cmds:
+      - task: fmt:check
+      - task: lint
+      - task: test
+      - task: build
+
+  clean:
+    desc: Remove build output
+    cmds:
+      - rm -rf {{.BIN_DIR}} dist coverage.out coverage.html
+      - npm run clean

@@ -1,0 +1,57 @@
+# Release configuration for the freelunch CLI.
+#
+# Triggered by pushing a semantic version tag, per branching_strategy.md.
+# Publishing to the Go module proxy needs no configuration here: it happens
+# automatically once the tag exists on GitHub.
+version: 2
+
+project_name: freelunch
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: freelunch
+    main: ./cmd/freelunch
+    binary: freelunch
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/Freelunch-AI/freelunch-ide/internal/buildinfo.version={{ .Version }}
+      - -X github.com/Freelunch-AI/freelunch-ide/internal/buildinfo.commit={{ .FullCommit }}
+      - -X github.com/Freelunch-AI/freelunch-ide/internal/buildinfo.date={{ .CommitDate }}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: freelunch
+    ids:
+      - freelunch
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-snapshot'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  draft: false
+  prerelease: auto

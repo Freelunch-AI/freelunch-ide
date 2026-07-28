@@ -1,1 +1,31 @@
+# Personal scratch notes
 notes.txt
+
+# Go
+/bin/
+/dist/
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Node / TypeScript
+node_modules/
+lib/
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+
+# Pixi
+.pixi/
+
+# Editors and OS
+.DS_Store
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json
+
+# Local environment overrides
+.env
+.env.local

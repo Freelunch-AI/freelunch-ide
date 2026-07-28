@@ -1,0 +1,38 @@
+# Development environment for the FreeLunch repository.
+#
+# `pixi install` provisions every tool below at a pinned version, so a fresh
+# machine needs only Pixi itself (and Docker, for tests that use containers).
+# Build logic lives in Taskfile.yml; the tasks here are thin entry points.
+[workspace]
+name = "freelunch-ide"
+version = "0.0.0"
+description = "FreeLunch IDE and CLI — platform engine, workbench frontend, and docs"
+authors = ["FreeLunch <https://github.com/Freelunch-AI>"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
+
+[dependencies]
+# Core engine and CLI. Must satisfy the directive in go.mod.
+go = ">=1.25.6,<2"
+
+# Build orchestration.
+go-task = ">=3.52,<4"
+
+# Go lint and format. The v2 config schema is used in .golangci.yml.
+golangci-lint = ">=2.12,<3"
+
+# Release archives for the CLI.
+goreleaser = ">=2.11,<3"
+
+# IDE frontend toolchain. npm ships with nodejs; package versions are pinned by
+# package-lock.json, not here.
+nodejs = ">=24,<27"
+
+[tasks]
+setup = { cmd = "task setup", description = "Install Go and Node dependencies" }
+fmt = { cmd = "task fmt", description = "Format all sources" }
+lint = { cmd = "task lint", description = "Lint all sources" }
+test = { cmd = "task test", description = "Run all tests" }
+build = { cmd = "task build", description = "Build the CLI and TypeScript workspace" }
+package = { cmd = "task package", description = "Build release archives locally" }
+check = { cmd = "task check", description = "Run the full check suite before pushing" }
