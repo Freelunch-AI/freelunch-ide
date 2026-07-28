@@ -41,7 +41,7 @@
 - IDE (for better introspection + manual editing): **VSCode**
 - Model: current best oss coding model (because of the OpenCode Go subscription)
 - Feature Flow: Start with just putting the feature building flow in the OpenCode Rules File and make sure you follow the steps. 
-- Plugins (package skills + slash commands + sub-agents ... until a unit): **github plugin, signoz plugin, opencost plugin, headlamp plugin, graphify, rtk, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session.** 
-- Custom Freelunch Sub-agents: **spec-specialist, security-specialist, refactoring-specialist, cloud-architect, testing-specialist, debugging-specialist, grilling-specialist, k8s-specialist, sre, cicd-specialist, golang-specialist, typescript-specialist.**
-- Custom Freelunch Slash Commands: one for each unique step of the feature building flow
+- OpenCode Plugins (package skills + slash commands + sub-agents ... until a unit): **github plugin, signoz plugin, opencost plugin, headlamp plugin, graphify, rtk, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session.** 
+- Custom Freelunch OpenCode Sub-agents: **spec-specialist, security-specialist, refactoring-specialist, cloud-architect, testing-specialist, debugging-specialist, grilling-specialist, k8s-specialist, sre, cicd-specialist, golang-specialist, typescript-specialist.**
+- Custom Freelunch OpenCode Slash Commands: one for each unique step of the feature building flow
 - Dependency Docs: a `dependency_docs` folder holding the documentation of pinned version of every repo dependency with two sub-folders: `system_dependencies` (e.g., proxmox, kubetcl, etc) and `libraries` (e.g., go libraries, node libraries)
