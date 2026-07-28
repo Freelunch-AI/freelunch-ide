@@ -2,9 +2,9 @@
 
 <!-- What changed and why? -->
 
-### Which issue this PR solves?
+### Which issue this PR resolves?
 
-<!-- Link the issue or discussion. Use "Closes #123" only when this PR fully resolves it; otherwise use "Related to #123". -->
+<!-- Link the issue. If this PR fully resolves an issue: its mandatory to use "Resolves #<PR_NUMBER>" so that Github closes the issue automatically when this PR gets merged. But if the PR targets that issue, but doesn't fully resolve it: use "Related to #123". -->
 
 ### Implementation
 
