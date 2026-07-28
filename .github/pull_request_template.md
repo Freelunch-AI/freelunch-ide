@@ -2,7 +2,7 @@
 
 <!-- What changed and why? -->
 
-### Related issue
+### Which issue this PR solves?
 
 <!-- Link the issue or discussion. Use "Closes #123" only when this PR fully resolves it; otherwise use "Related to #123". -->
 
