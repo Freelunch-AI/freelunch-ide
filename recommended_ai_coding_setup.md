@@ -40,7 +40,7 @@
 - Terminal Agent Harness: Use **OpenCode Go** Subscription.
 - IDE (for better introspection + manual editing): **VSCode**
 - Model: current best oss coding model (because of the OpenCode Go subscription)
-- Feature Flow: Start with just putting the feature building flow in the OpenCode Rules File and make sure you follow the steps. 
+- Feature Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires our commitment). Note: each slash commands should remember to update the feature building progress at the end (feature_flow.md file) or create the file if its still not created)
 - OpenCode Plugins (package skills + slash commands + sub-agents ... until a unit): **github plugin, signoz plugin, opencost plugin, headlamp plugin, graphify, rtk, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session.** 
 - Custom Freelunch OpenCode Sub-agents: **spec-specialist, security-specialist, refactoring-specialist, cloud-architect, testing-specialist, debugging-specialist, grilling-specialist, k8s-specialist, sre, cicd-specialist, golang-specialist, typescript-specialist.**
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the feature building flow
