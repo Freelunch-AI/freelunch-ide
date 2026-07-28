@@ -2,10 +2,11 @@
 
 ## Suggested Feature Building Flow (tool-agnostic) (assuming repo foundation (group 1) is already layed out)
 
-- each step allows single-agent or multi-agent collab
+- each step allows single-agent or multi-agent collab. If multi-agent: them manin agent manages worker in their separate sub-branch which has its own git worktree. One terminal for each. But you only approve the final commit presented by the main agent (main agent reviews/approves sub-agent sub-branch under the hood)
 - steps can (and probably should) use specilist sub-agents at the type of task (e.g., specislist security agent for security review)
 - can go back from a step to a previous step if necessary to fix issue created earlier (but step progress needs to be tracked in an feature_flow.md file)
 - after every approval, a git commit is made
+- multiple features can be implemented in parallel by having separate worktrees for each working branch. One terminal for each.
 
 1. **Read the issue from Github**
 2. **Create feature branch**
@@ -35,8 +36,11 @@
 26. **Push to PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
 ## Tools Suggestion
-- Harness: Use OpenCode Go Subscription. 
+- Agent-native Editor/Terminal: **Superset**
+- Terminal Agent Harness: Use **OpenCode Go** Subscription.
+- IDE (for better introspection + manual editing): **VSCode**
+- Model: current best oss coding model (because of the OpenCode Go subscription)
 - Feature Flow: Start with just putting the feature building flow in the OpenCode Rules File and make sure you follow the steps. 
-- Plugins: github plugin, signoz plugin, opencost plugin, headlamp plugin, graphify, rtk, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session. 
-- Sub-agents: spec-specialist, security-specialist, refactoring-specialist, cloud-architect, tests reviewer specialist, debugging-specialist, grilling-specialist, k8s-specialist, sre, cicd-specialist, golang-specialist, typescript-specialist. 
+- Plugins: **github plugin, signoz plugin, opencost plugin, headlamp plugin, graphify, rtk, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session.** 
+- Sub-agents: **spec-specialist, security-specialist, refactoring-specialist, cloud-architect, testing-specialist, debugging-specialist, grilling-specialist, k8s-specialist, sre, cicd-specialist, golang-specialist, typescript-specialist.** 
 - Dependency Docs: a `dependency_docs` folder holding the documentation of pinned version of every repo dependency with two sub-folders: `system_dependencies` (e.g., proxmox, kubetcl, etc) and `libraries` (e.g., go libraries, node libraries)
