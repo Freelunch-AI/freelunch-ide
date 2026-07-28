@@ -8,6 +8,7 @@
 - can go back from a step to a previous step if necessary to fix issue created earlier (but step progress needs to be tracked in an feature_flow.md file)
 - after every approval, a git commit is made
 - multiple features can be implemented in parallel by having separate worktrees for each working branch. One terminal for each.
+- approval gates mean that either the user (developer) or a specific AI agent needs to give approval to continue the flow
 
 1. **/Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file**
 3. **/Ask User Clarifying Questions & do web search if necessary** [User Approval Gate]
