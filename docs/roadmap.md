@@ -12,7 +12,7 @@ We will probably borrow patterns from:
 - OKD — open source edition of Red Hat OpenShift, a k8s-based complete platform focused on enterprises
 - Tilt — a strong dev/experimentation experience for Kubernetes
 - Backstage — a plugin-based internal developer platform interface
-- Ray — modern distributed programming framework for Python
+- Ray — modern distributed programming framework for Python (inspiration for the *lunch-lang* distributed programming framework idea, to be used within freelunch-ide, though ray works as runtime and lunch-lang would be at compile time)
 
 The goal is to take ideas from these tools to simplify the developer experience without copying their implementation wholesale.
 
@@ -60,11 +60,11 @@ monorepo/
 ├── products/
 │   └── <product-name>/
 │       ├── services/      ← Canvas-maintained L1 Service definitions
-│       └── workflows/     ← Canvas-maintained L1 Workflow definitions
+│       └── workflows/     ← Canvas-maintained L1 Workflow definitions (placeholder)
 └── .github/
-    └── workflows/         ← CI/CD pipeline (setup automatically but extendable)
+    └── workflows/         ← CI/CD pipeline (setup automatically but extendable becasue of Dagger)
 ```
-
+- \<product-name>/workflows will only be a placeholder, because the Demo won't support DAG workflows (e.g., Airflow DAGs)
 - Separation between platform config (Platform Engineers) and canvas-maintained Workload definitions (Developers)
 - Platform version declared in `platform/freelunch.yaml` in the monorepo
 - The FreeLunch IDE/CLI repository itself is a TypeScript + Go project with dev tooling setup for virtual environment/package management, formatting, testing, building, packaging, versioned package/template publishing and docs-site publishing.
