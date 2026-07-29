@@ -1,5 +1,7 @@
 # Freelunch Founding Document
 
+For the optional cross-client development workflow, see [FreeLunch AI Workflow Bundle](docs/ai_workflow.md).
+
 ## Vision & Business Model
 
 Freelunch is the next-gen venture-studio that goes beyond spawning startups.

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Implement"
+  short_description: "Implement an approved issue plan"
+  default_prompt: "Use $implement to implement the approved issue plan and track progress."
+policy:
+  allow_implicit_invocation: false

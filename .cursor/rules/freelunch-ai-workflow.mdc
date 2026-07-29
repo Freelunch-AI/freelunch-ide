@@ -1,0 +1,8 @@
+---
+description: FreeLunch repository and AI workflow guidance
+alwaysApply: true
+---
+
+Read and follow `AGENTS.md` for repository context and safety rules.
+
+The only public FreeLunch workflow commands are `plan`, `implement`, `test`, `review`, and `pr`. Their authoritative definitions are under `.agents/skills/`; internal files under `.freelunch/ai/` are not separate commands.

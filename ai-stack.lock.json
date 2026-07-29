@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "workflowVersion": "0.1.0",
+  "dependencies": [
+    {
+      "name": "BMAD-METHOD",
+      "sourceUrl": "https://github.com/bmad-code-org/BMAD-METHOD",
+      "version": "v6.10.0",
+      "revision": "081e64ee5aab2316b912883f7bee528ee143ce36",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/bmad-code-org/BMAD-METHOD/blob/v6.10.0/LICENSE",
+      "integration": "Methodology adapted into the five FreeLunch workflows; upstream files are reference-only and are not copied into this repository.",
+      "selectedFiles": [
+        "src/bmm-skills/2-plan-workflows/bmad-prd/SKILL.md",
+        "src/bmm-skills/3-solutioning/bmad-architecture/SKILL.md",
+        "src/bmm-skills/4-implementation/bmad-dev-story/SKILL.md",
+        "src/bmm-skills/4-implementation/bmad-code-review/SKILL.md",
+        "src/bmm-skills/4-implementation/bmad-code-review/steps/step-01-gather-context.md",
+        "src/bmm-skills/4-implementation/bmad-code-review/steps/step-02-review.md",
+        "src/bmm-skills/4-implementation/bmad-code-review/steps/step-03-triage.md",
+        "src/bmm-skills/4-implementation/bmad-code-review/steps/step-04-present.md"
+      ]
+    },
+    {
+      "name": "agency-agents",
+      "sourceUrl": "https://github.com/msitarzewski/agency-agents",
+      "version": "main-pinned",
+      "revision": "8ef49232e02431f7ca4792b487e5a85a7939ff3a",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/msitarzewski/agency-agents/blob/8ef49232e02431f7ca4792b487e5a85a7939ff3a/LICENSE",
+      "integration": "Selected role responsibilities adapted into internal capability references; upstream files are not exposed as skills or copied into this repository.",
+      "selectedFiles": [
+        "engineering/engineering-code-reviewer.md",
+        "engineering/engineering-devops-automator.md",
+        "engineering/engineering-software-architect.md",
+        "engineering/engineering-sre.md",
+        "engineering/engineering-technical-writer.md",
+        "security/security-appsec-engineer.md",
+        "testing/testing-reality-checker.md",
+        "testing/testing-test-automation-engineer.md"
+      ]
+    },
+    {
+      "name": "anthropics-claude-code-plugins",
+      "sourceUrl": "https://github.com/anthropics/claude-code",
+      "version": "main-pinned",
+      "revision": "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
+      "license": "Anthropic Commercial Terms; all rights reserved",
+      "licenseUrl": "https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md",
+      "integration": "Reference-only design input. No upstream plugin content is copied or installed by this repository.",
+      "selectedFiles": [
+        "plugins/code-review/commands/code-review.md",
+        "plugins/explanatory-output-style/README.md",
+        "plugins/pr-review-toolkit/agents/code-reviewer.md",
+        "plugins/pr-review-toolkit/agents/code-simplifier.md",
+        "plugins/pr-review-toolkit/agents/pr-test-analyzer.md",
+        "plugins/pr-review-toolkit/agents/silent-failure-hunter.md",
+        "plugins/security-guidance/README.md"
+      ]
+    }
+  ]
+}
