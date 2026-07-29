@@ -1,6 +1,6 @@
 # FreeLunch AI Workflow Bundle
 
-This repository includes a recommended, model-agnostic workflow for Codex, Claude Code, Cursor, and OpenCode. It exposes five entry points and keeps BMAD-style procedures and specialist guidance behind them.
+This repository includes a recommended, model-agnostic workflow for Codex, Claude Code, Cursor, and OpenCode. It exposes five entry points and keeps source-derived procedures, specialist lenses, and optional tool adapters behind them.
 
 The bundle is optional. Developers remain responsible for their changes, and CI/CD remains responsible for enforced quality gates.
 
@@ -34,7 +34,7 @@ The workflow needs issue and pull request context. Use an existing GitHub connec
 .claude/skills/          Claude Code Markdown entry points
 .cursor/commands/        Cursor Markdown entry points
 .opencode/commands/      OpenCode Markdown entry points
-.freelunch/ai/           internal capabilities and progress template
+.freelunch/ai/           internal capabilities, source policy, and progress template
 .freelunch/progress/     local, ignored per-issue progress records
 ai-stack.lock.json       pinned methodology and capability sources
 ```
@@ -49,6 +49,8 @@ Branch creation, commits, pushes, rebases, merges, and remote GitHub changes req
 
 ## Dependencies
 
-`ai-stack.lock.json` pins the exact BMAD, Agency Agents, and official Anthropic plugin revisions reviewed while designing the internal capabilities. It also records licenses and selected files.
+`ai-stack.lock.json` pins the exact BMAD Method, Agency Agents, GBrain, Graphify, RTK, and official Anthropic plugin revisions reviewed while designing the internal capabilities. It records licenses, selected files, adopted behavior, and deliberate exclusions. `.freelunch/ai/sources.md` explains how each source maps into the five workflows.
 
-No third-party prompt package is added to a public discovery directory. BMAD and Agency Agents are MIT-licensed, but only original FreeLunch adaptations are checked in. The Anthropic plugin repository is reference-only because its content is all rights reserved under Anthropic's commercial terms.
+No third-party prompt package is added to a public discovery directory. Only original FreeLunch adaptations are checked in. The Anthropic plugin repository is reference-only because its content is all rights reserved under Anthropic's commercial terms.
+
+GBrain, Graphify, and RTK are optional. When already available, the workflows may use read-only knowledge lookup, an existing code graph, or selective output compression. The repository does not install their runtimes, enable hooks, create graphs, configure accounts, or make them quality-gate dependencies.

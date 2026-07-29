@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "workflowVersion": "0.1.0",
+  "schemaVersion": 2,
+  "workflowVersion": "0.2.0",
   "dependencies": [
     {
       "name": "BMAD-METHOD",
@@ -9,16 +9,29 @@
       "revision": "081e64ee5aab2316b912883f7bee528ee143ce36",
       "license": "MIT",
       "licenseUrl": "https://github.com/bmad-code-org/BMAD-METHOD/blob/v6.10.0/LICENSE",
-      "integration": "Methodology adapted into the five FreeLunch workflows; upstream files are reference-only and are not copied into this repository.",
+      "integrationMode": "adapted-methodology",
+      "usedBy": ["plan", "implement", "test", "review", "pr"],
       "selectedFiles": [
         "src/bmm-skills/2-plan-workflows/bmad-prd/SKILL.md",
         "src/bmm-skills/3-solutioning/bmad-architecture/SKILL.md",
         "src/bmm-skills/4-implementation/bmad-dev-story/SKILL.md",
+        "src/bmm-skills/4-implementation/bmad-dev-story/checklist.md",
         "src/bmm-skills/4-implementation/bmad-code-review/SKILL.md",
         "src/bmm-skills/4-implementation/bmad-code-review/steps/step-01-gather-context.md",
         "src/bmm-skills/4-implementation/bmad-code-review/steps/step-02-review.md",
         "src/bmm-skills/4-implementation/bmad-code-review/steps/step-03-triage.md",
         "src/bmm-skills/4-implementation/bmad-code-review/steps/step-04-present.md"
+      ],
+      "adopted": [
+        "Scale planning rigor to stakes and preserve explicit assumptions",
+        "Distinguish requirements from implementation decisions",
+        "Record only architecture decisions that prevent downstream divergence",
+        "Implement against ordered acceptance criteria and observed evidence",
+        "Gather context, review independently, validate findings, then triage"
+      ],
+      "notImported": [
+        "BMAD runtime scripts, generated artifacts, agent names, and mandatory ceremony",
+        "Python or uv-based customization and memlog tooling"
       ]
     },
     {
@@ -28,16 +41,126 @@
       "revision": "8ef49232e02431f7ca4792b487e5a85a7939ff3a",
       "license": "MIT",
       "licenseUrl": "https://github.com/msitarzewski/agency-agents/blob/8ef49232e02431f7ca4792b487e5a85a7939ff3a/LICENSE",
-      "integration": "Selected role responsibilities adapted into internal capability references; upstream files are not exposed as skills or copied into this repository.",
+      "integrationMode": "adapted-specialist-lenses",
+      "usedBy": ["plan", "implement", "test", "review", "pr"],
       "selectedFiles": [
         "engineering/engineering-code-reviewer.md",
-        "engineering/engineering-devops-automator.md",
+        "engineering/engineering-minimal-change-engineer.md",
         "engineering/engineering-software-architect.md",
+        "engineering/engineering-devops-automator.md",
         "engineering/engineering-sre.md",
         "engineering/engineering-technical-writer.md",
         "security/security-appsec-engineer.md",
+        "security/security-ai-generated-code-auditor.md",
+        "testing/testing-test-automation-engineer.md",
         "testing/testing-reality-checker.md",
-        "testing/testing-test-automation-engineer.md"
+        "testing/testing-evidence-collector.md"
+      ],
+      "adopted": [
+        "Route specialist perspectives by changed surface",
+        "Name architectural tradeoffs and protect dependency direction",
+        "Keep diffs scoped and surface unrelated work as follow-up",
+        "Use deterministic test data, stable selectors, and failure artifacts",
+        "Ground review, security, reliability, and documentation claims in evidence"
+      ],
+      "notImported": [
+        "Separate discoverable agents or commands",
+        "Arbitrary issue quotas, default failing grades, stack-specific examples, and aspirational metrics"
+      ]
+    },
+    {
+      "name": "gbrain",
+      "sourceUrl": "https://github.com/garrytan/gbrain",
+      "version": "master-pinned",
+      "revision": "913d2d7f794a060735c00309975d6a5482c70d45",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/garrytan/gbrain/blob/913d2d7f794a060735c00309975d6a5482c70d45/LICENSE",
+      "integrationMode": "adapted-context-protocol-with-optional-tool",
+      "usedBy": ["plan", "implement", "review", "pr"],
+      "selectedFiles": [
+        "docs/ethos/THIN_HARNESS_FAT_SKILLS.md",
+        "docs/guides/brain-vs-memory.md",
+        "docs/guides/repo-architecture.md",
+        "docs/tutorials/connect-coding-agent.md",
+        "skills/RESOLVER.md",
+        "skills/_AGENT_README.md",
+        "skills/_friction-protocol.md",
+        "skills/_output-rules.md",
+        "skills/query/SKILL.md",
+        "skills/capture/SKILL.md",
+        "skills/repo-architecture/SKILL.md",
+        "skills/testing/SKILL.md",
+        "skills/smoke-test/SKILL.md",
+        "skills/skillpack-check/SKILL.md",
+        "skills/conventions/brain-first.md",
+        "skills/conventions/brain-routing.md",
+        "skills/conventions/quality.md",
+        "skills/conventions/search-modes.md",
+        "skills/conventions/test-before-bulk.md"
+      ],
+      "adopted": [
+        "Thin public routing with detailed procedures loaded only when relevant",
+        "Separate durable project knowledge, operational progress, and session context",
+        "Search durable decisions before asking the developer to repeat them",
+        "Cite sources, expose conflicts and gaps, and preserve exact decision wording",
+        "Test a small representative sample before any approved bulk operation"
+      ],
+      "notImported": [
+        "GBrain installation, server, MCP configuration, automatic capture, or external writes",
+        "GBrain-specific schemas, brain directories, scheduled jobs, and runtime commands"
+      ]
+    },
+    {
+      "name": "graphify",
+      "sourceUrl": "https://github.com/Graphify-Labs/graphify",
+      "version": "v8-pinned",
+      "revision": "ecfcd160d56b420eb8241430fa7b5b1951c7829f",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/Graphify-Labs/graphify/blob/ecfcd160d56b420eb8241430fa7b5b1951c7829f/LICENSE",
+      "integrationMode": "optional-existing-tool-adapter",
+      "usedBy": ["plan", "implement", "review"],
+      "selectedFiles": [
+        "docs/how-it-works.md",
+        "graphify/skill-agents.md",
+        "graphify/always_on/agents-md.md",
+        "graphify/always_on/claude-md.md",
+        "graphify/skills/agents/references/query.md",
+        "graphify/skills/agents/references/extraction-spec.md"
+      ],
+      "adopted": [
+        "Use an existing graph for broad dependency and path questions",
+        "Distinguish extracted, inferred, and ambiguous relationships",
+        "Cite graph source locations and validate inferred edges against source",
+        "Use scoped query, path, and explain operations before broad graph reports"
+      ],
+      "notImported": [
+        "Graphify installation, Python code, graph generation, hooks, automatic updates, or API-key configuration"
+      ]
+    },
+    {
+      "name": "rtk",
+      "sourceUrl": "https://github.com/rtk-ai/rtk",
+      "version": "develop-pinned",
+      "revision": "8a24ce2e2828117f69ffc31134ed12f36d33fac4",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/rtk-ai/rtk/blob/8a24ce2e2828117f69ffc31134ed12f36d33fac4/LICENSE",
+      "integrationMode": "optional-existing-tool-adapter",
+      "usedBy": ["implement", "test", "review", "pr"],
+      "selectedFiles": [
+        "hooks/codex/rtk-awareness.md",
+        "hooks/claude/rtk-awareness.md",
+        "hooks/cursor/README.md",
+        "hooks/opencode/README.md",
+        "docs/guide/resources/what-rtk-covers.md",
+        "docs/guide/resources/savings-explained.md"
+      ],
+      "adopted": [
+        "Optionally reduce noisy output for supported read-only and validation commands",
+        "Treat reported savings as command-output byte reduction rather than total cost reduction",
+        "Return to raw output whenever filtering may hide evidence or a command is unsupported"
+      ],
+      "notImported": [
+        "RTK binary, Rust source, client hooks, global command rewriting, or an always-prefix rule"
       ]
     },
     {
@@ -47,15 +170,30 @@
       "revision": "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
       "license": "Anthropic Commercial Terms; all rights reserved",
       "licenseUrl": "https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md",
-      "integration": "Reference-only design input. No upstream plugin content is copied or installed by this repository.",
+      "integrationMode": "reference-only-original-adaptation",
+      "usedBy": ["implement", "test", "review", "pr"],
       "selectedFiles": [
         "plugins/code-review/commands/code-review.md",
-        "plugins/explanatory-output-style/README.md",
         "plugins/pr-review-toolkit/agents/code-reviewer.md",
         "plugins/pr-review-toolkit/agents/code-simplifier.md",
+        "plugins/pr-review-toolkit/agents/comment-analyzer.md",
         "plugins/pr-review-toolkit/agents/pr-test-analyzer.md",
         "plugins/pr-review-toolkit/agents/silent-failure-hunter.md",
-        "plugins/security-guidance/README.md"
+        "plugins/pr-review-toolkit/agents/type-design-analyzer.md",
+        "plugins/security-guidance/README.md",
+        "plugins/explanatory-output-style/README.md",
+        "plugins/plugin-dev/skills/skill-development/SKILL.md",
+        "plugins/plugin-dev/skills/skill-development/references/skill-creator-original.md"
+      ],
+      "adopted": [
+        "High-signal review with independent validation and duplicate suppression",
+        "Behavior-preserving simplification limited to changed code",
+        "Focused comment, test, error-path, and type-invariant review lenses",
+        "Layer security pattern checks, diff review, and cross-file data-flow review",
+        "Use concise codebase-specific explanation and progressive skill disclosure"
+      ],
+      "notImported": [
+        "Any upstream plugin text, hooks, scripts, model selection, data egress, or automatic GitHub comments"
       ]
     }
   ]

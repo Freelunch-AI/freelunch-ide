@@ -14,6 +14,10 @@
 
 - <decision and short rationale>
 
+## Context Sources
+
+- <issue comment, specification, or code location supporting the decision>
+
 ## Changed Files
 
 - `<path>`
@@ -27,6 +31,11 @@
 ## Review Findings
 
 - <severity>: <finding and status>
+
+## Capabilities And Tools
+
+- Used: <internal lenses or optional tools, with purpose>
+- Skipped: <relevant lens or optional tool, with reason>
 
 ## Remaining Work
 
