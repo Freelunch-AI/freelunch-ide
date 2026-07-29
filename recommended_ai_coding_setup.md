@@ -1,6 +1,6 @@
-# AI-assisted Coding Recommended Setup
+# Bruno's AI-assisted Coding Setup
 
-## Suggested Feature Building Flow (tool-agnostic) (assuming repo foundation (group 1) is already layed out)
+## Feature Building Flow (tool-agnostic) (assuming repo foundation (group 1) is already layed out)
 
 - each unique step is a slash command
 - each step allows single-agent or multi-agent collab. If multi-agent: them manin agent manages worker in their separate sub-branch which has its own git worktree. One terminal for each. But you only approve the final commit presented by the main agent (main agent reviews/approves sub-agent sub-branch under the hood)
