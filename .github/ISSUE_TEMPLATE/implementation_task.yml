@@ -1,0 +1,88 @@
+name: Implementation task
+description: Turn an approved roadmap item or design decision into buildable work
+title: "[Task]: "
+type: Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to define agreed work and track its implementation.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      options:
+        - IDE / Theia frontend
+        - CLI / Go core engine
+        - L1 model / CUE schema / L1-to-L2 compiler
+        - Local environment / Kubernetes infrastructure
+        - CI/CD / GitOps / deployment
+        - Authentication / secrets / permissions
+        - Observability / cost
+        - Agent API / FreeLunch skill
+        - Documentation / sample application
+        - Post-Demo module
+        - Other / cross-cutting
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and context
+      description: State the outcome of this task and the context an implementer needs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Deliverables
+      description: List the concrete code, configuration, documentation, or artifacts this task should produce.
+      placeholder: |
+        - Implement ...
+        - Update ...
+        - Add ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use observable, testable conditions. Avoid prescribing implementation unless it is already decided.
+      placeholder: |
+        - [ ] Given ..., when ..., then ...
+        - [ ] Errors are handled by ...
+        - [ ] Documentation is updated
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and blockers
+      description: Link prerequisite issues and note external decisions, APIs, or infrastructure required first.
+      placeholder: None, or a list of issue links and blockers.
+
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: Implementation notes
+      description: Add known interfaces, files, technical decisions, constraints, or compatibility concerns.
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: Explain how the change will be tested and demonstrated.
+      placeholder: Unit tests, integration tests, manual workflow, or documentation checks.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: State nearby work this issue intentionally does not include.

@@ -1,0 +1,89 @@
+name: Bug report
+description: Report reproducible behavior that is not working as expected
+title: "[Bug]: "
+labels:
+  - bug
+type: Bug
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      description: Choose the area most closely related to the problem.
+      options:
+        - IDE / Theia frontend
+        - CLI / Go core engine
+        - L1 model / CUE schema / L1-to-L2 compiler
+        - Local environment / Kubernetes infrastructure
+        - CI/CD / GitOps / deployment
+        - Authentication / secrets / permissions
+        - Observability / cost
+        - Agent API / FreeLunch skill
+        - Documentation / sample application
+        - Post-Demo module
+        - Other / cross-cutting
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the problem and its impact.
+      placeholder: A clear, concise description of the failure and who or what it affects.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence that triggers the problem.
+      placeholder: |
+        1. Start FreeLunch with ...
+        2. Configure ...
+        3. Run ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version, branch, or commit
+      description: Change this if the problem occurs on a release, another branch, or a specific commit.
+      value: main
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include only details relevant to this problem.
+      placeholder: |
+        - OS and version:
+        - FreeLunch setup (local or other):
+        - Kubernetes version:
+        - Browser, CLI, Go, or Node version:
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove secrets and other sensitive data. This field is formatted as shell output.
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add screenshots, configuration excerpts, related issues, or other useful context.
