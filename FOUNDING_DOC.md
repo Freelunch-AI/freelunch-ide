@@ -1,20 +1,26 @@
-# Freelunch IDE - User Guide
+# Freelunch Founding Document
 
-## Summary & Project Status
+## Vision & Business Model
 
-## Target Users & Use-Cases
+Freelunch is the next-gen venture-studio that goes beyond spawning startups.
 
-## Features (done & todo) & Comparison With Other Tools
+We partner with founders and provide scaleup-infra-as-a-service for our scaleups, via our ai-native platform stack that allows small teams to seamlessly scale with low head count, after they have already reached bootstrapped Product-Market Fit (PMF). We create and support startups building apps (excludes dev tool companies).
+The core platform we provide is the devops/mlops platform, but we also will provide ERP (adapted for scaleup needs), internal tech upskilling platform and offices in the future, so that founders can focus all their efforts on their specific business needs. All these platforms are free and designed for portability: customers retain the standard artifacts and GitOps flow. Dedicated detach or eject automation is post-MVP. The platforms are forkable for our startups (but not publicly forkable), creating a strong inner source (but not open source) ecosystem & community.
 
-## Requirments & Getting Started
+**Business Model**: 
+- Intermediate Business Model: Developer Platform Consulting or Selling Monthly/Annual Licences of our IDE/Platform.
+- Final Business Model: Venture Studio/Accelerator. We take one of these 3 approaches: (1) bring in founders after validating the idea, giving them 40% equity + salary; (2) bring in pre-scale companies via y combinator-like form application, taking 20% equity of them; (3) bring in founders for an edge city-like idea exploration phase (or with an idea already), validating the idea together with the founder and starting the company together with the founder taking 30% equity. In all cases we help with eventual fundraising through our VC network. Since we operate essentially as a cofounder, we also get diluted as much as the founders in funding rounds. 
 
-## Link to Full Documentation
+Similar Orgs: 
+- [Result](https://www.ycombinator.com/companies/result): from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity. They also aren't focused on the product side that much (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond Demos), instead on the ERP side (finance/marketing/hr/etc). Another important difference is the business model: they are a PaaS, while we are a venture-studio.
+- [Wildlife Studios](https://wildlifestudios.com/): Venture Studio focused on mobile games with mature platform engineering.
+- [Shiva](https://www.omshiva.ai/): a new brazilian vc/accelerator that is backing small hyper productive teams with salaries + AI/Cloud credits instead of large investments.
 
-## Vision For The Future
+## Vision of the Core Product via Analogies with existing Tools
 
-## Warnings
+Analogy: Freelunch: platform = \
+for_distributed_apps_and_ai_powered(Unreal Engine: visual & all-in-one IDE) +
 
-## Contact
  for_distributed_apps_and_all_in_one(Cursor: ai-powered IDE) + 
  
  lunch_platform_native(Paperclip: agent orchestration plane) +
@@ -96,9 +102,8 @@ Docs: (1) comes with a stateless sample app and documentation explaining how it 
 - Extensions: any Open VSX extension should work
 - Language support: any language since its based on containers (later, freelunch’s distributed programming framework will require language-specific work, but this is not for the Demo)
 
-**Demo Limitations**: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services or orchestrating database/queue migration; (3) no gpu, a/b testing, frontend, data engineering or mlops support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) no Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) no Public/Private Hub for reusable blocks; (13) no support for DAGs; (14) no detach/eject automation or agent-triggered platform mutations; (15) no budget enforcement or deployment cost gates; (16) no IDE action logging; (17) no DORA metrics or IDE usage analytics; (18) no system-wide experiment tracking; (19) no widgets for performing monitoring actions; (20) no DataOps promotion of data into production storage systems through GitOps; (21) no lineage-full observability through OpenLineage; (22) No automatic definition of which modules should form together a single service, which would allow writing modules and letting the platform decide how to best divide into services (Demo is: module == service); (23) Overlay dev & staging environments where each developer's brach runs on the same k8s namespace but seems to be on its own namespace because is isolated via service mesh namespace (guarantees developers get same networking bandwidth) + copy-on-write branching data storage + overlay=induced performance-drop estimation (so that you can observe the environment and get an estimated for how performance would be with just a single brnach running on it); (24) Avanced Finops: PR estimateded recurring cost addition, cost/request, etc; (25) Signed Approvals.
-
-**What's missing to become an MVP?** Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
+**Demo Limitations**: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services or orchestrating database/queue migration; (3) no gpu, a/b testing, frontend, data engineering or mlops support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) no Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) no Public/Private Hub for reusable blocks; (13) no support for DAGs; (14) no detach/eject automation or agent-triggered platform mutations; (15) no budget enforcement or deployment cost gates; (16) no IDE action logging; (17) no DORA metrics or IDE usage analytics; (18) no system-wide experiment tracking; (19) no widgets for performing monitoring actions; (20) no DataOps promotion of data into production storage systems through GitOps; (21) no lineage-full observability through OpenLineage.
+What's missing to become an MVP? Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
 
 **Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, CUE, ArgoCD, Argo Rollouts, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, Prometheus, MKDocs, Cloudflare.
 **Our own Coding/Experimenting Environment Estimated Stack**: linux/wsl, pixi, git, girus

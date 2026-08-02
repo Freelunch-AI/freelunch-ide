@@ -59,8 +59,8 @@ Feature branches should be short-lived and deleted after merging.
 Every Pull Request must:
 
 * Target `main`
+* Be up to date with `main`: feature branches should be rebased onto the latest main before merging via `git pull --rebase origin main`. Avoid merging main into feature branches unless rebasing is impractical. After pull is done, pushe should be done via: `git push --force-with-lease`
 * Pass all CI checks
-* Be up to date with `main`
 * Receive the required approvals
 * Resolve all review comments before merging
 
