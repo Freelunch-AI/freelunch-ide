@@ -23,13 +23,9 @@ for_distributed_apps_and_ai_powered(Unreal Engine: visual & all-in-one IDE) +
 
  for_distributed_apps_and_all_in_one(Cursor: ai-powered IDE) + 
  
- lunch_platform_native(Paperclip: agent orchestration plane) +
+ lunch_platform_native(Paperclip: remote-first agent orchestration plane) +
  
  just_similar_visuals_and_marketplace(N8N: node-based IDE) +
- 
- just_similar_visuals(Meshery: mesh-agnostic service & infra topology design & observability) +
- 
-multi_language_and_build_time_and_k8s_native(Spring Boot: microservices framework) +
 
  multi_language_and_build_time_and_made_for_services_on_top_of_k8s(Ray: distributed programming framework) +
  
@@ -115,11 +111,17 @@ Monetization while building our product: platform consulting. Being hired to be 
 
 ## Key Technical Decisions & FAQ
 
+### General Decisions & FAQ
 - IDE vs Platform Separate from IDE: building a developer platform separate from the IDE is easier and makes adoption easier, however, it can’t provide the seamless developer experience as a single integrated environment where you code, debug and observe your systems in the same place, with holistic AI Assistance. This caps the potential of becoming a groundbreaking tool that changes the way in which teams develop cloud software and scale companies.
 - Theia vs VScode Fork: Use Theia as a replaceable workbench shell, ReactFlow as the center of the user experience, Monaco/xterm/LSP/DAP as the building blocks of service-centric mini IDEs, steal catalog/template/auth/plugin concepts from Backstage, steal remote-development patterns from Gitpod/Che/Coder/Tilt, and build your own Kubernetes-native application model instead of inheriting someone else's workspace or portal model.
 We did not choose to fork VS Code because of Freelunch's long-term center of gravity is a distributed-systems runtime workbench (services, agents, deployments, observability, debugging, topology graphs) rather than a code editor, and a VS Code fork would increasingly force the product to conform to editor-centric assumptions instead of allowing the runtime model to become the primary user experience.
 - Primary Programming Language: We chose Golang as our primary language because of: (1) its cloud-native popularity and use in similar projects, (2) its good performance; (3) experience in our team + small learning curve compared to other languages like Rust for example. However, Typescript will be used for the Theia Frontend.
 - Why Venture Studio and not PaaS Business Model? Because PaaS inherently has significant lock-in for the customers and doesn’t tend to become unicorn-level businesses. Though we acknowledge that starting a venture studio is inherently more complex, because 2 things need to work to prove its worth: the freelunch platform and one portfolio company.
+- Why have the platofrm logic as a cicd compiler and not a k8s controller? Controllers are usually good at managing a domain with complex operational semantics involving multiple pods (e.g., vllm, spark, ray, postgres). An IDP's job is usually not to own those semantics, but to compose them into a coherent developer experience. So freelunch ide should use the approriate controllers under the hood, but its job is not to make them.
+
+### Demo-specific Decisions & FAQ
+
+- Fully local vs Deployment to the Cloud: we choose the deo to be fully local to speed up iteration speed for the demo, and also avoid cost risks. Though we recognize that being local is just enough for a Demo not an MVP that will require cloud deployment.
 - Stateless only vs Stateless & Statefull: we chose to support stateless workload only because it will make the Demo much simpler and will be sufficient to show the core idea of the IDE. But of course, it won't be very useful for scaleups yet, only after we implement support for stateful workloads.
 - Monorepo vs Polyrepo for the User's gitops: the goal is to support both, but for the Demo we want to keep it as simple as possible. Therefore, supporting just monorepo makes more sense since it’s a simpler option that is also being highly adopted by platform engineering/devops teams around the world.
-- Fully local vs Deployment to the Cloud: we choose the deo to be fully local to speed up iteration speed for the demo, and also avoid cost risks. Though we recognize that being local is just enough for a Demo not an MVP that will require cloud deployment.
+- Why ProxMox & Talos Linux instead of Floci or Kind for local infra? Because Floci doesnt support Talos Linux & Talos Linux facilitates a lot managing a k8s cluster. Kind emulates k8s but not infra provisioning. Having to setup IaC for provisioning Talos Linux Clusters and intercting with Taloz Linux is the most realistic thing so its better for our purposes of evolving from local emulated cloud to real cloud later.
