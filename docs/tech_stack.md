@@ -57,4 +57,20 @@ This covers the runtime, delivery, and operations stack used to demonstrate the 
 - Kubernetes integration testing → **kubetest** (locked version in pixi)
 - Security scanning for images and artifacts → **Trivy** (locked version in pixi)
 - IDE/workbench frameowrk for making the IDE → **Eclipse Theia** (locked version in pixi)
-- Plugins -> **OpenVSX** (for **VSCode** extensions) + **Backstage** (for embedded control planes) plugins
+
+## 3. Tools we will incorporate after Demo
+- Cloud Providers: AWS, Azure, GCP, etc
+- User VCS & Monorepo CI/CD Orchestration: Github+Github Actions, GitLab, Codeberg
+- External Resources Provisioning & Reconciliation: Crossplane
+- Policy Enforcement Controller: Kyverno
+
+## 4. Tools we will incorporate after MVP
+- Single-cluste abstraction for multi-cluster: Karmada
+- Serverless Experience for DBs & Queus: Kubeblocks
+- Raw in-cluster Data Storage: Rook
+- Cross-engine data transformations: Ibis
+- Distributed Big Data Processing: Beam
+- Ephemeral Data/AI Experimentation Compute Clusters: Skypilot
+- Ephemeral Data/AI Experimentation Ready Clusters: Ray, DeepSpeed, NVIDIA NeMO, etc
+- Ephemeral Data/AI Experimentation Notebooks: Marimo
+- LM & Agents Observsability: Langfuse
