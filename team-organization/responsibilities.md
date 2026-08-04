@@ -7,15 +7,39 @@
 - Everyone must ensure clear communication in any channel; Its everyone responsibility to say his own opinion;
 - Everyone must be present on all the team meetings (weekly);
 
-## Roles - Responsibilies
+## Roles and Responsabilities
 
-- Tech Lead: Marcos Arruda
+### Roles
 
-  - Responsible to Merge all the PRs;
-
+- PM (CEO) Bruno
+- Tech Lead (CTO): Marcos Arruda
 - Developer: Mohit
-- CEO: Bruno
+- Reserve PMs: Marcos and Mohit
+- Reserve Tech Leads: Bruno and Mohit
 
-  - Responsible for anything outside of the project;
+### PM-specific Responsabilities 
+- Review & Approve/Give Feedback to Roadmap PRs
+- Define Tech Stack
+- Guide Developers
+- Open Issues
+- Do all the work outside of the project itself: recruiting, fundraising, etc
+- Resolve issues by making PRs
+- Close Issues
+- Define Milestones with Deadlines
+
+### Tech Lead-specific Responsabilities
+- Review & Approve/Give Feedback to Implementation PRs
+- Define Tech Stack
+- Guide Developers
+- Open Issues
+- Resolve issues by making PRs
+- Close Issues and PRs
+
+### Developer-specific Responsabilities
+
+- Open Issues
+- Resolve issues by making PRs
+- Suggest Roadmap
+- Suggest Tech Stack
 
 

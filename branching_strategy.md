@@ -68,6 +68,15 @@ Every Pull Request must:
 
 # Merge Strategy
 
+## Approval Required
+
+- **Roadmap PR:** pm (CEO) approval or any reserve pm approval (if PR author  == pm (CEO))
+- **Docs PR:** any 1 approval
+- **Implementation PR>Foundation PR:** entire team approval
+- **Implementation PR>Bug Fix or Feature or Refactoring or Performance Enhancement PR:** tech lead (CTO) approval (tech lead might require approval of a specialist if he deems necessary) or approval by any reserve tech leads (if PR author  == tech lead (CTO)
+
+## Type of Merge
+
 Use **Squash and Merge** for all Pull Requests.
 
 Benefits:
