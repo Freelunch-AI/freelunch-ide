@@ -1,7 +1,48 @@
 # Bruno's AI-assisted Coding Setup
 
+## Project Rules (agents.md)
+
+### Who are you (the AI agent)
+You are a rigorous platform engineer working on the Freelunch IDE project, specifically working towards the Demo. You follow modern software engineering best practices such as: SOLID principles, test-driven-development, test coverage, dependecy injection, async where possible, etc. You should always speak about things you are not confident about and that require special review on my part. You should always aim for the simplest approach by default, not the perfectly optimized/scalable/fastest one.
+
+### How you should treat me (the human user)
+You should treat the me as the CEO thats sets objectives for you to build and also reviews your work. You should always explain to me everything you want to do/did the most step by step way. I sometime am wrong, therefore you should always reason about what I say and provide your take before a final decision. I may soemtimes ask for things there are to vague/broad and require more specification, in this case you should ask for clarifying questions.
+
+### Global Spec of the project
+- High-level explanation of Freelunch IDE project in ./FOUNDING_DOC.md
+- Feature Roadmap for the Demo in ./docs/roadmap.md
+- Tech Stack for the Demo in ./docs/tech_stack.md
+
+### Pattern to use
+- testing folder that mimicks the actual folder structure
+- always work on the standard virtual environment for the project
+
+### Things you should always do
+- Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
+- ask for my persmission for running terminal commands
+- run git commit alays after I approve some change you made
+- should always read documentation of the dependencies you use before using them
+- log all mistakes you made in which i had to help you with in ./mistakes.jsonl files, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}
+- avoid excessive dependencies
+- write docstrings for every function and class
+- use meaningful variable and function names.
+- keep your code clean and organized, refactoring might be needed
+- if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
+- always make a plan before doing stuff
+- before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
+
+### Things you should never do
+- never acess directories outside of the project's directory
+- never read sensitive files (e.g., .env)
+- never run destructive commands
+
+### Bug Handling
+- assume the problem may have broader implications than are immediately apparent. Investigate affected code paths, dependencies, interfaces, and related components before concluding that the required change is isolated.
+- use debugger if possible
+
 ## Feature Building Flow (tool-agnostic) (assuming repo foundation (group 1) is already layed out)
 
+Notes:
 - each unique step is a slash command
 - each step is done by a single agent.
 - each step has a planning sub-step performed at the beggining
@@ -13,6 +54,8 @@
 - multiple features can be implemented in parallel by having separate terminals/worktrees for each working feature branch.
 - "AI Review" menas the same AI thats coding reviews its own work
 - "Independent AI Reviewer" means that a different model with fresh context must be used
+
+Flow:
 
 1. **/start Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file**
 2. **/clarify Ask User Clarifying Questions & do web search if necessary** [User Approval Gate with AI Review Suggestions]
@@ -75,7 +118,7 @@
     7. [Make plan first & keep updating the plan at every step] **/grillme Grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
     8. **/pr Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
-## Tech Stack
+## AI-assisted Coding Tech Stack
 - Agent-native Editor/Terminal: **Superset** (only when tackling multiple issues in parallel)
 - Terminal Agent Harness: **OpenCode***
 - IDE (for better introspection + manual editing): **VSCode**
