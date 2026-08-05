@@ -106,14 +106,6 @@ Docs: (1) comes with a stateless sample app and documentation explaining how it 
 
 **What's missing to become an MVP?** Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
 
-**Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, CUE, ArgoCD, Argo Rollouts, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, Prometheus, MKDocs, Cloudflare.
-**Our own Coding/Experimenting Environment Estimated Stack**: linux/wsl, pixi, git, girus
-
-Basic setup for us to start development: github repo & access control, virtual environment & package management; linting/formatting; building; testing; publishing IDE binary and CLI Golang package; updating docs website.
-
-Monetization while building our product: platform consulting. Being hired to be the outsourced platform engineering team of existing scaleups that don’t have a team for this. Hired to build a custom platform for the company (caveat: will have some specific needs that don't generalize to other companies).
-
-
 ## Key Technical Decisions & FAQ
 
 - IDE vs Platform Separate from IDE: building a developer platform separate from the IDE is easier and makes adoption easier, however, it can’t provide the seamless developer experience as a single integrated environment where you code, debug and observe your systems in the same place, with holistic AI Assistance. This caps the potential of becoming a groundbreaking tool that changes the way in which teams develop cloud software and scale companies.
