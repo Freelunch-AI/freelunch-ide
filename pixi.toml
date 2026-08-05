@@ -28,6 +28,14 @@ goreleaser = ">=2.11,<3"
 # package-lock.json, not here.
 nodejs = ">=24,<27"
 
+[activation.env]
+# Pixi is the single source of truth for the Go version. GOTOOLCHAIN defaults to
+# "auto", under which the go command may silently download a toolchain other than
+# the one pinned above whenever a go.mod asks for something newer. "local" forces
+# it to use exactly the Go that Pixi provisioned, so the pin here is the only
+# version that can ever run.
+GOTOOLCHAIN = "local"
+
 [tasks]
 setup = { cmd = "task setup", description = "Install Go and Node dependencies" }
 fmt = { cmd = "task fmt", description = "Format all sources" }

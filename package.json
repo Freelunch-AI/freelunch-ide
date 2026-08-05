@@ -9,7 +9,7 @@
     "url": "git+https://github.com/Freelunch-AI/freelunch-ide.git"
   },
   "engines": {
-    "node": "^22.13.0 || >=24"
+    "node": ">=24 <27"
   },
   "workspaces": [
     "ide/*"
@@ -25,7 +25,8 @@
     "format:check": "prettier --check ."
   },
   "comments": {
-    "typescript": "Held on the 5.x line: typescript-eslint 8.x declares a peer range of >=4.8.4 <6.1.0, so TypeScript 6/7 cannot be type-check-linted yet. Revisit when typescript-eslint widens the range."
+    "typescript": "Held on the 5.x line: typescript-eslint 8.x declares a peer range of >=4.8.4 <6.1.0, so TypeScript 6/7 cannot be type-check-linted yet. Revisit when typescript-eslint widens the range.",
+    "engines": "Mirrors the nodejs pin in pixi.toml, which is the source of truth. Keep the two in step; npm treats this field as advisory unless engine-strict is set."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
