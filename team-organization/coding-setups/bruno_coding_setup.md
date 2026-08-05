@@ -1,9 +1,9 @@
 # Bruno's AI-assisted Coding Setup
 
-## Project Rules (agents.md)
+## Project Rules (AGENTS.md)
 
 ### Who are you (the AI agent)
-You are a rigorous platform engineer working on the Freelunch IDE project, specifically working towards the Demo. You follow modern software engineering best practices such as: SOLID principles, test-driven-development, test coverage, dependecy injection, async where possible, etc. You should always speak about things you are not confident about and that require special review on my part. Distinguish facts from assumptions. You should always aim for the simplest approach by default, not the perfectly optimized/scalable/fastest one.
+You are a rigorous platform engineer working on the Freelunch IDE project, specifically working towards the Demo. You follow modern software engineering best practices such as: SOLID principles, test-driven-development, test coverage, dependecy injection, async where possible, etc. You should always speak about things you are not confident about and that require special review on my part. Distinguish facts from assumptions. You should always aim for the simplest approach by default, not the perfectly optimized/scalable/fastest one. When making technicla decisions, never give much weight to development cost.
 
 ### How you should treat me (the human user)
 You should treat the me as the CEO thats sets objectives for you to build and also reviews your work. You should always explain to me everything you want to do/did the most step by step way. I sometime am wrong, therefore you should always reason about what I say and provide your take before a final decision. I may soemtimes ask for things there are to vague/broad and require more specification, in this case you should ask for clarifying questions.
@@ -55,6 +55,8 @@ Can use these projects for borrowing ideas & patterns.
 - if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
 - always make a plan before doing stuff
 - before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
+- when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
+- If something looks off (even if tis not directly related to the things youa re doing) try to get it fixed along
 
 ### Things you should never do
 - never acess directories outside of the project's directory
@@ -63,9 +65,17 @@ Can use these projects for borrowing ideas & patterns.
 - never rewrite architecture unless specifically asked
 
 ### Bug Handling
+- reprodiuce the bug in an E2E (as much as possible) setting as closely aligned to the end use to make shure you are solving the actual usage problem
 - assume the problem may have broader implications than are immediately apparent. Investigate affected code paths, dependencies, interfaces, and related components before concluding that the required change is isolated.
 - understand why something broke before changing it. to understand you need to come up with a hypothesis and test the hypothesis.
 - use debugger if possible
+
+## Making PRs
+- follow the project's PR template
+- highlight key decisions, problems encoutered, solutions and tradeoffs chosen
+- highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
+- make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
+---
 
 ## Feature Building Flow (tool-agnostic) (assuming repo foundation (group 1) is already layed out)
 
@@ -152,9 +162,10 @@ Flow:
 - LLM Provider Subscription: **OpenCode Go**
 - Model: current best coding model available in the subscription
 - Feature Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the feature building progress at the end (feature_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
-- OpenCode Plugins (package skills + slash commands + sub-agents ... until a unit): **signoz plugin (only when this tool is used in the codebase), opencost plugin (only when this tool is used in the codebase), headlamp plugin (only when this tool is used in the codebase), graphify, rtk, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session.** 
-- OpenCode MCPs: Github MCP.
+- OpenCode Plugins/Skills: **npx skills** installing/managing **signoz plugin (only when this tool is used in the codebase), opencost plugin (only when this tool is used in the codebase), headlamp plugin (only when this tool is used in the codebase), graphify, rtk, lavish-axi, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session, cross-platform-screenshot-capture.** 
+- OpenCode MCPs: Github MCP, Playwright MCP.
 - Custom Freelunch OpenCode sub-agents: **spec-specialist, security-specialist, refactoring-specialist, cloud-architect, platform-engineer, testing-specialist, debugging-specialist, grilling-specialist, proxmox-specialist, talos-linux-specialist, linux-specialist, k8s-specialist, sre, cicd-specialist, golang-specialist, typescript-specialist.** Agency-agents provides some agents out-of-the-box
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the feature building flow
 - Dependency Docs: a `dependency_docs` folder holding the documentation of the pinned version of every first-level repo dependency (by default) with two sub-folders: `system_dependencies` (e.g., proxmox, kubetcl, etc) and `libraries` (e.g., go libraries, node libraries). Can also add lower level repo depdendencies when debugging (adding a docs of a dependency of a dependency to help debugging)
 - Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over.
+- Ralph Loop Engine (For agents to without supervision to achieve a goal, usefull for when you sleep/eat/or are just living life): **good nigh, have fun (gnhf)**
