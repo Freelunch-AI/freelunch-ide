@@ -78,7 +78,7 @@ Freelunch IDE adds developer-friendly abstraction & visual layer on top of the c
 A good analogy is with game engines (e.g., Unity), which are specialized & visual IDEs which streamline game development. In this case, it's for general cloud/k8s development and operations.
 The most similar open source projects out there are currently Kubero (easy source-code-to-k8s deploy), Kubefirst (modern k8s gitops template) Meshery (visual cloud/k8s/services management & observability) & Backstage (central touching point for developers to have everything they need).
 
-[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/freelunch_ide_mock.html)
+[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/mock.html)
 
 The mock is an exploratory interface prototype. The [ordered feature specification](docs/freelunch_ide_features_ordered.md) is the source of truth for Demo/MVP implementation scope.
 
