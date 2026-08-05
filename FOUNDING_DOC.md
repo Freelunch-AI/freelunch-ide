@@ -12,9 +12,8 @@ The core platform we provide is the devops/mlops platform, but we also will prov
 - Final Business Model: Venture Studio/Accelerator. We take one of these 3 approaches: (1) bring in founders after validating the idea, giving them 40% equity + salary; (2) bring in pre-scale companies via y combinator-like form application, taking 20% equity of them; (3) bring in founders for an edge city-like idea exploration phase (or with an idea already), validating the idea together with the founder and starting the company together with the founder taking 30% equity. In all cases we help with eventual fundraising through our VC network. Since we operate essentially as a cofounder, we also get diluted as much as the founders in funding rounds. 
 
 Similar Orgs: 
-- [Result](https://www.ycombinator.com/companies/result): from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity. They also aren't focused on the product side that much (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond Demos), instead on the ERP side (finance/marketing/hr/etc). Another important difference is the business model: they are a PaaS, while we are a venture-studio.
+- [Result](https://www.ycombinator.com/companies/result): from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity with proper software engineering infra (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond MVPs). Another important difference is the business model: they are a PaaS, while we are a venture-studio/accelerator.
 - [Wildlife Studios](https://wildlifestudios.com/): Venture Studio focused on mobile games with mature platform engineering.
-- [Shiva](https://www.omshiva.ai/): a new brazilian vc/accelerator that is backing small hyper productive teams with salaries + AI/Cloud credits instead of large investments.
 
 ## Vision of the Core Product via Analogies with existing Tools
 
@@ -23,13 +22,9 @@ for_distributed_apps_and_ai_powered(Unreal Engine: visual & all-in-one IDE) +
 
  for_distributed_apps_and_all_in_one(Cursor: ai-powered IDE) + 
  
- lunch_platform_native(Paperclip: agent orchestration plane) +
+ lunch_platform_native(Paperclip: remote-first agent orchestration plane) +
  
  just_similar_visuals_and_marketplace(N8N: node-based IDE) +
- 
- just_similar_visuals(Meshery: mesh-agnostic service & infra topology design & observability) +
- 
-multi_language_and_build_time_and_k8s_native(Spring Boot: microservices framework) +
 
  multi_language_and_build_time_and_made_for_services_on_top_of_k8s(Ray: distributed programming framework) +
  
@@ -102,7 +97,7 @@ Docs: (1) comes with a stateless sample app and documentation explaining how it 
 - Extensions: any Open VSX extension should work
 - Language support: any language since its based on containers (later, freelunch’s distributed programming framework will require language-specific work, but this is not for the Demo)
 
-**Demo Limitations**: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services or orchestrating database/queue migration; (3) no gpu, a/b testing, frontend, data engineering or mlops support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) no Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) no Public/Private Hub for reusable blocks; (13) no support for DAGs; (14) no detach/eject automation or agent-triggered platform mutations; (15) no budget enforcement or deployment cost gates; (16) no IDE action logging; (17) no DORA metrics or IDE usage analytics; (18) no system-wide experiment tracking; (19) no widgets for performing monitoring actions; (20) no DataOps promotion of data into production storage systems through GitOps; (21) no lineage-full observability through OpenLineage.
+**Demo Limitations**: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services or orchestrating database/queue migration; (3) no gpu, a/b testing, frontend, data engineering, mlops or confidential computing (TEEs + program attestations) support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) no Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) no Public/Private Hub for reusable blocks; (13) no support for DAGs; (14) no detach/eject automation or agent-triggered platform mutations; (15) no budget enforcement or deployment cost gates; (16) no IDE action logging; (17) no DORA metrics or IDE usage analytics; (18) no system-wide experiment tracking; (19) no widgets for performing monitoring actions; (20) no DataOps promotion of data into production storage systems through GitOps; (21) no lineage-full observability through OpenLineage.
 What's missing to become an MVP? Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
 
 **Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, CUE, ArgoCD, Argo Rollouts, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, Prometheus, MKDocs, Cloudflare.
@@ -115,11 +110,17 @@ Monetization while building our product: platform consulting. Being hired to be 
 
 ## Key Technical Decisions & FAQ
 
+### General Decisions & FAQ
 - IDE vs Platform Separate from IDE: building a developer platform separate from the IDE is easier and makes adoption easier, however, it can’t provide the seamless developer experience as a single integrated environment where you code, debug and observe your systems in the same place, with holistic AI Assistance. This caps the potential of becoming a groundbreaking tool that changes the way in which teams develop cloud software and scale companies.
 - Theia vs VScode Fork: Use Theia as a replaceable workbench shell, ReactFlow as the center of the user experience, Monaco/xterm/LSP/DAP as the building blocks of service-centric mini IDEs, steal catalog/template/auth/plugin concepts from Backstage, steal remote-development patterns from Gitpod/Che/Coder/Tilt, and build your own Kubernetes-native application model instead of inheriting someone else's workspace or portal model.
 We did not choose to fork VS Code because of Freelunch's long-term center of gravity is a distributed-systems runtime workbench (services, agents, deployments, observability, debugging, topology graphs) rather than a code editor, and a VS Code fork would increasingly force the product to conform to editor-centric assumptions instead of allowing the runtime model to become the primary user experience.
 - Primary Programming Language: We chose Golang as our primary language because of: (1) its cloud-native popularity and use in similar projects, (2) its good performance; (3) experience in our team + small learning curve compared to other languages like Rust for example. However, Typescript will be used for the Theia Frontend.
 - Why Venture Studio and not PaaS Business Model? Because PaaS inherently has significant lock-in for the customers and doesn’t tend to become unicorn-level businesses. Though we acknowledge that starting a venture studio is inherently more complex, because 2 things need to work to prove its worth: the freelunch platform and one portfolio company.
+- Why have the platofrm logic as a cicd compiler and not a k8s controller? Controllers are usually good at managing a domain with complex operational semantics involving multiple pods (e.g., vllm, spark, ray, postgres). An IDP's job is usually not to own those semantics, but to compose them into a coherent developer experience. So freelunch ide should use the approriate controllers under the hood, but its job is not to make them.
+
+### Demo-specific Decisions & FAQ
+
+- Fully local vs Deployment to the Cloud: we choose the deo to be fully local to speed up iteration speed for the demo, and also avoid cost risks. Though we recognize that being local is just enough for a Demo not an MVP that will require cloud deployment.
 - Stateless only vs Stateless & Statefull: we chose to support stateless workload only because it will make the Demo much simpler and will be sufficient to show the core idea of the IDE. But of course, it won't be very useful for scaleups yet, only after we implement support for stateful workloads.
 - Monorepo vs Polyrepo for the User's gitops: the goal is to support both, but for the Demo we want to keep it as simple as possible. Therefore, supporting just monorepo makes more sense since it’s a simpler option that is also being highly adopted by platform engineering/devops teams around the world.
-- Fully local vs Deployment to the Cloud: we choose the deo to be fully local to speed up iteration speed for the demo, and also avoid cost risks. Though we recognize that being local is just enough for a Demo not an MVP that will require cloud deployment.
+- Why ProxMox & Talos Linux instead of Floci or Kind for local infra? Because Floci doesnt support Talos Linux & Talos Linux facilitates a lot managing a k8s cluster. Kind emulates k8s but not infra provisioning. Having to setup IaC for provisioning Talos Linux Clusters and intercting with Taloz Linux is the most realistic thing so its better for our purposes of evolving from local emulated cloud to real cloud later.
