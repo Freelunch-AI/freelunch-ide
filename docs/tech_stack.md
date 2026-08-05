@@ -54,7 +54,6 @@ This covers the runtime, delivery, and operations stack used to demonstrate the 
 - Cost observabilityfor workloads → **OpenCost** + **Prometheus** (embedded UI via plugin)
 - Load testing → **K6** (locked CLI version in pixi)
 - Test doubles / API mocking for integration tests → **WireMock**
-- Kubernetes integration testing → **kubetest** (locked version in pixi)
 - Security scanning for images and artifacts → **Trivy** (locked version in pixi)
 - IDE/workbench frameowrk for making the IDE → **Eclipse Theia** (locked version in pixi)
 
