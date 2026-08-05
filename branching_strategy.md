@@ -59,14 +59,23 @@ Feature branches should be short-lived and deleted after merging.
 Every Pull Request must:
 
 * Target `main`
+* Be up to date with `main`: feature branches should be rebased onto the latest main before merging via `git pull --rebase origin main`. Avoid merging main into feature branches unless rebasing is impractical. After pull is done, pushe should be done via: `git push --force-with-lease`
 * Pass all CI checks
-* Be up to date with `main`
 * Receive the required approvals
 * Resolve all review comments before merging
 
 ---
 
 # Merge Strategy
+
+## Approval Required
+
+- **Roadmap PR:** pm (CEO) approval or any reserve pm approval (if PR author  == pm (CEO))
+- **Docs PR:** any 1 approval
+- **Implementation PR>Foundation PR:** entire team approval
+- **Implementation PR>Bug Fix or Feature or Refactoring or Performance Enhancement PR:** tech lead (CTO) approval (tech lead might require approval of a specialist if he deems necessary) or approval by any reserve tech leads (if PR author  == tech lead (CTO)
+
+## Type of Merge
 
 Use **Squash and Merge** for all Pull Requests.
 

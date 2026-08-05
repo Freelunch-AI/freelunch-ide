@@ -1,7 +1,8 @@
 # [dev + ops mode] [declarative] [self-contained] [mostly config] Infra Front — lunch-infra
 
-monitor & heal infra, experiment/inject faults/evaluate/track infra
+monitor, observe & heal infra (compute clusters + k8s infra + platform components), experiment/inject faults/evaluate/track infra
 
-Outputs:
-- infra-related non-urgent tickets for platform engineers to solve via layer 1
+Possible Outputs:
+- new layer 1 platform config
+- new layer 1 abstractions
 - layer 2 direct fixes

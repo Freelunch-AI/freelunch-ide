@@ -2,7 +2,7 @@
 
 ## Mock
 
-[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/freelunch_ide_mock.html)
+[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/mock.html)
 
 ## OSS Design References
 
@@ -23,8 +23,8 @@ The goal is to take ideas from these tools to simplify the developer experience 
 | **Monorepo** | The single Git repository for a customer organisation. Contains all products, services, workflows, and platform config. One monorepo per customer. Replaces "Product Repo." |
 | **Workload** | Any single deployable unit inside the monorepo. Either a Service or a Workflow. |
 | **Service** | A long-running, always-on, request-driven Workload (HTTP, gRPC, event consumer, etc.). |
-| **Workflow (DAG)** | A trigger-driven Workload that runs to completion. Has per-run execution state. |
-| **Layer 1 (L1)** | FreeLunch's abstraction API. Developers model Workloads on the canvas, which maintains CUE files as the Git-backed representation and gets compiled into L2. |
+| **Workflow (DAG)** | A trigger-driven Workload that runs to completion. Has per-run execution state. Only CI/CD workflows are supported in the Demo. |
+| **Layer 1 (L1)** | FreeLunch's abstraction API. Developers model Workloads on the canvas, which maintains CUE files as the Git-backed representation and gets ed into L2. |
 | **Layer 2 (L2)** | K8s/Helm artifacts. Source of truth for deployment. Customers can view and edit directly. Conflicts between L1 and L2 are surfaced during recompile, which need to be resolved by a platform engineer. For the platform engineer to stop resolving conflicts all the time he needs to modify defaults or modify l1 abstractions via CUE (but the latter will be only after Demo)
 
 | **Canvas** | The primary visual authoring surface for Services and Workflows. Canvas blocks maintain deterministic L1 CUE files in the monorepo. |
@@ -39,12 +39,9 @@ The goal is to take ideas from these tools to simplify the developer experience 
 
 ## Deferred Decisions and Scope
 
-- **Kubernetes as the primary target** — the Demo is centered on vanilla Kubernetes rather than a managed cloud-specific stack, with AWS emulation handled through Floci.
-- **Deployment targets** — the Demo focuses on the local emulated environment; deployment to existing EC2-based clusters is a later extension rather than a core Demo requirement.
-- **Remaining tool choices** (Kargo, Bazel, etc.) — Argo Rollouts and OpenCost are selected below; other conceptual roles are finalized during implementation of each feature.
-- **Post-Demo scope** — stateful-service wiring, datastore or queue migration, zero-data-loss workflows, service catalog capabilities, and an internal package registry are excluded from the Demo and require separate engine-specific designs.
-
----
+- **Kubernetes as the primary target** — the Demo is centered on vanilla Kubernetes rather than a managed cloud-specific stack, with Cloud cluster emulation handled through ProxMox.
+- **Deployment targets** — the Demo focuses on the local emulated environment; deployment to existing EC2-based clusters (and later multi-cloud) is a later extension rather than a core Demo requirement.
+- **Post-Demo scope** — real cloud deployment, support for app workflows (e.g., airflow dags), stateful services, block store, internal package registry, etc (full list is described in the founding doc)
 
 ## Group 1 — Foundation
 *No dependencies. Start here.*
@@ -172,25 +169,23 @@ The CUE-based schema validating what the canvas maintains for Developers.
 ### 3.2 L1→L2 Compilation Engine
 Manually triggered engine that compiles L1 configuration, metadata, and image references into versioned Helm artifacts.
 
-> **Story:** As a Developer, I click "Compile" in the FreeLunch IDE after saving my Service on the canvas. FreeLunch validates the canvas-maintained CUE and produces K8s manifests and Helm charts in the `platform/` directory. If a Platform Engineer previously edited a Deployment manifest in L2 directly, FreeLunch shows a conflict diff and waits for resolution — it never silently overwrites the manual change.
+> **Story:** As a Developer, I click "Compile" in the FreeLunch IDE after saving my Service on the canvas. FreeLunch validates the canvas-maintained CUE and produces K8s manifests and Helm charts in the `l2/` directory. If a Platform Engineer previously edited a Deployment manifest in L2 directly, FreeLunch shows a conflict diff and waits for resolution — it never silently overwrites the manual change (unless explicitely told to by a privileged persona). Note: container changes are listened and trigger instant updates on the images.
 
-- **Manually triggered** by the developer (via FreeLunch IDE command or `freelunch compile`) for local validation
-- In local development, the compiler performs a validation-only compile check; the full L1 → L2 compile runs in CI/CD to produce the versioned artifacts
-- Validates canvas-maintained L1 CUE against the versioned schema and platform policies
+- CUE is the engine behind the compilation
+- Runs always in CI (Github Actions/Dagger if remote environment or Act/Dagger if local dev environment)
+- Locally before CI the compiler performs a validation-only compile check; can also be manually triggered by the developer (via FreeLunch IDE command or `freelunch compile`) for instrospection purposes
+- Validates L1 config against platform policies
 - Packages the generated K8s manifests and Argo Rollouts resources as a versioned Helm chart
-- Compiles L1 → L2 (K8s manifests, Helm charts, and Argo Rollouts resources)
-- **Conflict detection:** If the customer has directly edited L2, the engine detects conflicts between the new L1 output and existing L2 manual overrides. Customer sees a diff and resolves conflicts before accepting the new L2 state
-- Raw L2 edits are **never silently discarded** — they are always surfaced for review
 - L2 is the source of truth for deployment; ArgoCD deploys whatever is in L2
 
 ### 3.3 L2 Artifact Management
 The customer-visible layer of K8s/Helm artifacts.
 
-> **Story:** As a Platform Engineer, I open the `platform/` directory in the FreeLunch IDE, edit a Deployment manifest directly to add a custom sidecar container, and commit it. The next time a Developer compiles their L1 changes, the sidecar appears in the conflict diff as a manual override — it is never silently removed, and its git history shows exactly who added it and when.
+> **Story:** (1) As a Platform Engineer, I open the `l2/` directory in the FreeLunch IDE, edit a Deployment manifest directly to add a custom sidecar container, and commit it. The next time a Developer compiles their L1 changes, the sidecar appears in the conflict diff as a manual override — it is never silently removed, and its git history shows exactly who added it and when. (2) For individual service changes I can also open canvas blocks and edit the helm chart of the block directly.
 
 - Customer can inspect and edit L2 artifacts directly at any time
 - L2 lives in the monorepo (versioned via Git) — all changes are auditable
-- Platform Engineers may edit L2 directly; those edits persist across L1 recompilations
+- Platform Engineers may edit L2 directly; those edits persist across L1 recompilations (if no conflict or conflict was resolved in favour of raw l2 edit)
 - Platform Engineers are expected to resolve L1/L2 conflicts and, where possible, adjust the L1 abstraction so similar conflicts are avoided in future compiles
 - L2 → ArgoCD → K8s cluster is the deploy path
 
@@ -199,7 +194,7 @@ The customer-visible layer of K8s/Helm artifacts.
 ## Group 4 — CI/CD Pipeline
 *Depends on: Group 1 (monorepo structure), Group 3 (L1/L2 model), Group 2 (permissions)*
 
-### 4.1 GitHub Actions Pipeline Structure
+### 4.1 Act (Github Actions Local Emulator) Pipeline Structure
 The managed CI/CD pipeline installed in the monorepo's `.github/workflows/`.
 
 > **Story:** As a Developer, I open a PR against `develop`. Without any manual setup, GitHub Actions runs image build, security scan, unit tests, contract tests, functional tests, load tests, and a PR compliance check in sequence. After code review and remote integration tests pass, a PR to `main` is opened automatically. Once smoke and e2e load tests pass on the ephemeral staging environment, the PR to `main` is accepted and a blue-green deploy to prod is triggered — all without me touching a pipeline file.
@@ -239,20 +234,20 @@ Hotfix path: merge directly to `main` → deploy to prod. No CI gates. Only Pers
 ### 4.2 Pre-commit Hooks
 Local enforcement layer, re-enforced server-side.
 
-> **Story:** As a Developer, I run `git commit` with a formatting violation in my code. The pre-commit hook catches it and blocks the commit with a clear error message. I try bypassing with `--no-verify` and push anyway — GitHub Actions detects the bypass server-side and fails the PR with the same error. My code never reaches `develop`.
+> **Story:** As a Developer, I run `git commit` with a formatting violation in my code. The pre-commit hook catches it and blocks the commit with a clear error message. I try bypassing with `--no-verify` and push anyway — Act (GitHub Actions local emulator) detects the bypass server-side and fails the PR with the same error. My code never reaches `develop`.
 
 - **Static checks** — linting, type checking, security smell detection
 - **Format enforcement** — code formatter; fails if code changes after format
 - **L1 validation** — canvas-maintained CUE must conform to the versioned schema and platform policies
 - **Pipeline structure validation** — when a Platform Engineer inserts a new module into the CI/CD pipeline, the hook validates input/output type-signature compatibility with neighboring modules
-- **CI/CD enforcement** — GitHub Actions also runs the same pre-commit routine server-side, so local bypass does not reach production
+- **CI/CD enforcement** — Act (GitHub Actions local emulator) also runs the same pre-commit routine server-side, so local bypass does not reach production
 
 ### 4.3 Dagger CI Execution
 Executes CI pipeline steps (build, test, scan) in a reproducible, container-native way.
 
 > **Story:** As a Developer, I push a Go service with no Dockerfile. Dagger orchestrates the CI pipeline, Buildpacks detect the language, build a container image automatically, run the test suite inside the container, scan the image for vulnerabilities, and push the image to the registry. I never write or maintain a Dockerfile or a build script.
 
-- Called by GitHub Actions
+- Called by Act (GitHub Actions local emulator)
 - Handles: pipeline orchestration, image builds (via Buildpacks), test execution, security scanning
 - Buildpacks support: Developers can deploy Services from source code with no Dockerfile
 
@@ -326,11 +321,11 @@ Always-on autoscaling for all Workloads.
 ### 6.1 SigNoz Setup
 Platform-level observability backend for customer Workload telemetry.
 
-> **Story:** As a Platform Admin, after running `freelunch install`, I open the integrated observability experience in the IDE and see metrics, logs, and traces flowing from the sample application's pods. FreeLunch's own internal components (auth service, ArgoCD, secrets store) do not appear in the customer observability view — only customer Workloads are visible.
+> **Story:** As a Platform Admin, after running `freelunch install`, I open the integrated observability experience in the IDE and see metrics, logs, and traces flowing from the sample application's pods. FreeLunch's own internal components (auth service, ArgoCD, secrets store) do not appear in the customer observability view — only customer Workloads are visible. Platform observability (multi-cloud for resiliance) is post-demo.
 
 - Installed in the K8s cluster
 - Collects: metrics, logs, traces from customer-deployed Workloads and CI/CD pipeline runs
-- **Scope:** Customer workloads only. FreeLunch's own internal components (SigNoz itself, auth service, ArgoCD, secrets store) are **not monitored** in the Demo — FreeLunch internal observability is out of Demo scope.
+- **Scope:** Customer workloads only. FreeLunch's own internal components (SigNoz itself, auth service, ArgoCD, secrets store) are **not monitored or observed** in the Demo — FreeLunch internal observability is out of Demo scope.
 
 ### 6.2 Customer Workload Observability
 End-to-end observability for services the customer deploys via FreeLunch.
@@ -338,7 +333,7 @@ End-to-end observability for services the customer deploys via FreeLunch.
 > **Story:** As a Developer, I deploy `service-a` and open the FreeLunch IDE's observability panel. I see CPU/memory usage for its pods, the current CI/CD pipeline stage for my latest PR, and the distributed traces my service is emitting via its existing OpenTelemetry SDK — all in one place, without changing a single line of instrumentation code.
 
 - **K8s infra metrics** — pod/node health, resource usage for customer Workloads
-- **CI/CD pipeline visibility** — GitHub Actions + Dagger pipeline state
+- **CI/CD pipeline visibility** — Act (GitHub Actions local emulator) + Dagger pipeline state
 - **Application-level telemetry** — customer instruments their code via OpenTelemetry SDKs; FreeLunch provides the OTel instrumentation layer and routes to SigNoz
 - Existing OTel-compatible telemetry continues to work without re-instrumentation
 - All observability data scoped to the customer's own Workloads
@@ -362,15 +357,14 @@ Per-Workload cost breakdown (visibility only — no budget enforcement in Demo).
 *Depends on: Group 1 (auth service), Group 3 (L1/L2 model), Group 4 (CI/CD pipeline), Group 6 (observability)*
 
 ### 7.1 Local Dev/Experimentation Environment
-A lightweight local environment for exercising predefined load-test scenarios before promotion.
+A local environment for experimenting/testing/observing in a prod-like scenario before CI.
 
-> **Story:** As a Developer, I open the local dev/experimentation environment and try a scenario such as "simulate 10x traffic on `service-a` using a predefined load-test profile." FreeLunch uses the local environment and those predefined load-test scenarios to show how `service-a` behaves under that load before it reaches staging or production.
+> **Story:** As a Developer, I open the local dev/experimentation environment and try a scenario such as "simulate 10x traffic on `service-a` using a predefined load-test profile." FreeLunch uses the local environment and those predefined load-test scenarios to show how `service-a` behaves under that load before I make a PR.
 
-- Uses the local Demo environment and predefined load-test scenarios to create fast, iterative feedback loops
 - Does not rely on production telemetry in the Demo; the environment uses predefined load testing instead
-- Inspired by Tilt/Kubero-style developer workflows rather than a separate full simulation platform
-- Developers can try local scenarios before promotion without touching the live cluster
-- In Demo scope but **explicitly low priority** — implement only after all other groups are complete
+- Developers can try local scenarios before PR without touching shared & risky clusters like staging and prod.
+- Allows experimenting and iterative feedback loops
+- Inspired by Tilt k8s developer environment platform
 
 ### 7.2 FreeLunch IDE
 Primary user interface — IDE and Dev Portal are the same unified surface.
@@ -407,10 +401,10 @@ Minimal CLI for setup and day-to-day inspection.
 ## Group 8 — Agent Integration Layer
 *Depends on: Group 1 (auth service), Group 5 (deployment state), Group 6 (observability)*
 
-### 8.1 Coding Agent API
-Canonical read-only HTTP API for coding agents to query platform state outside of code.
+### 8.1 Coding Agent Observability API
+Read-only Observability HTTP API for coding agents to query state outside of code.
 
-> **Story:** As a coding agent integrated into a developer's workflow, I obtain an auth-service client credential token and call `GET /api/v1/workloads` to see the status of all Services and Workflows. I call `GET /api/v1/pipeline/pr/42` to get the test results and current stage of PR #42. I call `GET /api/v1/costs` to get a per-Workload cost breakdown. I cannot trigger deploys, create records, or modify anything — every endpoint is read-only.
+> **Story:** As a coding agent integrated into a developer's workflow, I obtain an auth-service client credential token and call `GET /api/v1/workloads` to see the status of all Services and Workflows. I call `GET /api/v1/pipeline/pr/42` to get the test results and current stage of PR #42. I call `GET /api/v1/costs` to get a per-Workload cost breakdown. I cannot trigger deploys, create records, or modify anything with this API — every endpoint is read-only. Modificaitons need to be done via standard local file modificaitons & gitflow.
 
 - **Auth:** auth-service client credentials (machine-to-machine OAuth2 flow)
 - Publishes an OpenAPI contract for endpoint discovery, typed clients, and compatibility checks
@@ -424,20 +418,20 @@ Canonical read-only HTTP API for coding agents to query platform state outside o
   - Catalogs and documentation available in the platform
 - Everything visible in the IDE should also be available in structured form through this API
 - Read-only authorization is enforced by auth-service scopes and server routes; no write endpoints are registered
-- **Out of Demo scope:** ticket creation, notifications, agent management, and every platform mutation
+- **Out of Demo scope:** ticket creation, notifications, agent management, and platform mutation
 
 ### 8.2 First-Party FreeLunch Skill
-Documentation-backed workflows for using FreeLunch interactively or headlessly.
+Enabling AI Agents to use correctly FreeLunch.
 
-> **Story:** As a Developer, I install the FreeLunch skill in my coding agent. I can ask how to model and compile a Workload, inspect the same repository and platform state exposed by the IDE, or diagnose why `service-b` is degraded. The skill combines packaged FreeLunch documentation with the authenticated, read-only Coding Agent API, structured CLI output, and Git-backed project files so the workflows also work headlessly.
+> **Story:** As a Developer, I install the FreeLunch skill in my coding agent. I can ask to write, config and deploy a service, inspect the same repository and state exposed by the IDE, or diagnose why `service-b` is degraded. The skill combines FreeLunch documentation with the authenticated, read-only Coding Agent Observability API and Github Access.
 
 - Packages the FreeLunch documentation, concepts, repository conventions, and operational runbooks for agent use
-- Uses the OpenAPI-described REST API in 8.1 for authorized platform reads and structured CLI or Git-backed files for headless workflows
+- Uses the OpenAPI-described REST API in 8.1
 - Covers Workload modeling, source-to-image builds, L1 validation and compilation, pipeline and rollout inspection, and links back to equivalent FreeLunch IDE views
 - The skill correlates Workload health, pipeline state, recent errors, cost data, and observability summaries through the authorized API
 - The first-party skill defines diagnostic workflows such as degraded-Workload analysis, PR readiness, deployment regression analysis, and monthly cost investigation
 - Credentials are provided by the agent runtime or secure environment and are never embedded in the skill
-- The skill registers no MCP server; platform mutations continue to follow the documented GitOps and CLI paths
+- MCP is not used; platform mutations continue to follow the documented GitOps and CLI paths
 
 ---
 
@@ -508,7 +502,7 @@ Documentation for FreeLunch itself and auto-generated documentation for the cust
 | **1** | Freelunch repo virtual environment/package management and ci/cd, Customer Monorepo structure, local dev environment, auth service, secrets store | None |
 | **2** | External-secrets-operator, ArgoCD, Argo Rollouts, 4 Personas + permissions | Group 1 |
 | **3** | Canvas-maintained L1 schema, L1→L2 compilation engine, L2 artifact management | Groups 1–2 |
-| **4** | GitHub Actions pipeline, pre-commit hooks, Dagger, PR Criticality, selective test execution | Groups 1–3 |
+| **4** | Act (GitHub Actions local emulator) pipeline, pre-commit hooks, Dagger, PR Criticality, selective test execution | Groups 1–3 |
 | **5** | Argo Rollouts blue-green integration, ephemeral staging, autoscaling | Groups 2–4 |
 | **6** | SigNoz, customer workload observability, OpenCost cost observability | Groups 1, 5 |
 | **7** | FreeLunch IDE, local dev/experimentation environment, FreeLunch CLI | Groups 1, 3, 4, 6 |
