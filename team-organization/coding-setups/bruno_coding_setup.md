@@ -62,6 +62,7 @@ Can use these projects for borrowing ideas & patterns.
 - Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
 - For UI work (e.g., making a button or siebar), always create multiple mocks in the same html file before implementation. So that we can know precisely what we want to build. Each mock should only show what we interested in (not the whole UI which is already mocked in docs/mock.html) have an ID. I will say which ID I chose or give feedback for you to regenerate.
+- if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
 
 ### Things you should never do
 - never acess directories outside of the project's directory
@@ -87,6 +88,7 @@ Can use these projects for borrowing ideas & patterns.
 Notes:
 - each unique step is a slash command
 - each step is done by a single agent.
+- the agent can decide to go back to a preious step (e.g., encoutered a problem that requires change to spec)
 - Most steps have a planning sub-step performed at the beggining with the harness' plan mode
 - steps can (and probably should) use a specialist sub-agent for that type of task (e.g., specislist security agent for security review)
 - can go back from a step to a previous step if necessary to fix issue created earlier (but step jumps need to be tracked in an feature_flow.md file which has the name and number of issue on its title)
@@ -186,13 +188,13 @@ F: Make fixes based on PR Reviews and/or CI failures until PR is merged
 - Terminal Agent Harness: OpenCode
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
-- Models: (0) Planning: Kimi K3; (1) Spec, Boilerplate and Tests: Kimi K3; (2) Logic Writing: DeepSeek V4 Flash; (3) Independent Code Review Model: GLM-5.2; (4) Security Review: Kimi K3; (5) Difficult Bugs: Kimi K3; (6) Fixing PR Review o CI Problems: Kimi K3; (7) Independent spec and plan Review Model (only at few key moments): Claude Fable 5
+- Models: (0) Planning: Kimi K3; (1) Spec, Boilerplate and Tests: Kimi K3; (2) Logic Writing: DeepSeek V4 Flash; (3) Independent Code Review Model: GLM-5.2; (4) Security Review: Kimi K3; (5) Difficult Bugs: Kimi K3; (6) Fixing PR Review o CI Problems: Kimi K3; (7) Independent spec and plan Review Model (only at few key moments): Claude Fable 5; (8) sub-agents model: Claude Opus 5
 - Feature Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the feature building progress at the end (feature_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
 - OpenCode Plugins: graphify, rtk, lavish-axi and summarize-session, cross-platform-screenshot-capture.
 - OpenCode MCPs: Github MCP, Playwright MCP (only when making the ide).
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Agency-agents repo provides some agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the feature building flow
-- Dependency Docs: a `dependency_docs` folder holding the documentation of the pinned version of every first-level repo dependency (by default) with two sub-folders: `system_dependencies` (e.g., proxmox, kubetcl, etc) and `libraries` (e.g., go libraries, node libraries). Can also add lower level repo depdendencies when debugging (adding a docs of a dependency of a dependency to help debugging)
+- Dependency Docs: a dependency_docs.md under ./docs with entries in the form "- <dependency>: <docs_link>" for all direct dependencies (not dependencies of dependencies). Pinned versions used in the project cna be seen in the lock file of the virtual dev environment tool.
 - Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over. Get these ones to start with: skill-creator, grillme (for clarifying questions to make/improve spec), codebase-grillme, fspec-grillme. Make these ones to start with: making-spec, understand-external-codebase, platform-engineering, cloud-architect, cicd, ide-engineering.
 - Ralph Loop Engine (For agents to without supervision to achieve a goal, usefull for when you sleep/eat/or are just living life): **good nigh, have fun (gnhf)**. Note: this will burn tokens, only use if you are pretty confortable token-wise.
 
