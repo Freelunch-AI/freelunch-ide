@@ -60,6 +60,8 @@ Can use these projects for borrowing ideas & patterns.
 - If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach or even reset to the latest commit if everyhting is chaotic
 - Always write code filled with debug logs to help you debug in dev phase. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
 - Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
+- Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
+- For UI work (e.g., making a button or siebar), always create multiple mocks in the same html file before implementation. So that we can know precisely what we want to build. Each mock should only show what we interested in (not the whole UI which is already mocked in docs/mock.html) have an ID. I will say which ID I chose or give feedback for you to regenerate.
 
 ### Things you should never do
 - never acess directories outside of the project's directory
@@ -103,8 +105,15 @@ A: Issue-specific Spec
 1. **/start Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file**
 2. **/clarify Ask User Clarifying Questions & do web search if necessary** [User Approval Gate with AI Review Suggestions]
 3. Loop until 2 is succesfull [User Approval Gate with AI Security Reviewer Suggestions]
-    1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under ./issue folder that should not be tracked by git)** & Review against Global Spec (Founding Doc + Roadmap + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
-    2. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings 
+    1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under ./issue folder that should not be tracked by git)**
+
+    ---- New Session (reset context) ----
+   
+    2. **/reviewspec** Review Spec with Indepdente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in spec and problems in spec that needed to be overruled [User Approval Gate]
+
+    ---- New Session (reset context) ----
+    
+    3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings 
 4. [Make plan first & keep updating the plan at every step] **/fspecgrillme Understand the feature spec, then grill User with questions to see if he really understands the feature spec, user reviews feature spec and asks questions until he has full understanding** [AI Approval Gate]
 
 ---- New Session (reset context) ----
@@ -112,7 +121,7 @@ A: Issue-specific Spec
 B: Boilerplate
 
 5. **/boilerdep Define Allowed boilerplate dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
-6. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/boiler Setup/Modify the code boilerplate (stucture/skeleton)** (directories, files, functions, classes, types, docstrings, test build command, final packaging build command), install boilerplate depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
+6. [Make plan first & keep updating the plan at every step] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the code boilerplate (stucture/skeleton)** (directories, files, functions, classes, types, docstrings, test build command, final packaging build command), install boilerplate depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 7. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands the commit, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
 ---- New Session (reset context) ----
@@ -120,12 +129,12 @@ B: Boilerplate
 C: Tests & Logic
 
 8. Loop until 2 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make plan first & keep updating the plan at every step]  [User Approval Gate] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review against Issue-specific & Global Spec [User Approval Gate] with AI QA Review Suggestions] 
+    1. [Make plan first & keep updating the plan at every step]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review against Issue-specific & Global Spec [User Approval Gate] with AI QA Review Suggestions] 
     2. **/testtests Test the functional tests with placeholder feature code and guarantee 100% test coverage**
 9. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
 10. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
-    2. [Make plan first & keep updating the plan at every step]  [User Approval Gate]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled** [User Approval Gate with AI Independent Reviewer Suggestions]
+    2. [Make plan first & keep updating the plan at every step]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled** [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make plan first & keep updating the plan at every step]  [User Approval Gate] **/fixstatic Fix Linting errors, Static Analysis & Simplify Code** [User Approval Gate with AI Independent Reviewer Suggestions]
     4. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass 
 11. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
@@ -138,7 +147,7 @@ D: Code Review, Debug Log Removal & Documentation
     1. [Make plan first & keep updating the plan at every step] **/review Independent Code Review** (including Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled)
     2.  [Make plan first & keep updating the plan at every step] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 13. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
-14. [Make plan first & keep updating the plan at every step] **stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
+14. [Make plan first & keep updating the plan at every step] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
 15. **/document Document**:  Final User Documentation (how to install & use the product) & Controbutor Documentation (how to understanding the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
 
 ---- New Session (reset context) ----
@@ -177,14 +186,14 @@ F: Make fixes based on PR Reviews and/or CI failures until PR is merged
 - Terminal Agent Harness: OpenCode
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
-- Models: (1) Spec, Boilerplate and Tests: Kimi K3; (2) Logic Writing: DeepSeek V4 Flash; (3) Independent Code Review Model: GLM-5.2; (4) Security Review: Kimi K3; (5) Difficult Bugs: Kimi K3; (6) Fixing PR Review o CI Problems: Kimi K3.
+- Models: (0) Planning: Kimi K3; (1) Spec, Boilerplate and Tests: Kimi K3; (2) Logic Writing: DeepSeek V4 Flash; (3) Independent Code Review Model: GLM-5.2; (4) Security Review: Kimi K3; (5) Difficult Bugs: Kimi K3; (6) Fixing PR Review o CI Problems: Kimi K3; (7) Independent spec and plan Review Model (only at few key moments): Claude Fable 5
 - Feature Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the feature building progress at the end (feature_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
 - OpenCode Plugins: graphify, rtk, lavish-axi and summarize-session, cross-platform-screenshot-capture.
 - OpenCode MCPs: Github MCP, Playwright MCP (only when making the ide).
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Agency-agents repo provides some agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the feature building flow
 - Dependency Docs: a `dependency_docs` folder holding the documentation of the pinned version of every first-level repo dependency (by default) with two sub-folders: `system_dependencies` (e.g., proxmox, kubetcl, etc) and `libraries` (e.g., go libraries, node libraries). Can also add lower level repo depdendencies when debugging (adding a docs of a dependency of a dependency to help debugging)
-- Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over. Get these ones to start with: skill-creator, codebase-grillme, fspec-grillme. Make these ones to start with: making-spec, understand-external-codebase, platform-engineering, cloud-architect, cicd, ide-engineering.
+- Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over. Get these ones to start with: skill-creator, grillme (for clarifying questions to make/improve spec), codebase-grillme, fspec-grillme. Make these ones to start with: making-spec, understand-external-codebase, platform-engineering, cloud-architect, cicd, ide-engineering.
 - Ralph Loop Engine (For agents to without supervision to achieve a goal, usefull for when you sleep/eat/or are just living life): **good nigh, have fun (gnhf)**. Note: this will burn tokens, only use if you are pretty confortable token-wise.
 
 ## Custom Plugin PRD: Usage Guard Plugin
