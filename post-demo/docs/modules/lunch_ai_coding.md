@@ -9,6 +9,7 @@ Features:
 - cost manageemnt
 - self-improvement of agents
 - automatic discovery of best company/repo-specific coding setup for human developers
+- optional deployment of self-hosted LLM API for agents to use instead of cloud APIs
 
 ## On self-improvement of agents and automatic discovery of best company/repo-specific coding setup for human developers
 
