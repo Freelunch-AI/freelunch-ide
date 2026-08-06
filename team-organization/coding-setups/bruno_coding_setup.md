@@ -57,6 +57,7 @@ Can use these projects for borrowing ideas & patterns.
 - before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
 - when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
 - If something looks off (even if tis not directly related to the things youa re doing) try to get it fixed along
+- If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach or even reset to the latest commit if everyhting is chaotic
 
 ### Things you should never do
 - never acess directories outside of the project's directory
@@ -82,7 +83,7 @@ Can use these projects for borrowing ideas & patterns.
 Notes:
 - each unique step is a slash command
 - each step is done by a single agent.
-- each step has a planning sub-step performed at the beggining
+- Most steps have a planning sub-step performed at the beggining with the harness' plan mode
 - steps can (and probably should) use a specialist sub-agent for that type of task (e.g., specislist security agent for security review)
 - can go back from a step to a previous step if necessary to fix issue created earlier (but step jumps need to be tracked in an feature_flow.md file which has the name and number of issue on its title)
 - when a new feature starts, first need search for any completed feature_flow.md (inside .gitignore) and store it in completed_feature_flow folder (inside .gitignore) in the form feature_flow[i].md
@@ -94,24 +95,30 @@ Notes:
 
 Flow:
 
+A: Issue-specific Spec
+
 1. **/start Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file**
 2. **/clarify Ask User Clarifying Questions & do web search if necessary** [User Approval Gate with AI Review Suggestions]
 3. Loop until 2 is succesfull [User Approval Gate with AI Security Reviewer Suggestions]
-    1. **/spec Build issue-specific Spec (PRD + Architecture + Tech Stack)** & Review against Global Spec (Founding Doc + Roadmap + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
+    1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under ./issue folder that should not be tracked by git)** & Review against Global Spec (Founding Doc + Roadmap + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
     2. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings 
 4. [Make plan first & keep updating the plan at every step] **/fspecgrillme Understand the feature spec, then grill User with questions to see if he really understands the feature spec, user reviews feature spec and asks questions until he has full understanding** [AI Griller Approval Gate]
 
----- New Session ----
+---- New Session (reset context) ----
+
+B: Boilerplate
 
 5. **/boilerdep Define Allowed boilerplate dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
 6. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/boiler Setup/Modify the code boilerplate (stucture/skeleton)** (directories, files, functions, classes, types, docstrings, test build command, final packaging build command), install boilerplate depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 7. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands the commit, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
 
----- New Session ----
+---- New Session (reset context) ----
+
+C: Tests & Logic
 
 8. Loop until 2 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. [Make plan first & keep updating the plan at every step]  [User Approval Gate] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review against Issue-specific & Global Spec [User Approval Gate] with AI QA Review Suggestions] 
-    2. **/testtests Test the functional tests with placeholder feature code**
+    2. **/testtests Test the functional tests with placeholder feature code and guarantee 100% test coverage**
 9. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
 10. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
@@ -120,7 +127,9 @@ Flow:
     4. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass 
 11. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
 
----- New Session ----
+---- New Session (reset context) ----
+
+D: Code Review & Documentation
 
 12. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
     1. [Make plan first & keep updating the plan at every step] **/review Independent Code Review** (including Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled)
@@ -128,7 +137,9 @@ Flow:
 13. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
 14. **/document Document**:  Final User Documentation (how to install & use the product) & Controbutor Documentation (how to understanding the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
 
----- New Session ----
+---- New Session (reset context) ----
+
+E: Security Review & PR
 
 15. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Reviewer Suggestions]
     1. **/secreview Specialized Security Review** flagging critical problems & warnings
@@ -136,10 +147,12 @@ Flow:
 16. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
 17. **/pr Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
----- New Session ----
+---- New Session (reset context) ----
+
+F: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
 18. Loop until 1 is sucessfull or go back to a previous step 
-    1. [On PR Review Notification] **/prreviews Read PR Reviews from Github and write them locally on a dedicated folder**
+    1. [On PR Review or CI failure Notification] **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
     2. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec  [User Approval Gate with AI Review Suggestions]
     3. Loop until 1 is sucessfull or go back to a previous step
         1. [Make plan first & keep updating the plan at every step] **/review Independent Code Review** (including Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled)
@@ -147,7 +160,7 @@ Flow:
     4. [Make plan first & keep updating the plan at every step] **/grillme Grill User with questions to see if he really understands changes since lst grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
     5. **/document Document**:  Final User Documentation (how to install & use the product) & Contributor Documentation (how to understanding the codebase), both in the form of step by step tutorial. [User Approval Gate with AI Review Suggestions]
 
-    ---- New Session ----
+    ---- New Session (reset context) ----
 
     6. Loop until 1 is succesfull
         1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings 
@@ -160,7 +173,7 @@ Flow:
 - Terminal Agent Harness: **OpenCode***
 - IDE (for better introspection + manual editing): **VSCode**
 - LLM Provider Subscription: **OpenCode Go**
-- Model: current best coding model available in the subscription
+- Models: (1) Spec, Boilerplate and Tests: Kimi K3; (2) Logic Writing: DeepSeek V4 Flash; (3) Independent Code Review Model: GLM-5.2; (4) Security Review: Kimi K3; (5) Difficult Bugs: Kimi K3; (6) Fixing PR Review o CI Problems: Kimi K3.
 - Feature Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the feature building progress at the end (feature_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
 - OpenCode Plugins/Skills: **npx skills** installing/managing **signoz plugin (only when this tool is used in the codebase), opencost plugin (only when this tool is used in the codebase), headlamp plugin (only when this tool is used in the codebase), graphify, rtk, lavish-axi, security-guidance, code-review, code-simplifier, explanatory-output-style, skill-creator and summarize-session, cross-platform-screenshot-capture.** 
 - OpenCode MCPs: Github MCP, Playwright MCP.
