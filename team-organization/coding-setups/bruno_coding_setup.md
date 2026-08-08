@@ -18,12 +18,12 @@ We are currently focused on making the first version, the Demo. Therefore, do no
 
 ### Reference Open Source Projects
 Can use these projects for borrowing ideas & patterns.
-- Kubero — a Kubernetes-based, developer-friendly platform
-- Kubefirst - Modern K8s-based internal developer platform template
-- OKD — open source edition of Red Hat OpenShift, a k8s-based complete platform focused on enterprises
-- Tilt — a strong dev/experimentation experience for Kubernetes
-- Backstage — a plugin-based internal developer platform interface
-- Ray — modern distributed programming framework for Python (inspiration for the lunch-lang distributed programming framework idea, to be used within freelunch-ide, though ray works as runtime and lunch-lang would be at compile time)
+- [Kubero](https://github.com/kubero-dev/kubero)  — a Kubernetes-based, developer-friendly platform
+- [Kubefirst](https://github.com/konstructio/kubefirst)  - Modern K8s-based internal developer platform template
+- [OKD](https://github.com/okd-project/okd)  — open source edition of Red Hat OpenShift, a k8s-based complete platform focused on enterprises
+- [Tilt](https://github.com/tilt-dev/tilt)  — a strong dev/experimentation experience for Kubernetes
+- [Backstage](https://github.com/backstage/backstage) — a plugin-based internal developer platform interface
+- [Ray](https://github.com/ray-project/ray) — modern distributed programming framework for Python (inspiration for the lunch-lang distributed programming framework idea, to be used within freelunch-ide, though ray works as runtime and lunch-lang would be at compile time)
 
 ### Pattern to use
 - testing folder that mimicks the actual folder structure
