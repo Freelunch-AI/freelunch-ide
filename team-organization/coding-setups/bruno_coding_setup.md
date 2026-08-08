@@ -108,9 +108,8 @@ Flow:
 
 A: Issue-specific Spec
 
-1. **/start Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file**
-2. **/clarify Ask User Clarifying Questions & do web search if necessary** [User Approval Gate with AI Review Suggestions]
-3. Loop until 2 is succesfull [User Approval Gate with AI Security Reviewer Suggestions]
+1. **/start Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying question until it understands exactly the problem, the curretn state of the codebase and a common understanding is reached with the user.
+2. Loop until 2 and 3 are succesfull [User Approval Gate with AI Security Reviewer Suggestions]
     1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under ./issue folder which should be mentioned inside .gitignore)**
 
     ---- New Session (reset context) ----
@@ -120,7 +119,7 @@ A: Issue-specific Spec
     ---- New Session (reset context) ----
     
     3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings 
-4. [Make plan first & keep updating the plan at every step] **/fspecgrillme Understand the feature spec, then grill User with questions to see if he really understands the feature spec, user reviews feature spec and asks questions until he has full understanding** [AI Approval Gate]
+3. [Make plan first & keep updating the plan at every step] **/fspecgrillme Understand the feature spec, then grill User with questions to see if he really understands the feature spec, user reviews feature spec and asks questions until he has full understanding** [AI Approval Gate]
 
 ---- New Session (reset context) ----
 
@@ -135,16 +134,16 @@ B: Boilerplate
 C: Tests & Logic
 
 8. Loop until 2 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make plan first & keep updating the plan at every step]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review against Issue-specific & Global Spec [User Approval Gate] with AI QA Review Suggestions] 
+    1. [Make plan first & keep updating the plan at every step]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review the tests against Issue-specific & Global Spec to see if they are consistent. Incosistecies should be presented to the user, the user needs to resolve them. [User Approval Gate with AI Independent Reviewer Suggestions] 
     2. **/testtests Test the functional tests with placeholder feature code and guarantee 100% test coverage**
-9. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
+9. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 10. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
     2. [Make plan first & keep updating the plan at every step]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled**. Important: should make one test pass at a time, do not try to code multiple things in parallel and make multiple tests pass at once. [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make plan first & keep updating the plan at every step]  [User Approval Gate] **/fixstatic Fix Linting errors, Static Analysis & Simplify Code** [User Approval Gate with AI Independent Reviewer Suggestions]
     4. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
-11. [Make plan first & keep updating the plan at every step] **/evalrefact evaluate refactoring opportunities that would improve code quality and maintanability, [Make plan first & keep updating the plan at every step] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep ho it was before), only then move to the next** [AI Griller Approval Gate]
-12. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Griller Approval Gate]
+11. [Make plan first & keep updating the plan at every step] **/refactifnecessary evaluate refactoring opportunities that would improve code quality and maintanability, [Make plan first & keep updating the plan at every step]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
+12. [Make plan first & keep updating the plan at every step] **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 13. [Make plan first & keep updating the plan at every step] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
@@ -173,20 +172,17 @@ F: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
 20. Loop until 1 is sucessfull or go back to a previous step 
     1. (On PR Review or CI failure Notification manually checked by user) **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
-    3. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec  [User Approval Gate with AI Review Suggestions]
-    4. Loop until 1 is sucessfull or go back to a previous step
-        1. [Make plan first & keep updating the plan at every step] **/review Independent Code Review** (including Review against Spec catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled)
-        2. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test.** & Review against Issue-specific & Global Spec [User Approval Gate with AI Review Suggestions]
-    5. [Make plan first & keep updating the plan at every step] **/grillme Grill User with questions to see if he really understands changes since lst grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
-    6. **/document Document**:  Final User Documentation (how to install & use the product) & Contributor Documentation (how to understanding the codebase), both in the form of step by step tutorial. [User Approval Gate with AI Review Suggestions]
+    2. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
+    3. [Make plan first & keep updating the plan at every step] **/grillme Grill User with questions to see if he really understands changes since lst grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+    4. **/document Document**:  Final User Documentation (how to install & use the product) & Contributor Documentation (how to understanding the codebase), both in the form of step by step tutorial. [User Approval Gate with AI Review Suggestions]
 
     ---- New Session (reset context) ----
 
-    6. Loop until 1 is succesfull
+    5. Loop until 1 is succesfull
         1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings 
-        2. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test.** & Review against Issue-specific & Global Spec [User Approval Gate with AI Review Suggestions]
-    7. [Make plan first & keep updating the plan at every step] **/grillme Grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
-    8. **/pr Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
+        2. [Make plan first & keep updating the plan at every step] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
+    6. [Make plan first & keep updating the plan at every step] **/grillme Grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+    7. **/pr Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
 ## AI-assisted Coding Tech Stack
 - Agent-native Editor/Terminal: Superset (only when tackling multiple issues in parallel)
