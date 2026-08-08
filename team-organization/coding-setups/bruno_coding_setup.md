@@ -100,8 +100,8 @@ Notes:
 - the agent can decide to go back to a preious step (e.g., encoutered a problem that requires change to spec)
 - Most steps have a planning sub-step performed at the beggining with the harness' plan mode
 - steps can (and probably should) use a specialist sub-agent for that type of task (e.g., specislist security agent for security review)
-- can go back from a step to a previous step if necessary to fix issue created earlier (but step jumps need to be tracked in an feature_flow.md file which has the name and number of issue on its title)
-- when a new feature starts, first need search for any completed feature_flow.md (inside .gitignore) and store it in completed_feature_flows folder (inside .gitignore) in the form feature_flow[i].md
+- can go back from a step to a previous step if necessary to fix issue created earlier (but step jumps need to be tracked in an feature_flow.md file which has the name and number of issue on its title). Note: the feature_flow.md file is mostly sequential, but step B of the feature flow hill hold parallel sequential paths, one for each core implementation task.
+- when a new feature (tackling new issue) starts, first need search for any completed feature_flow.md (inside .gitignore) and store it in completed_feature_flows folder (inside .gitignore) in the form feature_flow[i].md
 - session summary hook: when a session ends store a summary of key things done/key problems encoutered/tips/learnings/todos in the session in the respective section of feature_flow.md that agent was in (e.g., under step 3 or step 12) in this json form {"key things done": "placeholder", "key problems encoutered": {"problem":" placeholder", "solved_or_not": placeholder, "tips for next agent working on this": "placeholder"}, "learnings": "", "todos": "placeholder"}
 - approval gates mean that either the user (developer) or a specific AI agent needs to give approval to continue the flow
 - after every approval (human or ai), a git commit is made
