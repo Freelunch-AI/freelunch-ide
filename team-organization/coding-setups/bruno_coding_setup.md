@@ -205,139 +205,89 @@ F: Make fixes based on PR Reviews and/or CI failures until PR is merged
     - Use existing skills: skill-creator, grillme, lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools, security-and-hardening, cc-skills-golang, maintainable-typescript, improve-codebase-architecture
 - Ralph Loop Engine (For agents to without supervision to achieve a goal, usefull for when you sleep/eat/or are just living life): **good nigh, have fun (gnhf)**. Note: this will burn tokens, only use if you are pretty confortable token-wise.
 
-## Custom Plugin PRD: Usage Guard Plugin
+## PRD -- Usage Guard: Custom OpenCode Plugin
 
-### Overview
+### Usage Guard — OpenCode Plugin PRD
 
-Usage Guard is an OpenCode plugin that continuously monitors local LLM token consumption and proactively warns developers when their current usage pattern is likely to trigger subscription throttling.
+#### Overview
 
-Unlike cost dashboards, Usage Guard is subscription-aware. Users configure their LLM subscription (starting with **OpenCode Go**) and the plugin estimates throttling risk using known characteristics of that subscription model together with the user's recent usage patterns.
+Usage Guard is an OpenCode plugin that:
 
-The plugin also analyzes the user's workflow and provides actionable recommendations to reduce token consumption before limits are reached.
+1. Shows **live current-context usage** in the TUI.
+2. Monitors recent token consumption and warns about potential subscription throttling.
 
----
+MVP supports **OpenCode Go** and a **single terminal**.
 
-### Problem
+#### Goals
 
-Developers using subscription-based LLM plans receive little or no warning before hitting provider rate limits.
+* Persistent context counter in the OpenCode TUI.
+* Show current tokens and context utilization.
+* Monitor recent token consumption.
+* Estimate throttling risk for the configured subscription.
+* Provide lightweight warnings and actionable suggestions.
 
-Once throttled, they must interrupt their workflow, switch models, or wait for their rolling usage window to recover.
+#### Non-Goals
 
-The goal is to detect aggressive usage **before** throttling occurs and help users adjust their behavior.
+* Exact provider quota prediction.
+* Billing/cost tracking.
+* Multi-terminal aggregation.
+* Automatic model/context changes.
+* Historical analytics.
 
----
+#### TUI Context Counter
 
-### Goals
+Display the current context usage continuously.
 
-* Continuously monitor local token usage.
-* Understand the user's subscription plan.
-* Estimate throttling risk using subscription-specific heuristics.
-* Display warnings directly inside the terminal.
-* Recommend practical ways to reduce token usage.
-
----
-
-### Non-Goals
-
-* Predict the exact remaining provider quota.
-* Reverse engineer provider rate-limiting algorithms.
-* Display API billing or costs.
-* Synchronize usage across multiple machines (MVP).
-
----
-
-### Supported Subscriptions
-
-#### MVP
-
-* OpenCode Go
-
-#### Future
-
-* OpenCode Max
-* Claude Pro
-* Claude Max
-* ChatGPT Plus/Pro
-* Gemini subscriptions
-* API usage profiles
-
-Each subscription profile defines heuristics appropriate for its known usage model.
-
----
-
-### Terminal Scope
-
-#### MVP
-
-Usage Guard monitors a **single OpenCode terminal session**.
-
-Risk estimation, rolling statistics, and warnings are computed only from activity originating in the current terminal. This provides immediate value while keeping the implementation simple and avoiding cross-process coordination.
-
-#### Future
-
-Support multiple concurrently running OpenCode terminals.
-
-The plugin should distinguish between:
-
-* **Terminal Risk** — Usage and throttling risk for the current terminal.
-* **Global Risk** — Combined usage across all active OpenCode terminals.
-
-Example:
+**Illustrative example — values are not fixed:**
 
 ```text
-Current Terminal
-🟡 Moderate Risk
-
-Global Usage
-🔴 High Risk
-
-Reason:
-Three OpenCode terminals are actively consuming tokens.
+24k (12%)
 ```
 
-The architecture should be designed around a per-terminal abstraction so global aggregation can be added without changing the core risk estimation logic.
+Format:
 
----
+```text
+<current context tokens> (<context utilization %>)
+```
 
-### Data Source
+Example states:
 
-Read usage data from OpenCode's local SQLite database.
+```text
+24k (12%)   ← example
+164k (82%)  🟡
+187k (94%)  🔴
+```
 
-Available metrics include:
+Default thresholds:
 
-* Timestamp
-* Provider
-* Model
-* Input tokens
-* Output tokens
-* Cached tokens
-* Request duration
+* `<75%` — 🟢 Normal
+* `75–90%` — 🟡 High
+* `>90%` — 🔴 Critical
 
----
+The counter should use OpenCode's authoritative active-session context usage when available.
 
-### Core Metrics
+#### Usage Monitoring
 
-Continuously compute rolling statistics:
+Track:
 
-* Tokens/minute
-* Requests/minute
-* Last 5 minutes
-* Last 10 minutes
-* Last 30 minutes
-* Exponential Moving Average (EMA)
-* Context growth rate
-* Cache hit ratio
+* Tokens consumed in a rolling window.
+* Requests in the rolling window.
+* Current subscription profile.
 
----
+MVP default:
 
-### Risk Estimation
+```yaml
+usage:
+  window: 10m
+```
 
-Estimate throttling probability by combining:
+#### Risk Estimation
 
-* Subscription profile
-* Rolling token velocity
-* Request frequency
-* Historical usage patterns
+Calculate throttling risk from:
+
+* Subscription profile.
+* Recent token consumption.
+* Request frequency when relevant.
 
 Risk levels:
 
@@ -345,96 +295,102 @@ Risk levels:
 * 🟡 Moderate
 * 🔴 High
 
-The heuristics should be configurable and evolve as community knowledge improves.
+Risk is an estimate, not an exact provider quota.
 
----
+#### Warnings
 
-### Intelligent Recommendations
-
-When high usage is detected, Usage Guard should explain **why** and recommend ways to reduce token consumption based on observed patterns.
-
-Examples:
-
-* Large contexts are being sent repeatedly.
-* Long-running agent sessions are consuming most tokens.
-* Context is growing continuously without resets.
-* Cache hit rate is low.
-* An expensive model is being used for simple tasks.
-* Multiple agents are running simultaneously (future multi-terminal support).
-* Frequent retries are increasing token usage.
-
-Possible recommendations:
-
-* Start a fresh conversation.
-* Switch to a cheaper model for routine tasks.
-* Reduce the number of concurrent agents.
-* Enable or improve prompt caching.
-* Break large tasks into smaller batches.
-* Reduce unnecessary context included in prompts.
-
-Recommendations should be personalized based on actual usage patterns rather than generic advice.
-
----
-
-### Terminal Warnings
-
-Warnings should appear directly inside the active OpenCode terminal. Users should not need to open a dashboard or separate interface.
+Warnings appear inside the OpenCode terminal and should be infrequent.
 
 Example:
 
 ```text
 ⚠ Usage Guard
 
-High usage detected.
+Recent token consumption is unusually high.
 
-Subscription:
-OpenCode Go
+Risk: 🔴 High
 
-10-minute token rate is significantly above your expected sustainable usage.
-
-Risk:
-🔴 High
-
-Suggestions:
-• Start a new conversation
-• Switch to Gemini Flash for routine tasks
+• Start a fresh session
+• Use a cheaper model for routine tasks
 • Reduce concurrent agents
 ```
 
-Warnings should be lightweight, infrequent, configurable, and should not interrupt the normal development workflow.
+Context warning:
 
----
+```text
+⚠ Usage Guard
 
-### Configuration
+Context usage is high.
+
+Current context is approaching the model's context limit.
+
+Consider starting a fresh session.
+```
+
+#### Data Sources
+
+Use OpenCode's existing session and usage data.
+
+* **Live context:** active OpenCode session.
+* **Recent usage:** OpenCode local usage data.
+
+Avoid independently reconstructing or tokenizing the conversation when authoritative usage data is available.
+
+#### Configuration
 
 ```yaml
 usageGuard:
   enabled: true
-
   subscription: opencode-go
 
-  windows:
-    - 5m
-    - 10m
-    - 30m
+  context:
+    enabled: true
+    warningThreshold: 75
+    criticalThreshold: 90
 
-  warningThreshold: medium
+  usage:
+    window: 10m
 
-  notifyEvery: 5m
+  warnings:
+    enabled: true
+    notifyEvery: 5m
 ```
 
----
+#### Architecture
 
-### Future Enhancements
+```text
+OpenCode
+   │
+   ▼
+Usage Guard
+   ├── Context Monitor
+   ├── Usage Monitor
+   ├── Subscription Profile
+   └── Risk Engine
+          │
+          ▼
+         TUI
+```
 
-* Multi-terminal monitoring
-* Global usage aggregation
-* Desktop notifications
-* Historical usage graphs
-* Burn-rate forecasting
-* Provider-specific optimization recommendations
-* Community-maintained subscription profiles
-* Prometheus/OpenTelemetry metrics export
-* Automatic model-switch suggestions
-* Team-wide usage analytics
+MVP operates independently per terminal.
+
+#### Future
+
+* Multi-terminal/global usage.
+* More subscription profiles.
+* Historical usage.
+* Burn-rate forecasting.
+* Context composition analysis.
+* Prometheus/OpenTelemetry.
+* Automatic optimization/model switching.
+
+#### MVP Success Criteria
+
+A developer can glance at the terminal and immediately understand their current context usage:
+
+```text
+<current tokens> (<context %>)
+```
+
+They should also receive a warning when either **context pressure** or **subscription usage** becomes problematic.
 
