@@ -90,7 +90,7 @@ Demo Innovative Features: (1) K8s-based, with a canvas-maintained layer 1 API (p
 - Infra: (1) Argo Rollouts-managed blue-green deploys and rollbacks for stateless applications; (2) Auth: CI/CD uses GitHub as OIDC Provider, IDE uses Keycloak as OIDC Provider, Pods use K8s as OIDC Provider and Vault as Application Secrets Store; (3) IaC knowledge not necessary for getting services running and observing them; (4) Only superficial K8s knowledge necessary; (5) Autoscaling: pod, node vertical and horizontal autoscaling; (6) Local Dev Environment for developing/validating services powered by K8s-in-Docker (Kind); (7) Backups & Restores already set up; (8) Support for using existing EKS clusters.
 Interfaces: (1) IDE + Dev Portal being the same thing; (2) Minimal CLI for set up and inspection; (3) GitOps for actual modifications to the systems (unit tests -> integration tests (ephemeral) -> staging (ephemeral) -> prod); (4) Personas: platform admin, platform engineer, developer, tech lead (developer that can merge PRs)
 Docs: (1) comes with a stateless sample app and documentation explaining how it is modeled, deployed, and operated
-- Observability: (1) Infra & App Observability through SigNoz; (2) OpenCost with its Prometheus backend for Demo cost observability; (3) SigNoz and OpenCost UIs embedded in FreeLunch as plugins, with a unified FreeLunch-owned experience planned later
+- Observability: (1) User Infra & App Observability through SigNoz; (2) OpenCost with its Prometheus backend for Demo cost observability; (3) SigNoz and OpenCost UIs embedded in FreeLunch as plugins, with a unified FreeLunch-owned experience planned later
 - Application: (1) Easily build and deploy stateless services without dealing necessarily with containers (powered by cloud-native buildpacks)
 - Platform lifecycle: (1) Declarative platform versioning with compatibility checks and guided resolution for breaking schema changes
 - Lock-in: (1) standard, customer-owned L2 artifacts and GitOps flow remain inspectable and directly operable; automated detach/eject workflows are post-MVP
@@ -107,6 +107,7 @@ Basic setup for us to start development: github repo & access control, virtual e
 
 Monetization while building our product: platform consulting. Being hired to be the outsourced platform engineering team of existing scaleups that don’t have a team for this. Hired to build a custom platform for the company (caveat: will have some specific needs that don't generalize to other companies).
 
+**What's missing to become an MVP?** Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
 
 ## Key Technical Decisions & FAQ
 
