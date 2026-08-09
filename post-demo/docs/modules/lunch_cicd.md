@@ -1,0 +1,1 @@
+# [dev mode] [imperative] CI/CD Front — lunch-cicd: lets you extend default ci/cd pipeline and monitor ci/cd. Also gets a dev environment for experimenting/evaluating/monitor the ci/cd pipeline itself.

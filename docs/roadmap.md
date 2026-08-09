@@ -2,7 +2,7 @@
 
 ## Mock
 
-[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/freelunch_ide_mock.html)
+[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/mock.html)
 
 ## OSS Design References
 

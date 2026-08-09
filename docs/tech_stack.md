@@ -55,7 +55,41 @@ This covers the runtime, delivery, and operations stack used to demonstrate the 
 - Cost observabilityfor workloads → **OpenCost** + **Prometheus** (embedded UI via plugin)
 - Load testing → **K6** (locked CLI version in pixi)
 - Test doubles / API mocking for integration tests → **WireMock**
-- Kubernetes integration testing → **kubetest** (locked version in pixi)
 - Security scanning for images and artifacts → **Trivy** (locked version in pixi)
 - IDE/workbench frameowrk for making the IDE → **Eclipse Theia** (locked version in pixi)
-- Plugins -> **OpenVSX** (for **VSCode** extensions) + **Backstage** (for embedded control planes) plugins
+
+## 3. Tools we will incorporate after Demo
+- Cloud Providers: AWS, Azure, GCP, etc
+- User VCS & Monorepo CI/CD Orchestration: Github+Github Actions, GitLab, Codeberg
+- External Resources Provisioning & Reconciliation: Crossplane
+- Policy Enforcement Controller: Kyverno
+- App Workflows (DAGs): Dagster
+
+## 4. Tools we will incorporate after MVP
+
+Beyond vanilla cluster:
+- Single-cluste abstraction for multi-cluster: Karmada
+- Edge Nodes: KubeEdge
+
+Experimentation:
+- System-wide experiment management: DVC
+
+Observability:
+- Lineage-full Observability: OpenLineage
+
+Data:
+- Serverless Experience for DBs & Queus: Kubeblocks
+- Raw in-cluster Data Storage: Rook
+- Backups & Recovery: Velero
+- Engine2Engine DB Migrations: Airbyte
+- DB Schema Migrations: Atlas
+- CDC (for time-travel): Debezium
+- DB Setup & Debugging for non-PROD: DBeaver
+- Cross-engine data transformations: Ibis
+- Distributed Big Data Processing: Beam
+
+AI:
+- Ephemeral Data/AI Experimentation Compute Clusters: Skypilot
+- Ephemeral Data/AI Experimentation Ready Clusters: Ray, DeepSpeed, NVIDIA NeMO, etc
+- Ephemeral Data/AI Experimentation Notebooks: Marimo
+- LM & Agents Observsability: Langfuse
