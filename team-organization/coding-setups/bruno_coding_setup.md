@@ -211,6 +211,8 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
 ## AI-assisted Coding Tech Stack
 
+External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
+
 - Agent-native Editor/Terminal: Superset (only when tackling multiple issues in parallel)
 - Terminal Agent Harness: OpenCode
 - IDE (for better introspection + manual editing): VSCode
