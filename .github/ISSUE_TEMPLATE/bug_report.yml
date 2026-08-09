@@ -1,6 +1,6 @@
 name: Bug report
 description: Report reproducible behavior that is not working as expected
-title: "[Bug]: "
+title: '[Bug]: '
 labels:
   - bug
 type: Bug

@@ -1,6 +1,6 @@
 name: Technical discussion
 description: Discuss an open question or technical decision with the team
-title: "[Discussion]: "
+title: '[Discussion]: '
 body:
   - type: textarea
     id: context

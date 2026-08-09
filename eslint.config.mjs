@@ -4,8 +4,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // Build output and vendored trees are never linted.
-    ignores: ['**/lib/**', '**/node_modules/**', '**/dist/**'],
+    // Build output and vendored trees are never linted. `.pixi/` holds the
+    // materialised pixi environment — the Go toolchain ships its own JS in
+    // there (pprof, gophertool), and ESLint does not read .gitignore.
+    ignores: ['**/lib/**', '**/node_modules/**', '**/dist/**', '**/.pixi/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
