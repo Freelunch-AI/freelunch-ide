@@ -1,6 +1,12 @@
 [config]
 restricted_mode = true
 
+[github_action_config]
+handle_push_trigger = true
+push_commands = [
+    "/review",
+]
+
 [pr_reviewer]
 extra_instructions = """
 Review this repository as a senior platform engineer and flag all problems encountered with appropriate metadata.
