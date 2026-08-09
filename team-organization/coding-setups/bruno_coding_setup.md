@@ -218,9 +218,13 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Terminal Agent Harness: OpenCode
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
-- Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, Boilerplate and Tests: Kimi K3 with high reasoning; (2) Logic Writing: DeepSeek V4 Flash with medium reasoning; (3) Independent Code Review Model: GLM-5.2 with high reasoning; (4) Security Review: Kimi K3 with high reasoning; (5) Fixing PR Review o CI Problems: Kimi K3 with high reasoning; (6) Independent spec and plan Review Model (only at few key moments): Claude Ops 5 with high reasoning; (7) sub-agents model: Claude Opus 5
+- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, Boilerplate and Tests: Kimi K3 with high reasoning; (2) Logic Writing: DeepSeek V4 Flash with medium reasoning; (3) Independent Code Review Model: GLM-5.2 with high reasoning; (4) Security Review: Kimi K3 with high reasoning; (5) Fixing PR Review o CI Problems: Kimi K3 with high reasoning; (6) Independent spec and plan Review Model (only at few key moments): Claude Ops 5 with high reasoning; (7) sub-agents model: Claude Opus 5
+- Local Routing: opencode-model-router (opencode plugin)
+    - Fast Model: qwen2.5-coder:7b
+    - Medium Model: current coder model
+    - Heavy Model: current coder model
 - Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
-- OpenCode Plugins: graphify, rtk, lavish-axi, opencode-quota, cross-platform-screenshot-capture.
+- OpenCode Plugins: graphify, rtk, lavish-axi, opencode-quota, cross-platform-screenshot-capture, opencode-model-router
 - OpenCode MCPs: Github MCP, Chrome DevTools (only when working with frontend part).
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Agency-agents repo provides some agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
