@@ -127,7 +127,8 @@ Flow:
 
 A: Issue-specific Spec & Core Implementaion Tasks Plan
 
-1. **/start Start Feature Building: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying question until it understands exactly the problem, the curretn state of the codebase and a common understanding is reached with the user.
+0. **/grillme Understand the codebase, then grill User with questions to see if he really understands the codebase.** Make high-level (e.g., decisions chosen, project strcture, tradeofs, architecture) questions and low-level ones as well (e.g., what a specific file/function/class is for) [AI Approval Gate]
+1. **/start Start Feature Building**: point to github issue, agent will read the issue and create feature branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
 2. Loop until 2 and 3 are succesfull [User Approval Gate with AI Security Reviewer Suggestions]
     1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under ./issue folder which should be mentioned inside .gitignore)**
 
