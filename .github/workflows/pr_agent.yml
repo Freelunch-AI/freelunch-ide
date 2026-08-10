@@ -15,8 +15,8 @@ jobs:
         uses: the-pr-agent/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          config.model: "anthropic/claude-opus-5"
-          config.fallback_models: '["anthropic/claude-opus-4.8"]'
+          config.model: "anthropic/claude-opus-4.8"
+          config.fallback_models: '["anthropic/claude-opus-4.7"]'
           
           ANTHROPIC.KEY: ${{ secrets.ANTHROPIC_KEY }}
           
