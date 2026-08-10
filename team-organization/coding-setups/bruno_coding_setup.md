@@ -218,7 +218,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Terminal Agent Harness: OpenCode
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
-- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, Boilerplate and Tests: Kimi K3 with high reasoning; (2) Logic Writing: DeepSeek V4 Flash with medium reasoning; (3) Independent Code Review Model: GLM-5.2 with high reasoning; (4) Security Review: Kimi K3 with high reasoning; (5) Fixing PR Review o CI Problems: Kimi K3 with high reasoning; (6) Independent spec and plan Review Model (only at few key moments): Claude Ops 5 with high reasoning; (7) sub-agents model: Claude Opus 5
+- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, Boilerplate and Tests: Kimi K3 with high reasoning; (2) Logic Writing: DeepSeek V4 Flash with medium reasoning; (3) Independent Code Review Model: GLM-5.2 with high reasoning; (4) Security Review: Kimi K3 with high reasoning; (5) Fixing PR Review o CI Problems: Kimi K3 with high reasoning; (6) Independent spec and plan Review Model (only at few key moments): Claude Ops 4.8 with high reasoning; (7) sub-agents model: Claude Opus 4.8
 - Local Routing: opencode-model-router (opencode plugin)
     - Fast Model: qwen2.5-coder:7b
     - Medium Model: current coder model
