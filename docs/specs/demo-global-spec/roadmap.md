@@ -49,7 +49,7 @@ monorepo/
 ### 1.2 Local Dev/Experimentation Environment
 The fully-local runtime environment for the Demo.
 
-> **Story:** As a Platform Admin, I run `freelunch install` on a fresh machine with Docker installed and a local development environment appears with Kubernetes provisioned into an emulated VPC via Ansible/Terraform and Floci emulating AWS services alongside it. All FreeLunch components deploy into it without touching the internet.
+> **Story:** As a Platform Admin, I run `freelunch install` on a fresh machine with Docker installed and a local development environment appears with Kubernetes provisioned into an emulated VPC via Ansible/Terraform. All FreeLunch components deploy into it without touching the internet.
 
 - **Kubernetes** — primary runtime target for the Demo
 - **ProxMox** + **Talos Linux** — local Talix Linux VM cluster
