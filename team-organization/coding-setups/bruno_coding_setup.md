@@ -303,7 +303,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 ## Token Efficency Laws
 
-- Avoid small actions → batch related small tasks into larger coherent work units.
+- Avoid small actions → batch related small tasks into larger coherent work units (use a todo_buffer.md to store all todos and then batch them before prompting the harness)
 - Don't derail the agent from its main goal → context spent on unrelated work is expensive and increases context pollution.
 - Use a graph/codebase-understanding tool → avoid repeatedly spending LLM tokens rediscovering repository structure and relationships.
 - Related big tasks in the same session, unrelated new stuff gets its new session
