@@ -128,10 +128,11 @@ Similarly:
 
 ## Making PRs
 
+- ensure the pre-pr-checklist.md is checked before making a PR
 - follow the project's PR template
-- highlight key decisions, problems encoutered, solutions and tradeoffs chosen
-- highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
-- make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
+- in the pr you write: highlight key decisions, problems encoutered, solutions and tradeoffs chosen
+- in the pr you write: highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
+- in the pr you write: make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
 ---
 
 ## Issue Flow (tool-agnostic)
