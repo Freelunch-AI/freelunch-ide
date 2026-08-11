@@ -184,7 +184,7 @@ B: Core Implementation (p/task of the core-implementation-tasks-plan.md). Loop u
 B1: Common Boilerplate
 
 5. **/boilerdep Define Allowed boilerplate dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
-6. [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the issue handling common boilerplate (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, dev/test/build/package/publish command automations, etc) that are needed before core implementation, install boilerplate depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
+6. [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common boilerplate (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install boilerplate depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 
  ----<<separate terminal block (reset context) >>----
 
