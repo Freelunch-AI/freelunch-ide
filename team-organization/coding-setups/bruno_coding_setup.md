@@ -16,13 +16,17 @@ You should treat the me as the CEO thats sets objectives for you to build and al
 - Feature Roadmap for the Demo in ./docs/roadmap.md
 - Tech Stack for the Demo in ./docs/tech_stack.md
 
+### GUI Mock of the project
+
+A mock of the proposed IDE (Freelunch IDE) is in docs/mock.html
+
 ### Stage of the project
 
-We are currently focused on making the first version, the Demo. Therefore, do not over-engineer this, dont try to solve problems of later in the future, makng it perfectly scalable, perfectly performant or perfectly secure. Focus on getting the core right.
+We are currently focused on making the first version, the Demo with only the core stuff. Therefore, do not over-engineer this, dont try to solve problems to far away in the future, makng it perfectly scalable, perfectly performant or perfectly secure. Focus on getting the core right without major risks.
 
 ### Reference Open Source Projects
 
-Can use these projects for borrowing ideas & patterns.
+Can use these projects for borrowing ideas & patterns if you deem necessary.
 
 - [Kubero](https://github.com/kubero-dev/kubero)  — a Kubernetes-based, developer-friendly platform
 - [Kubefirst](https://github.com/konstructio/kubefirst)  - Modern K8s-based internal developer platform template
@@ -31,19 +35,20 @@ Can use these projects for borrowing ideas & patterns.
 - [Backstage](https://github.com/backstage/backstage) — a plugin-based internal developer platform interface
 - [Ray](https://github.com/ray-project/ray) — modern distributed programming framework for Python (inspiration for the lunch-lang distributed programming framework idea, to be used within freelunch-ide, though ray works as runtime and lunch-lang would be at compile time)
 
-### Pattern to use
+### Patterns to use
 
 - testing folder that mimicks the actual folder structure
 - always work on the standard virtual environment for the project
+- test-driven development using dependency injection
 
 ### Code Quality & Testing
 
 - avoid excessive dependencies
-- write docstrings for every function and class
+- write docstrings for every function and class assuming the reader is a new programmer
+- write documentation at the beggining of each file assuming the reader is a new programmer
 - use meaningful variable and function names
 - Remove dead code
 - Avoid duplication
-- Small composable functions
 - Explicit error handling
 - New behavior requires tests.
 - Bug fixes require regression tests.
@@ -55,16 +60,16 @@ Can use these projects for borrowing ideas & patterns.
 - Never hardcode secrets
 - Validate external input
 - Escape shell arguments
-- Principle of least privilege
+- use the principle of least privilege
 
 ### Things you should always do
 
 - Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
-- ask for my persmission for running terminal commands
+- for risky terminal commands, try to dry run tem before if possible and ask for my persmission for really running them
 - should always read documentation of the dependencies you use before using them
 - log all mistakes you made in which i had to help you with in ./.agent/persistent/knowledge/mistakes.jsonl files, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. What counts as mistakes? Mistakes are anything the user had to intervene to change something you already did becomes it had problems, the user might say explicitely that you did something wrong (e.g., "change di code you wrote because its not clean", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained steps, where four start by doing this"). What doesnt count as mistakes? User intervetion where the user requests new spec changes are never mistakes; User interverntions for low-level implementation details can be a mistake or not (mistake e.g., "I told you already to not write these types of logs, fix them in all the functions"; non-mistake e.g., "extend this class to also support this capability that is currently outisde of the class")
 - Log all codebase-related (e.g., how does this function work?) questions I ask to you in a ./.agent/persistent/user-codebase-questions.jsonl, each entry in the form "question": "placeholder", "answer": "placeholder"}
-- Log all assumptions you make to ./.agent/persistance-candidate/assumptions.md where you keep track of asssumptions you make for the session. Each assumtpions has the following data: (1) description of the assumption, current evidence of the assumption, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky assumption you dont have much evidence.
+- Log all assumptions you make to ./.agent/session-persistance-candidate/assumptions.md where you keep track of asssumptions you make for the session. Each assumtpions has the following data: (1) description of the assumption, current evidence of the assumption, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky assumption you dont have much evidence.
 - keep your code clean and organized, refactoring might be needed
 - moduarization: the codebase should have a few big modules with clear boundaries and relationships, and each big module is composed of many little modules. Dont let fils become too big, prefer breaking into multiple files where each one has a clear meaning/job.
 - if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
@@ -138,7 +143,7 @@ Notes for implementation:
 - the agent can decide to go back to a preious step (e.g., encoutered a problem that requires change to spec)
 - Most steps have a planning sub-step performed at the beggining with the harness' plan mode which geenrate a p/step .agent/session/plan.md
 - steps can (and probably should) use a specialist sub-agent for that type of task (e.g., specislist security agent for security review)
-- can go back from a step to a previous step if necessary to fix issue created earlier (but step jumps need to be tracked in an issue_flow.md file which has the name and number of issue on its title). Note: the issue_flow.md file is mostly sequential, but step B of the issue flow hill hold parallel sequential paths, one for each core implementation task.
+- can go back from a step to a previous step if necessary to fix issue created earlier (but step jumps need to be tracked in an issue_flow.md file which has name of the issue, number of the issue, timestamp of creation & completation as its metadata n the begging of the file). Note: the issue_flow.md file is mostly sequential, but step B of the issue flow hill hold parallel sequential paths, one for each core implementation task.
 - when a new feature (tackling new issue) starts, first need search for any completed .agent/flow/issue_flow.md and store it in ./.agent/persistence/completed_issue_flows folder (inside .gitignore) in the form issue_flow_[i].md where i is the github issue number.
 - session summary hook: when a session ends store a summary of key things done/key problems encoutered/tips/learnings/todos in the session in the respective section of issue_flow.md that agent was in (e.g., under step 3 or step 12) in this json form {"key things done": "placeholder", "key problems encoutered": {"problem":" placeholder", "solved_or_not": placeholder, "tips for next agent working on this": "placeholder"}, "learnings": "", "todos": "placeholder"}
 - approval gates mean that either the user (developer) or a specific AI agent needs to give approval to continue the flow
@@ -146,8 +151,8 @@ Notes for implementation:
 - multiple features can be implemented in parallel by having separate terminals, each one in its respective worktree and branch.
 - "AI Review" menas the same AI thats coding reviews its own work
 - "Independent AI Reviewer" means that a different model with fresh context must be used
-- When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/persistance-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistance/knowledge/non_obvious_conjectures_and_facts.md
-- At the start of any slash command: a hook must be called to git add/commit. If in a new session without context: use issue_flow.md's last progress data to infer a good commit message.
+- When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/session-persistance-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistance/knowledge/non_obvious_conjectures_and_facts.md, then finally empty all files inside .agent/session-persistance-candidate
+- At the start of any slash command: a hook must be called to git add & commit. If in a new session without context fo what was done: use .agent/flow/issue_flow.md's last progress data to infer a good commit message.
 
 ### Issue Flow:
 
@@ -250,7 +255,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
     - Medium Model: current coder model
     - Heavy Model: current coder model
 - Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
-- OpenCode Plugins: graphify, rtk, lavish-axi, opencode-quota, cross-platform-screenshot-capture, opencode-model-router
+- OpenCode Plugins: graphify, rtk, opencode-quota, opencode-model-router
 - OpenCode MCPs: Github MCP
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Agency-agents repo provides some agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
