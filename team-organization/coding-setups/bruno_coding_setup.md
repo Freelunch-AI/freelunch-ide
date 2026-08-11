@@ -76,11 +76,11 @@ Can use these projects for borrowing ideas & patterns.
 - Always write code filled with debug logs to help you debug in dev phase. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
 - Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
-- For UI work (e.g., making a button or siebar), always create multiple mocks in the same html file before implementation. So that we can know precisely what we want to build. Each mock should only show what we interested in (not the whole UI which is already mocked in docs/mock.html) have an ID. I will say which ID I chose or give feedback for you to regenerate.
 - if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
 - always when you get stuck in a problem, revise ./.agent/plans/core-implementation-tasks-plan.md or plan.md to see if plan changes need to be mande. Remember that core-implementation-tasks-plan.md stores the tree of core implementaiton tasks along with progress, its per-issue; ./.agent/plans/plan.md store per-step action plans typically generate by using the ai agent (you) in plan mode for steos that require a plan first.
 - if you want to explore some idea/hypothesis without clothering the feature branch, create a separate git worktree. In the new gitworktree checkout to an exploration branch and spawn another opencode instance to explore. The pencode instance should end either when he considers the exploration finished or you (the main agent) should end the opencode instance if he consumed more than 1 dollar worth in tokens. The epxloratory opencode instance should always store findings in a findings.md file at the root of the exploration branch. When the exploration ends, you should move the findings to ./.agent/knowledge/exploration_findings/name-of-the-exploration-placeholder.md in the feature branch, where the findings file should have these metadata in the header (exploration description, opencode instance used, tokens consumed, dollards spent, why it ended) and the findings and conclusion in the body of the file. To enforce this process you should run a pre-built launch_exploration_subagent.sh bash script that takes care if enforcing the token limit, launching opencode in autopilot mode in a new terminal and moving the findings and terminating the exploration.
 - Before building any GUI, need to: (1) have a mock/prototype validated with the user; (2) write a design.md to standardize GUI components and patterns
+- If I give you you a mock.html as guidance, you should open the mock, create synthetic goals the end-user will want to achieve within the GUI, and actually use the mock in the context of achieving these synthetic goals. In the end, write your improved understanding of the mock, i.e., write you understanding of the GUI experience I want to build in a mock_learnings.md at the same directory as mock.html
 
 ### Things you should never do
 
@@ -88,7 +88,7 @@ Can use these projects for borrowing ideas & patterns.
 - never read sensitive files (e.g., .env)
 - never run destructive commands
 - never rewrite architecture unless specifically asked
-- never try to extract the last bit of performance at the expense of making code complexity higher, unnles specifically prompted to do so
+- never try to extract the last bit of performance at the expense of making code complexity higher, unnles specifically prompted for extreme performance optimization
 
 ### Bug Handling
 
