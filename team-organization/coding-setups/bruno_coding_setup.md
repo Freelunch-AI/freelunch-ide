@@ -300,6 +300,8 @@ definition of done (ready to push and open PR):
   - documentation is up to date with the code
   - user understand the PR that will be made at the function interface/class interface/file/directory level
 
+> This is the end of the .agent/persistent/pre-pr-checklist.md file
+
 ## AI-assisted Coding Tech Stack
 
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
@@ -427,5 +429,7 @@ Unlike `plan.md`, these files are not ephemeral. They represent the durable stat
 2. **Do not treat ****`.agent/session/`**** as persistent storage.** Its contents may be deleted when a session starts.
 3. **Do not promote assumptions automatically.** An assumption should only become persistent knowledge after it has been sufficiently verified.
 4. **Do not silently modify historical issue-flow records.** They are part of the project's implementation history.
+
+> This is the end of the .agent/directory_structure.md file
 
 
