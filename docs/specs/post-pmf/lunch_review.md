@@ -22,6 +22,16 @@ We leverage swarm-aware multi-model RL infrastructure such as AgentJet to train 
 
 This allows us to optimize the entire system: which agents participate, which models they use, what tools they invoke, how deeply they investigate, how they debate, how they verify findings, when they escalate to humans, how results are combined, and how findings are filtered. The models are components. **The swarm is the thing being optimized.**
 
+## Another major keu difference: calibrated & fine-grained confidence-backed reviews
+
+Today’s coding agents can find increasingly subtle bugs, but they still struggle to know how much to trust their own conclusions. A review agent may identify a real race condition and a speculative performance issue with the same confident tone. The goal is to train a model with a genuine, calibrated sense of uncertainty at the claim level, so it can distinguish what it knows from what it is merely hypothesizing.
+
+The core training approach would use reinforcement learning with confidence-sensitive rewards. Each review finding is evaluated against ground truth, and the reward is tied to both correctness and confidence: the model is rewarded more for being highly confident when it is right, and punished more heavily for being highly confident when it is wrong. In other words, confidently wrong findings should be much more costly than cautious mistakes, while confidently correct findings receive the strongest reward. This directly trains the model to develop a useful internal model of its own reliability rather than simply learning to sound uncertain.
+
+There are two promising ways to expose that learned signal. Token-based confidence would train the model to delimit spans with special tokens such as <VERY_CONFIDENT>...</VERY_CONFIDENT>, <CONFIDENT>...</CONFIDENT>, and <NOT_CONFIDENT>...</NOT_CONFIDENT>, allowing different parts of a review to carry different confidence levels. A separate confidence head would instead keep confidence outside the generated text, predicting something like P(claim is correct) for each individual finding and letting the review system convert that signal into whatever interface or behavior is appropriate.
+
+The result is a code-review agent that doesn't just try to find more bugs—it learns to know which of its own findings deserve to be trusted. Very high-confidence findings can automatically block a PR, medium-confidence findings can be surfaced to the developer, and low-confidence findings can trigger further investigation instead of being presented as facts.
+
 ## Recall is the north-star metric
 
 Traditional review systems have to balance precision and recall. We intentionally move the tradeoff toward recall because the costs are asymmetric. A false positive costs an engineer a few minutes; a missed production bug can cost a company days, money, customers, or reputation.
