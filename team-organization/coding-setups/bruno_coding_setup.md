@@ -133,6 +133,9 @@ Similarly:
 - in the pr you write: highlight key decisions, problems encoutered, solutions and tradeoffs chosen
 - in the pr you write: highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
 - in the pr you write: make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
+
+> This is the end of the AGENTS.md file
+
 ---
 
 ## Issue Flow (tool-agnostic)
@@ -148,7 +151,6 @@ Notes for implementation:
 - when a new feature (tackling new issue) starts, first need search for any completed .agent/flow/issue_flow.md and store it in ./.agent/persistence/completed_issue_flows folder (inside .gitignore) in the form issue_flow_[i].md where i is the github issue number.
 - session summary hook: when a session ends store a summary of key things done/key problems encoutered/tips/learnings/todos in the session in the respective section of issue_flow.md that agent was in (e.g., under step 3 or step 12) in this json form {"key things done": "placeholder", "key problems encoutered": {"problem":" placeholder", "solved_or_not": placeholder, "tips for next agent working on this": "placeholder"}, "learnings": "", "todos": "placeholder"}
 - approval gates mean that either the user (developer) or a specific AI agent needs to give approval to continue the flow
-- after every approval (human or ai), a git commit is made
 - multiple features can be implemented in parallel by having separate terminals, each one in its respective worktree and branch.
 - "AI Review" menas the same AI thats coding reviews its own work
 - "Independent AI Reviewer" means that a different model with fresh context must be used
