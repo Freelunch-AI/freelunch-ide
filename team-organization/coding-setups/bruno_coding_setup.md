@@ -106,7 +106,7 @@ Small refactorings you can just do without this branching and asking for my appr
 - when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
 - If something unrelated looks wrong, record it as a todo in .agent/session/todos.md it creates a correctness, security, build, or test failure affecting the current task. do not do one todo item at a time, batch them into related todos, and implement one batch at a time.
 - If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach, call sub-agent to help or even reset to the latest commit as your last resource.
-- Always write code filled with debug logs to help you debug in dev phase. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
+- Always write code filled with iormative debug logs to help you debug if needed. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
 - Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
 - if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
@@ -168,6 +168,11 @@ Similarly:
 - in the pr you write: highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
 - in the pr you write: make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
 
+## Handling PR Comments and Reviews
+
+- you should respond PR comments adresing the issues raised or just respond PR questions made by other developers
+- you should make apprpriate changes according to the feedback received
+
 > This is the end of the AGENTS.md file
 
 ---
@@ -189,13 +194,14 @@ Notes for implementation:
 - When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/session-persistant-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistant/knowledge/non_obvious_conjectures_and_facts.md, then finally empty all files inside .agent/session-persistant-candidate
 - At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/flow/issue_flow.md's last progress data to infer a good commit message. 
 
-### Issue Flow:
+### Issue Flow (note: bug, refactoring or performance issue handling allow skipping multiple steps that are required for a new feature, skip when you deem the step unnecessary):
 
 A: Issue-specific Spec & Core Implementaion Tasks Plan
 
 0. **/grillme Understand the codebase, then grill me with questions to see if he really understands the codebase.** Make high-level (e.g., decisions chosen, project strcture, tradeofs, architecture) questions and low-level ones as well (e.g., what a specific file/function/class is for) [AI Approval Gate]
-1. **/start Start Issue Handling**: point to github issue, agent will read the issue and create satelite branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
-2. Loop until 2 and 3 are succesfull [User Approval Gate with AI Security Reviewer Suggestions]
+1. (only if issue of type bug) **/reproducebug** Reproduce the reported bug in the issue
+2. **/start Start Issue Handling**: point to github issue, agent will read the issue and create satelite branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
+3. Loop until 2 and 3 are succesfull [User Approval Gate with AI Security Reviewer Suggestions]
     1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under .agent/issue-spec folder**
 
     ----<<separate terminal block (reset context) >>----
@@ -207,25 +213,25 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
 
 ---- New Session (reset context) ----
 
-3. **/make-tasks-plan Convert the spec into a graph of tasks (core-implementation-tasks-plan.md), each one depending on previous tasks or not depending on any** [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]
-4. **/tasksplangrillme Grill User with questions to see if he really understands the tasks plan until he has full understanding** [AI Approval Gate]
+4. **/make-tasks-plan Convert the spec into a graph of tasks (core-implementation-tasks-plan.md), each one depending on previous tasks or not depending on any** [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]
+5. **/tasksplangrillme Grill User with questions to see if he really understands the tasks plan until he has full understanding** [AI Approval Gate]
 
-B: Core Implementation (p/task of the core-implementation-tasks-plan.md). Loop until core-implementation-tasks-plan.md is finished
+6: Core Implementation (p/task of the core-implementation-tasks-plan.md). Loop until core-implementation-tasks-plan.md is finished
 
 ---- New Session (reset context) ----
 
 B1: Common scaffold
 
-5. **/boilerdep Define Allowed scaffold dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
-6. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common scaffold (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install scaffold depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
+7. **/boilerdep Define Allowed scaffold dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
+8. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common scaffold (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install scaffold depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 
 B2: Tests & Logic
 
-7. Loop until 2 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
+9. Loop until 2 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review the tests against spec (Issue-specific & Global Spec) to see if they are consistent. Incosistencies between tests/issue-specific-spec/global-spec should be flagged to the user with recommendations. [User Approval Gate with AI Independent Reviewer Suggestions] 
     2. **/testtests Test the functional tests with placeholder feature code (all tests must fail in this phase) and guarantee test coverage of all core logic ((should be near 100% coverage))**
 
-8. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
+10. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
     2. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec and Deisgn System if doing GUI work (issue-specific spec and global spec) catching inconsistencies with spec/design system, things not specified in specs/design system and problems in spec/design system that needed to be overruled**. Incosistencies between code/tests;issue-specific-spec/global-spec should be flagged to the user with recommendations. Important: should try to make multiple related tests pass at a time, always aim for the smallest coherent behavioral slice, as end-to-end as possible across the components) that produces a useful feedback signal  [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
@@ -233,11 +239,11 @@ B2: Tests & Logic
 
  ----<<separate terminal block (reset context) >>----
 
-10. **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+11. **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
 ----<</separate terminal block >>----
 
-11. [Make/Remake plan.md first & keep updating the plan as you progress] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
+12. [Make/Remake plan.md first & keep updating the plan as you progress] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
 
@@ -245,33 +251,33 @@ B2: Tests & Logic
 
 C: Code Review & Documentation
 
-12. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
+13. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
     1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Review against Spec and Design System if doing GUI work catching inconsistencies with spec/deisgn system, things not specified in spec/deisgn system and problems in spec/deisgn system that needed to be overruled)
     2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
-13. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
+14. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
 
 ---- New Session (reset context) ----
 
 D: Security Review & PR
 
-14. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Reviewer Suggestions]
+15. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Reviewer Suggestions]
     1. **/secreview Specialized Security Review** flagging critical problems & warnings
     2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary ccode/test/docs changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
  ----<<separate terminal block (reset context) >>----
 
-15. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+16. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
 ----<</separate terminal block >>----
 
-16. **/pr (1) Check the pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
+17. **/pr (1) Check the pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
 ---- New Session (reset context) ----
 
 E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
-17. Loop until 1 is sucessfull or go back to a previous step 
+18. Loop until 1 is sucessfull or go back to a previous step 
     1. (On PR Review or CI failure Notification manually checked by user) **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
     2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
