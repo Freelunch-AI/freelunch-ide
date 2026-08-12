@@ -154,11 +154,11 @@ Good:
 
 Similarly:
 
-“The feature works” → E2E evidence
-“97% coverage” → coverage report
-“No security issue” → security scan/review evidence
-“This dependency supports X” → documentation reference
-“The architecture matches the spec” → explicit comparison
+- “The feature works” → needs E2E evidence
+- “97% coverage” → needs coverage report
+- “No security issue” → needs security scan/review evidence
+- “This dependency supports X” → needs documentation reference
+- “The architecture matches the spec” → needs explicit comparison
 
 ## Making PRs
 
