@@ -92,11 +92,11 @@ uncertainty → dont use this to inform your next actions
 - understand why something broke before changing it. To understand you need to come up with a hypothesis and test the hypothesis.
 - use debugger if possible
 
-## Linting
+### Linting
 
 Always keep a look at linting warnings and errors. Fix them immediately.
 
-## Evidence-based Statements
+### Evidence-based Statements
 
 Claims about correctness, test status, coverage, security, compatibility, architecture conformance, or feature behavior require explicit evidence.
 
@@ -117,19 +117,6 @@ Similarly:
 - “No security issue” → needs security scan/review evidence
 - “This dependency supports X” → needs documentation reference
 - “The architecture matches the spec” → needs explicit comparison
-
-## Making PRs
-
-- ensure the pre-pr-checklist.md is checked before making a PR
-- follow the project's PR template
-- in the pr you write: highlight key decisions, problems encoutered, solutions and tradeoffs chosen
-- in the pr you write: highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
-- in the pr you write: make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
-
-## Handling PR Comments and Reviews
-
-- you should respond PR comments adresing the issues raised or just respond PR questions made by other developers
-- you should make apprpriate changes according to the feedback received
 
 ### Security
 
@@ -297,17 +284,6 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
     
     8. **/pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Push to already open PR (need to check if PR is already opened) with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.****
 
-## .agent/persistent/pre-pr-checklist.md
-
-definition of done (ready to push and open PR):
-  - global spec, issue-specific spec and tests all consistent with each other
-  - all core (should be near 100% coverage) logic covered by tests, with test coverage report evidence for it
-  - unit, integration and end-to-end tests present and passing
-  - no big changes were made after the last independent code review was run
-  - no significant changes were made after the last security review
-  - documentation is up to date with the code
-  - user understand the PR that will be made at the function interface/class interface/file/directory level
-
 > This is the end of the .agent/persistent/pre-pr-checklist.md file
 
 ## AI-assisted Coding Tech Stack
@@ -439,5 +415,30 @@ Unlike `plan.md`, these files are not ephemeral. They represent the durable stat
 4. **Do not silently modify historical issue-flow records.** They are part of the project's implementation history.
 
 > This is the end of the .agent/directory_structure.md file
+
+## Custom PR Skill
+
+Mandatory Pre-PR checklist (ready to push and open PR):
+
+- global spec, issue-specific spec and tests all consistent with each other
+- all core (should be near 100% coverage) logic covered by tests, with test coverage report evidence for it
+- unit, integration and end-to-end tests present and passing
+- no big changes were made after the last independent code review was run
+- no significant changes were made after the last security review
+- documentation is up to date with the code
+- user understand the PR that will be made at the function interface/class interface/file/directory level
+
+Making PRs:
+
+- ensure the pre-pr-checklist.md is checked before making a PR
+- follow the project's PR template
+- in the pr you write: highlight key decisions, problems encoutered, solutions and tradeoffs chosen
+- in the pr you write: highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
+- in the pr you write: make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
+
+Handling PR Comments and Reviews:
+
+- you should respond PR comments adresing the issues raised or just respond PR questions made by other developers
+- you should make apprpriate changes according to the feedback received
 
 
