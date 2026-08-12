@@ -144,7 +144,7 @@ Similarly:
 - Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
 - if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
-- always when you get stuck in a problem, revise ./.agent/flow/core-implementation-tasks-plan.md or plan.md to see if plan changes need to be mande. Remember that core-implementation-tasks-plan.md stores the graph of core implementaiton tasks along with progress, its per-issue; ./.agent/session/plan.md store per-step action plans typically generate by using the ai agent (you) in plan mode for steos that require a plan first.
+- always when you get stuck in a problem, revise ./.agent/persistent/current-issue/flow/core-implementation-tasks-plan.md or plan.md to see if plan changes need to be mande. Remember that core-implementation-tasks-plan.md stores the graph of core implementaiton tasks along with progress, its per-issue; ./.agent/session/plan.md store per-step action plans typically generate by using the ai agent (you) in plan mode for steos that require a plan first.
 - if you want to explore (a planned big-refactoring doesnt count as exploration and should be done just on a big-refactoring branch with the same agent) some idea/hypothesis without clothering the issue handling, create a separate git worktree (worktrees should be created in .agent/worktrees/). In the new gitworktree checkout to an exploration branch and spawn another opencode instance to explore. The pencode instance should end either when he considers the exploration finished or you (the main agent) should end the opencode instance if he consumed more than 1 dollar worth in tokens spent. The epxloratory opencode instance should always store findings in a findings.md file at the root of the exploration branch. When the exploration ends, you should move the findings to ./.agent/session-persistant-candidate/knowledge/exploration_findings/name-of-the-exploration-placeholder.md in the issue handling, where the findings file should have these metadata in the header (exploration context, exploration description, opencode instance used, tokens consumed, dollards spent, why it ended) and the findings and conclusion in the body of the file. To enforce this process you should run a pre-built launch_exploration_subagent.sh bash script that takes care if enforcing the token limit, launching opencode in autopilot mode in a new terminal and moving the findings and terminating the exploration.
 - Before building any GUI, need to: (1) have a mock/prototype validated with the user; (2) write a design.md to standardize GUI components and patterns.
 - If I give you you a mock.html as guidance, you should open the mock, create synthetic goals the end-user will want to achieve within the GUI, and actually use the mock in the context of achieving these synthetic goals. In the end, write your improved understanding of the mock, i.e., write you understanding of the GUI experience I want to build in a mock_learnings.md at the same directory as mock.html. The you ask for my approval to use this mock as the implementation guide.
@@ -179,7 +179,7 @@ Notes for implementation:
 - "AI Review" menas the same AI thats coding reviews its own work
 - "Independent AI Reviewer" means that a different model with fresh context must be used
 - When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/session-persistant-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistant/knowledge/non_obvious_conjectures_and_facts.md, then finally empty all files inside .agent/session-persistant-candidate
-- At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/flow/issue_flow.md's last progress data to infer a good commit message. 
+- At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message. 
 
 ### Issue Flow (note: bug, refactoring or performance issue handling allow skipping multiple steps that are required for a new feature, skip when you deem the step unnecessary):
 
@@ -214,23 +214,25 @@ B1: Common scaffold
 
 B2: Tests & Logic
 
-9. Loop until 2 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review the tests against spec (Issue-specific & Global Spec) to see if they are consistent. Incosistencies between tests/issue-specific-spec/global-spec should be flagged to the user with recommendations. [User Approval Gate with AI Independent Reviewer Suggestions] 
-    2. **/testtests Test the functional tests with placeholder feature code (all tests must fail in this phase) and guarantee test coverage of all core logic ((should be near 100% coverage))**
+9. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review the tests against spec (Issue-specific & Global Spec) to see if they are consistent. Incosistencies between tests/issue-specific-spec/global-spec should be flagged to the user with recommendations. [User Approval Gate with AI Independent Reviewer Suggestions] 
+10. **/testtests Test the functional tests with placeholder feature code (all tests must fail in this phase) and guarantee test coverage of all core logic ((should be near 100% coverage))**
 
-10. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
+11. Loop until 3 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
     2. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec and Deisgn System if doing GUI work (issue-specific spec and global spec) catching inconsistencies with spec/design system, things not specified in specs/design system and problems in spec/design system that needed to be overruled**. Incosistencies between code/tests;issue-specific-spec/global-spec should be flagged to the user with recommendations. Important: should try to make multiple related tests pass at a time, always aim for the smallest coherent behavioral slice, as end-to-end as possible across the components) that produces a useful feedback signal  [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
-9. [Make/Remake plan.md first & keep updating the plan as you progress] **/refactifnecessary evaluate refactoring opportunities that would improve code clarity, quality and maintanability, [Make plan first & keep updating the plan as you progress]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
+
+11. [Make/Remake plan.md first & keep updating the plan as you progress] **/refactifnecessary evaluate refactoring opportunities that would improve code clarity, quality and maintanability, [Make plan first & keep updating the plan as you progress]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
 
  ----<<separate terminal block (reset context) >>----
 
-11. **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+12. **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
 ----<</separate terminal block >>----
 
-12. [Make/Remake plan.md first & keep updating the plan as you progress] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
+13. [Make/Remake plan.md first & keep updating the plan as you progress] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
+
+14. **/determine-if-core-implementation-task-is-done** should evaluate if the core implementaiotn tasks objectives were in fact achieved and if the core-implementaiotn-tasks.md still holds. If all the tests actually reflect the spec and all the tests pass, mark as done the the current core implementaiton tasks inside core-implementaiotn-tasks.md. Shouldnt rely on historic test passing outputs or reports, should run the entire test suite for the current core implementaiotn task and for previously completed core implementation tasks (to catch regressions if any).
 
 ---- New Session (reset context) ----
 
@@ -239,7 +241,7 @@ B2: Tests & Logic
 C: Code Review
 
 13. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Review against Spec and Design System if doing GUI work catching inconsistencies with spec/deisgn system, things not specified in spec/deisgn system and problems in spec/deisgn system that needed to be overruled)
+    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Review against Spec (global and issue-specific) and Design System if doing GUI work catching inconsistencies with spec/design system, things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work) that needed to be overruled)
     2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
@@ -311,7 +313,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - grill-my-understanding (continually ask questions of the latest changes to codebase to me, to see if i understand the codebase. Always give score my answers and give feedback to it. Only stop when you feel i understand the codebase. The user can also specifify specific files for you to grill him about instead of the entire codebase)
         - understand-external-codebase (1. Build a doc eplxianng in detail the characteristics and internals of an external github codebase; 2. Add to this doc an explanation of where and why this codebase can be helpfull as a reference for ideias/patterns for the current project being built)
         - update-fixed-context (1. Infers new usefull knowledge from ./.agent/persistant/knowledge/mistakes.jsonl and ./.agent/persistant/completed_issue_flows; 2. Add this new usefull knowledge to AGENTS.md if its not already there)
-        - make-core-implementation-tasks-plan (transforms the spec into a graph of tasks, where: (1) each task can depend on other tasks being already done or not depend on any; (2) the tasks should not be of the form "one task implements each component that will be needed in this feature, e.g., oen task for the backend, another for databas,e another for gateway and another for frontend", the tasks should be done in the form of "one task implments a slice (governed by on or more integration/end-to-end tests) of multiple components, e.g., this task implements a funcitonality slice of frontend, backend, gateway and frontend that together brings us one step closer to our end goal and guarantee rich cross-component feedback along development". The core implementation tasks plan needs to be stored in .agent/flow/core-implementation-tasks-plan.md. The core-implementation-tasks-plan.md. file should have the graph structure of the plan, where each node is a task. For each node there is also a pending/in-progress/done checkbox. Do not confuse with plan.md which is a per-step ephmeral small plan for step execution.)
+        - make-core-implementation-tasks-plan (transforms the spec into a graph of tasks, where: (1) each task can depend on other tasks being already done or not depend on any; (2) the tasks should not be of the form "one task implements each component that will be needed in this feature, e.g., oen task for the backend, another for databas,e another for gateway and another for frontend", the tasks should be done in the form of "one task implments a slice (governed by on or more integration/end-to-end tests) of multiple components, e.g., this task implements a funcitonality slice of frontend, backend, gateway and frontend that together brings us one step closer to our end goal and guarantee rich cross-component feedback along development". The core implementation tasks plan needs to be stored in .agent/persistent/current-issue/flow/core-implementation-tasks-plan.md. The core-implementation-tasks-plan.md. file should have the graph structure of the plan, where each node is a task. For each node there is also a pending/in-progress/done checkbox. Do not confuse with plan.md which is a per-step ephmeral small plan for step execution.)
         - document (should first staleness and incompleteness of existing documentation (if any) and then update/create: (1) Contributor Documentation: visualization o repositoty strcture explaining succintly each directory and file, (1.2) Step by step contributor tutorial to help a newcomer understand the codebase; (2) User Documentation (only do after first version 0.1.0 is released): (2.1) User API Reference. (2.2) User step by step tutorial starting from sratch; (2.3) User guides to do common stuff; (2.4) FAQ. 
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
@@ -337,24 +339,41 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 The `.agent/` directory contains the AI agent's workflow state, persistent knowledge, session state, and issue-specific process artifacts. It is an internal directory used by the coding agent and should not contain product source code.
 
-### Directory Structure
+### Directory Structure (./.agent/directory_structure.md file)
 
 ```text
 .agent/
 ├── persistent/
 │   ├── knowledge/
-│   │   └── non_obvious_conjectures_and_facts.md
-│   ├── mistakes.jsonl
-│   ├── user-codebase-questions.jsonl
-│   ├── user-grills/
-│   │   └── grill[i].md
-│   └── completed_issue_flows/
-│       └── issue_flow_[i].md
+│       └── non_obvious_conjectures_and_facts.md
+│       └── mistakes.jsonl
+|   |── user-understanding/
+|       └── user-codebase-questions.jsonl
+│       └── user-grills/
+│           └── grill[i].md
+|   |── current-issue/
+|        └── raw_github_issue.md
+         └── flow
+|            └── issue_flow_[i].md where i is the issue number
+|            └── core-implementation-tasks-plan.md
+|        └── issue-spec_[i]/ where i is the issue number
+|               └── prd.md
+|               └── architecture.md
+|               └── tech_stack.md
+│   └── completed-issues/
+|       └── completed_issue_flows/
+│       |   └── issue_flow_[i].md where i is the issue number
+|       └──completed-issue-specs/
+|           └── issue-spec_[i]/ where i is the issue number
+|               └── prd.md
+|               └── architecture.md
+|               └── tech_stack.md
 │
 │── directory_structure.md
 │
 ├── session/
 │   └── plan.md
+|   └── todos.md
 │
 ├── session-persistence-candidate/
 │   ├── assumptions.md
@@ -362,32 +381,48 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 │       └── exploration_findings/
 │           └── <name-of-exploration>.md
 │
-└── flow/
-    ├── issue_flow.md
-    └── core-implementation-tasks-plan.md
 ```
 
 ### `persistent/`
 
-Contains knowledge that should survive across sessions and remain useful for future agents working on the project.
+Contains durable project knowledge and historical state that should survive across sessions and remain useful to future agents.
+
+* `knowledge/non_obvious_conjectures_and_facts.md` — durable, non-obvious facts, conclusions, and insights about the codebase that are useful to future agents.
 
 * `mistakes.jsonl` — records mistakes made by the agent that required user intervention. Each entry records what was done, what was wrong, why it was wrong, and how it was corrected.
-* `user-codebase-questions.jsonl` — records codebase-related questions asked by the user and the corresponding answers. This is used to identify areas where the user may need more explanation during future `/grillme` sessions.
-* `knowledge/non_obvious_conjectures_and_facts.md` — durable, non-obvious knowledge about the codebase that is useful for future agents.
-* `user-grills/` — contains the history of `/grillme` sessions. Each `grill[i].md` records the commit being reviewed, what was tested, the questions asked, the user's answers, feedback, and the final grill score.
-* `completed_issue_flows/` — contains archived `issue_flow.md` files for completed issues. These provide historical context about how previous issues were implemented.
 
-Persistent knowledge should only contain information that is expected to remain useful beyond the current session.
+* `user-understanding/user-codebase-questions.jsonl` — records codebase-related questions asked by the user and the corresponding answers. This helps identify areas where the user may need additional explanation during future `/grillme` sessions.
+
+* `user-understanding/user-grills/` — contains the history of `/grillme` sessions. Each `grill[i].md` records the commit being reviewed, what was tested, the questions asked, the user's answers and feedback, and the final grill score.
+
+* `current-issue/` — contains the durable state of the issue currently being implemented.
+
+  * `raw_github_issue.md` — the original GitHub issue, preserved as the source of truth for the issue being worked on.
+  * `flow/` — contains the durable implementation workflow state for the current issue.
+
+    * `issue_flow_[i].md` — records the sequential progress through the Issue Flow for issue `i`, including completed steps, timestamps, approvals, session summaries, and deviations or jumps between steps.
+    * `core-implementation-tasks-plan.md` — contains the dependency graph of the core implementation tasks for the current issue. Each task represents a coherent behavioral or functional slice and records its dependencies and progress.
+  * `issue-spec_[i]/` — contains the specification produced for issue `i`.
+
+    * `prd.md` — product requirements and expected behavior.
+    * `architecture.md` — architectural design and implementation boundaries.
+    * `tech_stack.md` — technologies, dependencies, and relevant technical choices.
+
+* `completed-issues/` — archives durable artifacts from issues that have been completed.
+
+  * `completed_issue_flows/` — contains archived `issue_flow_[i].md` files documenting how completed issues were implemented.
+  * `completed-issue-specs/` — contains archived `issue-spec_[i]/` directories, including the PRD, architecture, and technology-stack documents for completed issues.
+
+Persistent knowledge should contain only information that is expected to remain useful beyond the current session. Current-issue state belongs under `current-issue/` while historical issue state belongs under `completed-issues/`.
 
 ### `session/`
 
 Contains temporary state for the current agent session.
 
 * `plan.md` — the ephemeral step-by-step plan for the current slash-command execution.
+* `todos.md` — the temporary task list used to track work during the current session.
 
-`plan.md` is disposable. It should be recreated or updated as necessary and must not be treated as the historical record of the project. Historical workflow state belongs in `flow/issue_flow.md`.
-
-At the beginning of a new session, the contents of `.agent/session/` are cleared.
+Everything in `session/` is disposable. At the beginning of a new session, the contents of `.agent/session/` are cleared. These files must not be treated as historical records of the project or issue. Durable workflow state belongs in `persistent/current-issue/`.
 
 ### `session-persistence-candidate/`
 
@@ -396,23 +431,29 @@ Contains information discovered during the current session that may be useful be
 * `assumptions.md` — assumptions made during the current session, including their evidence, whether they have been verified, and their risk if wrong.
 * `knowledge/exploration_findings/` — findings produced by exploratory sub-agents. Each exploration should produce a findings file containing the exploration context, description, model/agent used, token/cost information, reason it ended, findings, and conclusion.
 
-At the beginning of a new session, useful knowledge from this directory is reviewed and promoted into `.agent/persistent/knowledge/`. After this process, the candidate directory is cleared.
+At the beginning of a new session, useful information from this directory is reviewed and promoted into `.agent/persistent/knowledge/` when appropriate. After promotion, the candidate directory is cleared.
 
-### `flow/`
+### `directory_structure.md`
 
-Contains the durable state of the current issue's implementation workflow.
+Documents the purpose and organization of the `.agent/` directory itself. It should be updated whenever the directory structure or the responsibilities of its files change.
 
-* `issue_flow.md` — records the sequential progress through the Issue Flow, including completed steps, timestamps, approvals, session summaries, and deviations/jumps between steps.
-* `core-implementation-tasks-plan.md` — contains the graph of core implementation tasks for the current issue. Each task represents a coherent behavioral/functional slice and records its dependencies and progress.
+### Important distinction: session state vs. persistent state
 
-Unlike `plan.md`, these files are not ephemeral. They represent the durable state of the issue implementation process and must be preserved across sessions.
+The `.agent/` directory deliberately separates **ephemeral working state** from **durable project state**:
+
+* `session/` contains information needed only to continue the current session.
+* `session-persistence-candidate/` contains potentially reusable discoveries that have not yet been validated or promoted.
+* `persistent/` contains validated, durable knowledge and issue history.
+
+Within `persistent/`, `current-issue/` is the active issue's durable workspace, while `completed-issues/` preserves the historical record of issues that have already been completed.
+
 
 ### General Rules
 
 1. **Do not put source code in ****`.agent/`****.** Product code belongs under `./src/`.
 2. **Do not treat ****`.agent/session/`**** as persistent storage.** Its contents may be deleted when a session starts.
-3. **Do not promote assumptions automatically.** An assumption should only become persistent knowledge after it has been sufficiently verified.
-4. **Do not silently modify historical issue-flow records.** They are part of the project's implementation history.
+3. **Do not promote assumptions or inferences automatically.** An assumption or infrence should only become persistent knowledge after it has been sufficiently verified.
+4. **Do not silently modify historical issue records.** They are part of the project's implementation history.
 
 > This is the end of the .agent/directory_structure.md file
 
