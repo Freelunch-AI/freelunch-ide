@@ -22,7 +22,7 @@ We leverage swarm-aware multi-model RL infrastructure such as AgentJet to train 
 
 This allows us to optimize the entire system: which agents participate, which models they use, what tools they invoke, how deeply they investigate, how they debate, how they verify findings, when they escalate to humans, how results are combined, and how findings are filtered. The models are components. **The swarm is the thing being optimized.**
 
-## Another major keu difference: calibrated & fine-grained confidence-backed reviews
+## Another major key difference: calibrated & fine-grained confidence-backed reviews
 
 Today’s coding agents can find increasingly subtle bugs, but they still struggle to know how much to trust their own conclusions. A review agent may identify a real race condition and a speculative performance issue with the same confident tone. The goal is to train a model with a genuine, calibrated sense of uncertainty at the claim level, so it can distinguish what it knows from what it is merely hypothesizing.
 
@@ -48,15 +48,24 @@ This changes the role of the engineer from **reviewer of every change** to **inv
 
 ## Review during development, not just PRs
 
-The same system can run continuously alongside developers and coding agents. A coding agent might implement a feature while the review swarm independently investigates the changes as they are produced. It can identify suspicious assumptions, construct tests, search for regressions, and challenge the implementation before the work ever reaches a pull request.
+The same system can run during development via cli or triggered by your main coding agent harness (e.g., claude code), to catch problems ebefore PR phase. The earlier a problem is encounterd, the cheaper it is to fix it.
 
 ## Training Pipeline
 
 1. train each model indidually via SFT on open bug/vulnerability finding datasets + synthehtic mutation testing dataset (note: this dataset is constructed based on know real-world bug/vulnerability modes, not randomly) specific to that models role (e.g., maintainability, security, performance, scalability)
-2. train the entire system together (models, prompts, hyperparameters) via RL where:
-    1. its rewarded a lot if:
-        1. for bugs/vulnerabilities it can: produce a test that passes in main but not on the mutated satellite branch 
-        2. for code quality: rewarded via llm-as-a-judge proportionally to how clean the test-passing diff it produces to a changes in product spec (quality code should produce cleaner diffs)
-    2. punished a little for each step it takes
-    3. punished more for producing a bad test.
-3. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that solved Bug issues
+2. train each model indidually via RL (described in step 3) with calibration punishment.
+3. train the entire system together (models, prompts, hyperparameters) via RL with calibration punishment where:
+    1. its rewarded a little if:
+        - giving high confidence on successes
+    2. its rewarded a lot if:
+        - for bugs/vulnerabilities it can: produce a test that passes in main but not on the mutated satellite branch 
+        - for code quality: rewarded via llm-as-a-judge proportionally to how clean the test-passing diff it produces to a changes in product spec (quality code should produce cleaner diffs)
+        3. giving low confidence on mistakes (bad test)
+    3. punished a little for:
+        - giving low confidence on successes (good test)
+        - each step it takes
+    4. punished more for:
+        - producing a mistake
+    5. punsihed a lot for:
+        - giving high confidence on a mistake
+4. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that solved Bug issues
