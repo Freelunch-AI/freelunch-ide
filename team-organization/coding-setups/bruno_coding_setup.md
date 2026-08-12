@@ -110,6 +110,10 @@ You might be doing a step and realize your plan.md or core-implementation-tasks-
 - understand why something broke before changing it. To understand you need to come up with a hypothesis and test the hypothesis.
 - use debugger if possible
 
+## Linting
+
+Always keep a look at linting warnings and errors. Fix them immediately.
+
 ## Evidence-based Statements
 
 You may not make a claim about the state of the system without producing the evidence supporting that claim.
@@ -202,9 +206,8 @@ B2: Tests & Logic
 8. Loop until 4 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
     1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
     2. [Make/Remake plan.md first & keep updating the plan at every step]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec and Deisgn System if doing GUI work (issue-specific spec and global spec) catching inconsistencies with spec/design system, things not specified in specs/design system and problems in spec/design system that needed to be overruled**. Incosistencies between code/tests;issue-specific-spec/global-spec should be flagged to the user with recommendations. Important: should try to make multiple related tests pass at a time, always for the smallest coherent behavioral slice, as end-to-end as possible) that produces a useful feedback signal  [User Approval Gate with AI Independent Reviewer Suggestions]
-    3. [Make/Remake plan.md first & keep updating the plan at every step]  [User Approval Gate] **/fixstatic Fix Linting errors, Static Analysis & Simplify Code** [User Approval Gate with AI Independent Reviewer Suggestions]
-    4. [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
-9. [Make/Remake plan.md first & keep updating the plan at every step] **/refactifnecessary evaluate refactoring opportunities that would improve code quality and maintanability, [Make plan first & keep updating the plan at every step]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
+    3. [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
+9. [Make/Remake plan.md first & keep updating the plan at every step] **/refactifnecessary evaluate refactoring opportunities that would improve code clarity, quality and maintanability, [Make plan first & keep updating the plan at every step]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
 
  ----<<separate terminal block (reset context) >>----
 
@@ -224,7 +227,7 @@ C: Code Review & Documentation
     1. [Make/Remake plan.md first & keep updating the plan at every step] **/review Independent Code Review** (including Review against Spec and Design System if doing GUI work catching inconsistencies with spec/deisgn system, things not specified in spec/deisgn system and problems in spec/deisgn system that needed to be overruled)
     2.  [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
-13. **/document Document**:  Final User Documentation (how to install & use the product) & Controbutor Documentation (how to understanding the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
+13. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
 
 ---- New Session (reset context) ----
 
@@ -305,8 +308,6 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
     - Use existing skills: skill-creator, i-have-adhd, chrome-devtools-cli, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistent/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit and what was grilled in the last grill), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
-- Custom Tools (only for way later, dont start with these): 
-    - codebase-to-game. Services are buildings, executions are people, dependencies are roads, and external systems are the world outside the kingdom. Explore, debug, and modify your software by interacting with its living model. The game should work with a small representative slice of data if data is too big). The game should work with code break ponts and in with coderunning in slow motion. the browser should also provide a terminal for doing analysis/code edits using any terminal agent harness. Game html is stored inside game folder within ./docs;
 
 ## Token Efficency Laws
 
