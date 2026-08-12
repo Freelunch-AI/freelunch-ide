@@ -40,6 +40,20 @@ The objective is to push automated defect recall high enough that reviewing ever
 
 **Our Verification Layer** acts as a hard filter. High-recall candidate generation is fine internally within the swarm, but the swarm should only surface a warning to the human if it can produce an **execution proof** (e.g., a failing test case, a reproducible trace, or an explicit AST path breaking a contract). If the swarm *thinks* there is a bug but cannot prove it, it should automatically construct a runtime harness to test it before pinging the human.
 
+Whata about complex cloud problems? The environment will give the code review agent access to local cloud-emulation tools such as Proxmox, LocalStack, Act, and Testcontainers, allowing it to reproduce complex cloud scenarios locally and provide failing-test proofs even for problems that would otherwise be difficult to reproduce.
+
+## Architecture
+
+To make this execution-emulation layer viable in production, the swarm must use a Tiered Escalation Cascade rather than jumping straight to heavy infrastructure simulation:
+
+1. Level 1 (Static AST Analysis): Candidate agents generate hypotheses using static code/diff analysis.
+
+2. Level 2 (In-Memory Verification): If a candidate bug can be proven with a standard mock or unit test, do it here (fast, low compute).
+
+3. Level 3 (Containerized Verification): If the bug requires stateful dependencies (e.g., database, cache, message bus), invoke Testcontainers and/or Floci to run a localized integration proof.
+
+4. Level 4 (Full Topology Simulation): Only for cross-service, workflow, or infrastructure bugs, spin up Act and/or lightweight cluster topologies (e.g., via Kind, Proxmox, OpenStack or Floci) as a final verification step.
+
 ## Humans become the escalation layer
 
 The ideal workflow is simple: the AI reviews everything, and humans investigate the exceptions. A normal change can be investigated automatically and proceed when no credible defect is found. When the swarm discovers a potential problem, it produces the evidence and calls a human to investigate.
@@ -69,3 +83,7 @@ The same system can run during development via cli or triggered by your main cod
     5. punsihed a lot for:
         - giving high confidence on a mistake
 4. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that solved Bug issues
+
+## First Users
+
+The product will win fastest in more mature repos with strong existing unit-test coverage, clear module boundaries, and high business risk (e.g., financial logic, smart contracts, core API services) where compute costs are easily justified by defect prevention.
