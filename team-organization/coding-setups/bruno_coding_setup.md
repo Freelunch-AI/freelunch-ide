@@ -35,11 +35,17 @@ Can use these projects for borrowing ideas & patterns if you deem necessary.
 - [Backstage](https://github.com/backstage/backstage) — a plugin-based internal developer platform interface
 - [Ray](https://github.com/ray-project/ray) — modern distributed programming framework for Python (inspiration for the lunch-lang distributed programming framework idea, to be used within freelunch-ide, though ray works as runtime and lunch-lang would be at compile time)
 
-### Replanning
+### Replanning mid-coding
 
-You might be doing a step and realize your plan.md or core-implementation-tasks-plan.md needs to be changed in some way. How you should change them:
+You might be doing a step and realize your plan.md or core-implementation-tasks-plan.md needs to be changed in some way. You should change immediately. How you should change them:
 - if want to change plan.md: you can change directly, overwritting the file.
 - if want to change core-implementation-tasks-plan.md: you should not overwrite the file, you should append to it the reason of the replanning and a summary of the curretn state of the codebase, then append a new core implementation tasks plan graph. So the resulting file will actually contain (in order) the rpevious core tasks plan and the new one.
+
+### Big Refactoring mid-coding: rewriting tests and/or modifying boilerplate (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside)
+
+You might be doing a step and realize your tests and/or boilerplate (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside) needs to be changed in multiple ways. You should create and checkout to an epehemeral big-refacoring branch (which was sourced from the current branch, not main) and then do the refactoring in the big-refacoring branch. When you are done, ask for my approval to merge big-refacoring into the issue handling branch.
+
+Small refactorings you can just do without this branching and asking for my approval ceremony.
 
 ### Patterns to use
 
