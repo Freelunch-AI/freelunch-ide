@@ -41,9 +41,9 @@ You might be doing a step and realize your plan.md or core-implementation-tasks-
 - if want to change plan.md: you can change directly, overwritting the file.
 - if want to change core-implementation-tasks-plan.md: you should not overwrite the file, you should append to it the reason of the replanning and a summary of the curretn state of the codebase, then append a new core implementation tasks plan graph. So the resulting file will actually contain (in order) the rpevious core tasks plan and the new one.
 
-### Big Refactoring mid-coding: rewriting tests and/or modifying boilerplate (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside)
+### Big Refactoring mid-coding: rewriting tests and/or modifying scaffold (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside)
 
-You might be doing a step and realize your tests and/or boilerplate (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside) needs to be changed in multiple ways. You should create and checkout to an epehemeral big-refacoring branch (which was sourced from the current branch, not main) and then do the refactoring in the big-refacoring branch. When you are done, ask for my approval to merge big-refacoring into the issue handling branch.
+You might be doing a step and realize your tests and/or scaffold (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside) needs to be changed in multiple ways. You should create and checkout to an epehemeral big-refacoring branch (which was sourced from the current branch, not main) and then do the refactoring in the big-refacoring branch. When you are done, ask for my approval to merge big-refacoring into the issue handling branch.
 
 Small refactorings you can just do without this branching and asking for my approval ceremony.
 
@@ -198,10 +198,10 @@ B: Core Implementation (p/task of the core-implementation-tasks-plan.md). Loop u
 
 ---- New Session (reset context) ----
 
-B1: Common Boilerplate
+B1: Common scaffold
 
-5. **/boilerdep Define Allowed boilerplate dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
-6. [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common boilerplate (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install boilerplate depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
+5. **/boilerdep Define Allowed scaffold dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
+6. [Make/Remake plan.md first & keep updating the plan at every step] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common scaffold (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install scaffold depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 
 B2: Tests & Logic
 
@@ -292,7 +292,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Terminal Agent Harness: OpenCode
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
-- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, Boilerplate and Tests: Kimi K3 with high reasoning; (2) Logic Writing & fixing PR problems: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec, Plan & Code Review Model: Kimi K3 with high reasoning; (4) Security Review: Claude Ops 4.8 with high reasoning; (5) sub-agents model: Claude Opus 4.8
+- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, scaffold and Tests: Kimi K3 with high reasoning; (2) Logic Writing & fixing PR problems: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec, Plan & Code Review Model: Kimi K3 with high reasoning; (4) Security Review: Claude Ops 4.8 with high reasoning; (5) sub-agents model: Claude Opus 4.8
 - Grillme Model: DeepSeek V4 Flash
 - Local Routing: opencode-model-router (opencode plugin)
     - Fast Model: qwen2.5-coder:7b
@@ -324,7 +324,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Start a new session when context becomes sufficiently polluted → carrying a huge amount of irrelevant history can become more expensive than rebuilding a clean context.
 - Avoid rambling/random studying with the agent, do all of this in ChatGPT/Gemini/Grok webages
 - Stay in the same session while the context is still useful → preserving cached/reusable context avoids paying to rebuild understanding.
-- Until you reach boilerplate code with tests, dont swittch models
+- Until you reach scaffold code with tests, dont swittch models
 - Always mention files with @ for the agent to look/modify instead o letting the agent winder the repo for that file
 - Use something like rtk to compact tool outputs
 - Have a router + local model for doing simple stuff
