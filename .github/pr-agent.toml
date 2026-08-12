@@ -1,5 +1,6 @@
 [config]
 restricted_mode = true
+reasoning_effort = "high"
 
 [github_action_config]
 handle_push_trigger = true

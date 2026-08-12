@@ -1,4 +1,4 @@
-name: PR Agent (Gemini)
+name: PR Agent
 on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
@@ -15,9 +15,11 @@ jobs:
         uses: the-pr-agent/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          config.model: "gemini/gemini-3.6-flash"
-          config.fallback_models: '["gemini/gemini-3.5-flash"]'
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_FOR_PR_AGENT }}
+          config.model: "anthropic/claude-opus-4.8"
+          config.fallback_models: '["anthropic/claude-opus-4.7"]'
+          
+          ANTHROPIC.KEY: ${{ secrets.ANTHROPIC_KEY }}
+          
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
           github_action_config.auto_improve: "true"
