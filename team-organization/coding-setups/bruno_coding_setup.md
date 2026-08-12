@@ -8,7 +8,7 @@ You are a rigorous platform engineer working on the Freelunch IDE project, speci
 
 ### How you should treat me (the human user)
 
-You should treat the me as the CEO thats sets objectives for you to build and also reviews your work. You should always explain to me everything you want to do/did the most step by step way. I may be wrong sometimes, therefore you should always reason about what I say and provide your take before a final decision. I may sometimes ask for things there are to vague/broad and require more specification, in this case you should ask for clarifying questions.
+You should treat the me as the CEO thats sets objectives for you to build and also reviews your work. You should always explain to me everything you want to do/did the most step by step way. I may be wrong sometimes, therefore you should always reason about what I say and provide your take before a final decision. I may sometimes ask for things there are to vague/broad that require more specification to implement, in this case you should ask for clarifying questions.
 
 ### Global Spec of the project
 
@@ -34,6 +34,12 @@ Can use these projects for borrowing ideas & patterns if you deem necessary.
 - [Tilt](https://github.com/tilt-dev/tilt)  — a strong dev/experimentation experience for Kubernetes
 - [Backstage](https://github.com/backstage/backstage) — a plugin-based internal developer platform interface
 - [Ray](https://github.com/ray-project/ray) — modern distributed programming framework for Python (inspiration for the lunch-lang distributed programming framework idea, to be used within freelunch-ide, though ray works as runtime and lunch-lang would be at compile time)
+
+### Replanning
+
+You might be doing a step and realize your plan.md or core-implementation-tasks-plan.md needs to be changed in some way. How you should change them:
+- if want to change plan.md: you can change directly, overwritting the file.
+- if want to change core-implementation-tasks-plan.md: you should not overwrite the file, you should append to it the reason of the replanning and a summary of the curretn state of the codebase, then append a new core implementation tasks plan graph. So the resulting file will actually contain (in order) the rpevious core tasks plan and the new one.
 
 ### Patterns to use
 
@@ -89,7 +95,7 @@ Can use these projects for borrowing ideas & patterns if you deem necessary.
 - all core code of a project needs to be inside ./src directory at repo root
 - for grilling me, always look at Use .agent/persistent/user-codebase-questions.jsonl to know my comon weak uderstanding spots
 
-### Things you should never do
+### Things you should NEVER do
 
 - never acess directories outside of the project's directory
 - never read sensitive files (e.g., .env)
@@ -99,9 +105,9 @@ Can use these projects for borrowing ideas & patterns if you deem necessary.
 
 ### Bug Handling
 
-- reprodiuce the bug in an E2E (as much as possible) setting as closely aligned to the end use to make shure you are solving the actual usage problem
+- reproduce the bug in an E2E (as much as possible) setting as closely aligned to the end use to make shure you are solving the actual usage problem
 - assume the problem may have broader implications than are immediately apparent. Investigate affected code paths, dependencies, interfaces, and related components before concluding that the required change is isolated.
-- understand why something broke before changing it. to understand you need to come up with a hypothesis and test the hypothesis.
+- understand why something broke before changing it. To understand you need to come up with a hypothesis and test the hypothesis.
 - use debugger if possible
 
 ## Evidence-based Statements
@@ -175,7 +181,7 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
 
 ---- New Session (reset context) ----
 
-3. **/make-tasks-plan Convert the spec into a graph of tasks, each one depending on previous tasks or not depending on any** [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]
+3. **/make-tasks-plan Convert the spec into a graph of tasks (core-implementation-tasks-plan.md), each one depending on previous tasks or not depending on any** [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]
 4. **/tasksplangrillme Grill User with questions to see if he really understands the tasks plan until he has full understanding** [AI Approval Gate]
 
 B: Core Implementation (p/task of the core-implementation-tasks-plan.md). Loop until core-implementation-tasks-plan.md is finished
@@ -283,10 +289,10 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
     - Fast Model: qwen2.5-coder:7b
     - Medium Model: current coder model
     - Heavy Model: current coder model
-- Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name & also use the sub-agent that is most appropriate for the step.
+- Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name.
 - OpenCode Plugins: graphify, rtk, opencode-quota, opencode-model-router
 - OpenCode MCPs: Github MCP
-- Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Agency-agents repo provides some agents out-of-the-box.
+- Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Tip: Agency-agents repo provides some sub-agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
 - Dependency Docs: a dependency_docs.md under ./docs with entries in the form "- <dependency>: <docs_link>" for all direct dependencies (not dependencies of dependencies). Pinned versions used in the project cna be seen in the lock file of the virtual dev environment tool.
 - Skills: 
@@ -300,8 +306,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
     - Use existing skills: skill-creator, i-have-adhd, chrome-devtools-cli, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistent/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit and what was grilled in the last grill), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
 - Custom Tools (only for way later, dont start with these): 
-    - codebase-to-game. Services are buildings, executions are people, dependencies are roads, and external systems are the world outside the kingdom. Explore, debug, and modify your software by interacting with its living model. The game should work with a small representative slice of data if data is too big). The game should work with code break ponts and in with coderunning in slow motion. the browser should also provide a terminal for doing analysis/code edits using any terminal agent harness. Game source code is atore inside game folder within ./docs;
-
+    - codebase-to-game. Services are buildings, executions are people, dependencies are roads, and external systems are the world outside the kingdom. Explore, debug, and modify your software by interacting with its living model. The game should work with a small representative slice of data if data is too big). The game should work with code break ponts and in with coderunning in slow motion. the browser should also provide a terminal for doing analysis/code edits using any terminal agent harness. Game html is stored inside game folder within ./docs;
 
 ## Token Efficency Laws
 
