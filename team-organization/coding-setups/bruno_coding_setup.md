@@ -171,7 +171,7 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
     2. **/reviewspec** Review Spec with Indepedente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in global spec and problems in global spec that needed to be overruled. Incosistencies between both specs should be flagged to the user with recommendations. [User Approval Gate]
     3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings 
 
-    ----<</separate terminal block (reset context) >>----
+    ----<</separate terminal block >>----
 
 ---- New Session (reset context) ----
 
@@ -204,7 +204,7 @@ B2: Tests & Logic
 
 10. **/grillme Understand the codebase, then grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
-----<</separate terminal block (reset context) >>----
+----<</separate terminal block >>----
 
 11. [Make/Remake plan.md first & keep updating the plan at every step] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
 
@@ -232,7 +232,7 @@ D: Security Review & PR
 
 15. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
-----<</separate terminal block (reset context) >>----
+----<</separate terminal block >>----
 
 16. **/pr (1) Check the pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
@@ -254,7 +254,7 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
     
     6. **/grillme Grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
-    ----<</separate terminal block (reset context) >>----
+    ----<</separate terminal block >>----
     
     7. **/pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.****
 
