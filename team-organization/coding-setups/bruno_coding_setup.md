@@ -168,6 +168,11 @@ Similarly:
 
 > This is the end of the AGENTS.md file
 
+### Code Review 
+
+- not only review code for bugs, vulnerabilities, quality and other properties but also need to review tests adherence to spec. Code and Tests should be compliant with Spec (global and issue-specific) and Design System (if doing GUI work). should catch catching inconsistencies with spec/design system if any. Also should catch important things not specified in spec/design system (if doing GUI work) if any, and problems in spec/design system (if doing GUI work) if any.
+- dont worry about performance of the code, unless its a major issue thats causing something in the order of 10x more resource conumption than necessary (remeber that were are working towards a demo, and we will make performance enhancing issues later)
+
 ---
 
 ## Issue Flow (tool-agnostic)
@@ -246,11 +251,13 @@ B2: Tests & Logic
 
 15. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
 
+---- New Session (reset context) ----
+
 C: Code Review
 
 16. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Review against Spec (global and issue-specific) and Design System if doing GUI work catching inconsistencies with spec/design system, things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work) that needed to be overruled)
-    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
+    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Code Review, including review against compliance to Spec (global and issue-specific) and Design System (if doing GUI work) catching inconsistencies with spec/design system, things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/code_reviews/final_code_review file
+    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session/code_reviews/final_code_review [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
 
@@ -286,15 +293,17 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
         1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings 
         2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
+    4. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
+
      ----<<separate terminal block (reset context) >>----
     
-    6. **/grillme Grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+    5. **/grillme Grill User with questions to see if he really understands changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
     ----<</separate terminal block >>----
 
-    7. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
+    6. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
     
-    8. **/pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Push to already open PR (need to check if PR is already opened) with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.****
+    7. **/pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Push to already open PR (need to check if PR is already opened) with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.****
 
 > This is the end of the .agent/persistent/pre-pr-checklist.md file
 
@@ -303,10 +312,10 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
 
 - Agent-native Editor/Terminal: Superset (only when tackling multiple issues in parallel)
-- Terminal Agent Harness: OpenCode
+- Terminal Agent Harnesses: OpenCode & open-code-review
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
-- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, scaffold and Tests: Kimi K3 with high reasoning; (2) Core coding: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec Review: Claude Opus 4.8 with high reasoning; (4) Plan & Code Review: Kimi K3 with high reasoning; (5) Security Review: Claude Opus 4.8 with high reasoning; (6) end-to-end testing: Kimi K3 with high reasoning; (7) sub-agents model: Claude Opus 4.8
+- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, scaffold and Tests: Kimi K3 with high reasoning; (2) Core coding: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec Review: Claude Opus 4.8 with high reasoning; (4) Plan Review: Kimi K3 with high reasoning; (5) Security Review: Claude Opus 4.8 with high reasoning; (6) end-to-end testing: Kimi K3 with high reasoning; (7) sub-agents model: Claude Opus 4.8; (8) Code Review: Opus4.6 (Model A) & Qwen3.7-Max (Model B) as cadidate generators and open-code-review using Qwen3.8-Max (Model C).
 - Grillme Model: DeepSeek V4 Flash
 - Local Routing: opencode-model-router (opencode plugin)
     - Fast Model: qwen2.5-coder:7b
@@ -328,6 +337,12 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
     - Use existing skills: skill-creator, i-have-adhd, chrome-devtools-cli, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistent/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was grilled in the last grill and user-codebase-questions.jsonl file), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
+
+## How Code Review is Done
+
+1. Start a new session with opencode: do code review with Model A and store the review in .agent/session/code_reviews/code_review_[A].md, where A is a placeholder for the actual mode name 
+2. Start a new session with opencode: do code review with Model B and store the review in .agent/session/code_reviews/code_review_[B].md, where B is a placeholder for the actual mode name
+3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session/coe-reviews/ folder and store the resulting code review inside .agent/session/code_reviews/final_code_review
 
 ## Token Efficency Laws
 
