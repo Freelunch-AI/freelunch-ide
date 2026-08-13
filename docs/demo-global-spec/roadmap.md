@@ -16,31 +16,10 @@ We will probably borrow patterns from:
 
 The goal is to take ideas from these tools to simplify the developer experience without copying their implementation wholesale.
 
-## Glossary (Revised)
-
-| Term | Definition |
-|---|---|
-| **Monorepo** | The single Git repository for a customer organisation. Contains all products, services, workflows, and platform config. One monorepo per customer. Replaces "Product Repo." |
-| **Workload** | Any single deployable unit inside the monorepo. Either a Service or a Workflow. |
-| **Service** | A long-running, always-on, request-driven Workload (HTTP, gRPC, event consumer, etc.). |
-| **Workflow (DAG)** | A trigger-driven Workload that runs to completion. Has per-run execution state. Only CI/CD workflows are supported in the Demo. |
-| **Layer 1 (L1)** | FreeLunch's abstraction API. Developers model Workloads on the canvas, which maintains CUE files as the Git-backed representation and gets ed into L2. |
-| **Layer 2 (L2)** | K8s/Helm artifacts. Source of truth for deployment. Customers can view and edit directly. Conflicts between L1 and L2 are surfaced during recompile, which need to be resolved by a platform engineer. For the platform engineer to stop resolving conflicts all the time he needs to modify defaults or modify l1 abstractions via CUE (but the latter will be only after Demo)
-
-| **Canvas** | The primary visual authoring surface for Services and Workflows. Canvas blocks maintain deterministic L1 CUE files in the monorepo. |
-| **Persona** | One of the core personas—Platform Admin, Platform Engineer, and Developer—and the temporary approval grants that can be assigned to them for staging and production review. |
-| **Hotfix** | A permission grantable by Platform Admin to any Persona. Allows merging directly to main without CI gates. |
-| **Ephemeral Staging Environment** | A short-lived isolated environment spun up per PR, torn down after merge/close. |
-| **Blue-Green Deployment** | Argo Rollouts-managed promotion between active (blue) and preview (green) versions, with the previous revision retained for a configured rollback window. |
-| **Agent Integration Layer** | A read-only REST API with an OpenAPI contract and a first-party skill through which coding agents query workload, pipeline, error, cost, and observability data. |
-| **Local Dev/Experimentation Environment** | A local development and experimentation environment for validating workloads before CI & Staging. Uses Floci for AWS emulation and is inspired by the developer experience of Tilt.
-
----
-
 ## Deferred Decisions and Scope
 
-- **Kubernetes as the primary target** — the Demo is centered on vanilla Kubernetes rather than a managed cloud-specific stack, with Cloud cluster emulation handled through ProxMox.
-- **Deployment targets** — the Demo focuses on the local emulated environment; deployment to existing EC2-based clusters (and later multi-cloud) is a later extension rather than a core Demo requirement.
+- **Strong Demo Limitations** — the Demo focuses on stateless services and deploying to local emulated cloud environment.
+- **Kubernetes as the primary target** — the Demo is centered on vanilla Kubernetes rather than a managed cloud-specific k8s.
 - **Post-Demo scope** — real cloud deployment, support for app workflows (e.g., airflow dags), stateful services, block store, internal package registry, etc (full list is described in the founding doc)
 
 ## Group 1 — Foundation
