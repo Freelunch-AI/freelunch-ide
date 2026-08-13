@@ -30,23 +30,33 @@ The core training approach would use reinforcement learning with confidence-sens
 
 There are two promising ways to expose that learned signal. Token-based confidence would train the model to delimit spans with special tokens such as <VERY_CONFIDENT>...</VERY_CONFIDENT>, <CONFIDENT>...</CONFIDENT>, and <NOT_CONFIDENT>...</NOT_CONFIDENT>, allowing different parts of a review to carry different confidence levels. A separate confidence head would instead keep confidence outside the generated text, predicting something like P(claim is correct) for each individual finding and letting the review system convert that signal into whatever interface or behavior is appropriate.
 
-The result is a code-review agent that doesn't just try to find more bugs—it learns to know which of its own findings deserve to be trusted. Very high-confidence findings can automatically block a PR, medium-confidence findings can be surfaced to the developer, and low-confidence findings can trigger further investigation instead of being presented as facts.
+The result is a code-review agent that doesn't just try to find more bugs—it learns to know which of its own findings deserve to be trusted. High-confidence problem findings can automatically block a PR, medium-confidence findings can be surfaced to the developer, and low-confidence findings can trigger further investigation instead of being presented as facts.
 
-## Recall is the north-star metric
+## Two Offerings of Lunch Review: Ralph Version & Human Version
 
-Traditional review systems have to balance precision and recall. We intentionally move the tradeoff toward recall because the costs are asymmetric. A false positive costs an engineer a few minutes; a missed production bug can cost a company days, money, customers, or reputation.
+### lunch-review-human: Maximize Defect Recall
 
-The objective is to push automated defect recall high enough that reviewing every change manually is no longer worthwhile.
+When a human engineer is the final decision-maker, the system should optimize primarily for extremely high defect recall. False positives are acceptable because the human can discard speculative findings, while missed defects remain invisible.
 
-**Our Verification Layer** acts as a hard filter. High-recall candidate generation is fine internally within the swarm, but the swarm should only surface a warning to the human if it can produce an **execution proof** (e.g., a failing test case, a reproducible trace, or an explicit AST path breaking a contract). If the swarm *thinks* there is a bug but cannot prove it, it should automatically construct a runtime harness to test it before pinging the human.
+The swarm can therefore operate as a deliberately high-recall candidate generator: investigate aggressively, surface weak hypotheses, and trade precision for coverage. The objective is to maximize the number of real defects discovered while providing enough evidence and calibrated confidence for the engineer to distinguish strong findings from speculative ones.
 
-Whata about complex cloud problems? The environment will give the code review agent access to local cloud-emulation tools such as Proxmox, LocalStack, Act, and Testcontainers, allowing it to reproduce complex cloud scenarios locally and provide failing-test proofs even for problems that would otherwise be difficult to reproduce.
+### lunch-review-ralph: Minimize Regression-Inducing False Positives
+
+When review findings are consumed by an autonomous Ralph loop, the objective changes fundamentally. A false positive is no longer merely an annoying review comment: the agent may actually modify the code in response to it.
+
+The critical metric therefore becomes regression-inducing false positives: findings that are incorrect and whose acceptance causes the implementation to become less compliant with the actual product specification or introduces a behavioral regression.
+
+The Ralph configuration should therefore optimize for low regression-inducing false-positive rate, while maintining high recall.
+
+Non-regression-inducing false positive examples: unnecessary modularization, stylistic changes, overengineering security, overengineering performance, or other improvements that leave behavior correct. These induce non-critical time & cost problems. 
+
+Regression-inducing false positive examples: findings that cause tests to be rewritten around incorrect behavior or findngs that change build/test/package/deploy or publish commands in a way that breaks intended behaviour & validation.
 
 ## Architecture
 
 1. [Read Mode] [Multi-agent] [Test-time scaling] Static Codebase Understanding, Making hypotheses and predicitons for hypothesis, also sending questions to human engineer
 2. [Read Mode] [Multi-agent] Runs experiments to test hypothesis and improve understanding
-3. [Read Mode] [Multi-agent] [High-recall] Static Problem Candidate Generation with problem execution proof building type per problem (Level 1, Level 2, Level 3 or Level 4)
+3. [Read Mode] [Multi-agent] [High-recall] Static Problem Candidate Generation with causal evidence, specification/contract grounding and problem execution proof building type per problem (Level 1, Level 2, Level 3 or Level 4)
 4. [Execution Mode] [Multi-agent] Independent Build/Test/Package/Deploy or Publish Command Runner, Problem Execution Proof Builder and Problem Report Builder
     1. Level 1 (Static AST Analysis): Candidate agents generate hypotheses using static code/diff analysis.
     2. Level 2 (In-Memory Verification): If a candidate bug can be proven with a standard mock or unit test, do it here (fast, low compute).
@@ -57,9 +67,9 @@ Whata about complex cloud problems? The environment will give the code review ag
 That produces a report in the form:
 
 ### Functional Problems
-- Critical Problems: {"problems_a": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Important Problems: {"problems_b": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Enhancement Opportunities: {"problems_g": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Critical Problems: {"problems_a": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "spec_grounding", str, "confidence": float}; ...}
+- Important Problems: {"problems_b": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "spec_grounding", str, "confidence": float}; ...}
+- Enhancement Opportunities: {"problems_g": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "spec_grounding", str, "confidence": float}; ...}
 - Non-critical score: float
 
 ### Security Problems
@@ -86,6 +96,8 @@ Where:
 - non-critical regression-inducing false positives (generally functional false positives) are close to 0
 - code quality & documentation problems proofs are cosntructed by makig a program that calls LLMs to check
 - the whole system is trained end-to-end with RL to optimize for extemely low regression-inducing false positives, high-recall, decent precision and calibrated confidence.
+- spec_grounding is a causal justification how why the code is not prducing the intended behaviour described in the spec, with spec citations
+- can be configured to use a different random_seed at each run (usefull for getting ralph loops unstuck) where it uses different models, and slighly different prompts and hyperparameters
 
 ## Humans become the escalation layer
 
