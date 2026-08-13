@@ -8,13 +8,13 @@ The product is an autonomous engineering swarm that can operate throughout the d
 
 This means the product isn't simply a GitHub bot that comments on pull requests. It can operate alongside developers and coding agents while they are building software, continuously investigating changes, challenging implementations, searching for regressions, and testing suspicious behavior. Pull-request review is simply one place where the same underlying review agent can be deployed.
 
-## The core technology: a trainable review swarm
+## The Technology we use
 
 Rather than relying on one reviewer model, the system creates a swarm of specialized agents. An investigator might explore the codebase and identify suspicious behavior, a test agent might construct counterexamples and execute targeted tests, a security agent might investigate vulnerabilities, and an adversarial reviewer might try to disprove the findings of the other agents. A verifier then evaluates the evidence before the swarm reaches a final decision.
 
 The important property is that these agents don't have to use the same model. Different models can specialize in different failure modes, and the swarm can combine them according to whatever configuration produces the best results.
 
-## The key difference: we train the swarm
+### The key difference: we train the swarm
 
 This is the fundamental distinction from today's AI code-review products. With conventional AI review, the workflow is essentially **PR → existing model → review**. We instead want **code → specialized review swarm → investigation → verification → outcome → reward → RL training → better swarm**.
 
@@ -22,7 +22,7 @@ We leverage swarm-aware multi-model RL infrastructure such as AgentJet to train 
 
 This allows us to optimize the entire system: which agents participate, which models they use, what tools they invoke, how deeply they investigate, how they debate, how they verify findings, when they escalate to humans, how results are combined, and how findings are filtered. The models are components. **The swarm is the thing being optimized.**
 
-## Another major key difference: calibrated & fine-grained confidence-backed reviews
+### Another major key difference: calibrated & fine-grained confidence-backed reviews
 
 Today’s coding agents can find increasingly subtle bugs, but they still struggle to know how much to trust their own conclusions. A review agent may identify a real race condition and a speculative performance issue with the same confident tone. The goal is to train a model with a genuine, calibrated sense of uncertainty at the claim level, so it can distinguish what it knows from what it is merely hypothesizing.
 
@@ -40,13 +40,13 @@ When a human engineer is the final decision-maker, the system should optimize pr
 
 The swarm can therefore operate as a deliberately high-recall candidate generator: investigate aggressively, surface weak hypotheses, and trade precision for coverage. The objective is to maximize the number of real defects discovered while providing enough evidence and calibrated confidence for the engineer to distinguish strong findings from speculative ones.
 
-### lunch-review-ralph: Minimize Regression-Inducing False Positives
+### lunch-review-ralph: Minimize High-Confidence Regression-Inducing False Positives
 
 When review findings are consumed by an autonomous Ralph loop, the objective changes fundamentally. A false positive is no longer merely an annoying review comment: the agent may actually modify the code in response to it.
 
-The critical metric therefore becomes regression-inducing false positives: findings that are incorrect and whose acceptance causes the implementation to become less compliant with the actual product specification or introduces a behavioral regression.
+The critical metric therefore becomes high-confidence regression-inducing false positives: findings that are incorrect and whose acceptance causes the implementation to become less compliant with the actual product specification or introduces a behavioral regression.
 
-The Ralph configuration should therefore optimize for low regression-inducing false-positive rate, while maintining high recall.
+The Ralph configuration should therefore optimize for very low high-confidence regression-inducing false-positive rate, while maintining high recall.
 
 Non-regression-inducing false positive examples: unnecessary modularization, stylistic changes, overengineering security, overengineering performance, or other improvements that leave behavior correct. These induce non-critical time & cost problems. 
 
@@ -98,19 +98,22 @@ That produces a report in the form:
 
 Where:
 - non-critical score is a score of the diff excluding criticla problems. In ralph loop, you set a score treshold which determines when you pass review or not. Critical problems are not considered because all of them must be solved. This allows humans to be called only for: (1) answering questions; (2) solving stuck loops; (3) reviewing low-confidence critical problems.
-- critical regression-inducing false positives (generally functional false positives) extremely close to 0
-- non-critical regression-inducing false positives (generally functional false positives) are close to 0
+- critical high-confidence regression-inducing false positives (generally functional false positives) extremely close to 0
+- non-critical high-confidence regression-inducing false positives (generally functional false positives) are close to 0
 - code quality & documentation problems proofs are cosntructed by makig a program that calls LLMs to check
-- the whole system is trained end-to-end with RL to optimize for extemely low regression-inducing false positives, high-recall, decent precision and calibrated confidence.
+- the whole system is trained end-to-end with RL to optimize for extemely low high-confidence regression-inducing false positives, high-recall, decent precision and calibrated confidence.
 - spec_grounding is a causal justification how why the code is not prducing the intended behaviour described in the spec, with spec citations
 - can be configured to use a different random_seed at each run (usefull for getting ralph loops unstuck) where it uses different models, and slighly different prompts and hyperparameters
 - awarm has specific agents for each type of problem
 
 ## Humans become the escalation layer
 
-The ideal workflow is simple: the AI reviews everything, and humans investigate the exceptions. A normal change can be investigated automatically and proceed when no credible defect is found. When the swarm discovers a potential problem, it produces the evidence and calls a human to investigate.
+The ideal workflow is simple: claude code is generating code, lunch review is reviwing code and human are only called for these things:
+- aswering questions
+- solving stuck loops
+- analyzing low-confidence critical problems surfaced
 
-This changes the role of the engineer from **reviewer of every change** to **investigator of the changes that actually need human judgment**. Instead of spending hours reviewing code that is probably correct, engineers spend their time on the small fraction of changes where the system has found credible evidence of a problem.
+This changes the role of the engineer from **reviewer of every change** to **investigator of the changes that actually need human judgment**. Instead of spending hours reviewing code that is probably correct, engineers spend their time on the small fraction of changes.
 
 ## Review during development, not just PRs
 
