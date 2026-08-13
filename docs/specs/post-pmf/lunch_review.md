@@ -90,6 +90,12 @@ That produces a report in the form:
 - Enhancement Opportunities: {"problems_j": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
 - Non-critical score: float
 
+### UI Problems (If project has UI)
+- Critical Problems: {"problems_k": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Important Problems: {"problems_l": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Enhancement Opportunities: {"problems_m": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Non-critical score: float
+
 Where:
 - non-critical score is a score of the diff excluding criticla problems. In ralph loop, you set a score treshold which determines when you pass review or not. Critical problems are not considered because all of them must be solved. This allows humans to be called only for: (1) answering questions; (2) solving stuck loops; (3) reviewing low-confidence critical problems.
 - critical regression-inducing false positives (generally functional false positives) extremely close to 0
@@ -98,6 +104,7 @@ Where:
 - the whole system is trained end-to-end with RL to optimize for extemely low regression-inducing false positives, high-recall, decent precision and calibrated confidence.
 - spec_grounding is a causal justification how why the code is not prducing the intended behaviour described in the spec, with spec citations
 - can be configured to use a different random_seed at each run (usefull for getting ralph loops unstuck) where it uses different models, and slighly different prompts and hyperparameters
+- awarm has specific agents for each type of problem
 
 ## Humans become the escalation layer
 
