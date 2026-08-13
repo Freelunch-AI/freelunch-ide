@@ -78,6 +78,7 @@ The same system can run during development via cli or triggered by your main cod
     3. punished a little for:
         - giving low confidence on successes (good test)
         - each step it takes
+        - token consumption
     4. punished more for:
         - producing a mistake
     5. punsihed a lot for:
