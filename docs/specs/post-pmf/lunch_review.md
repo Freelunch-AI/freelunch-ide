@@ -44,15 +44,48 @@ Whata about complex cloud problems? The environment will give the code review ag
 
 ## Architecture
 
-To make this execution-emulation layer viable in production, the swarm must use a Tiered Escalation Cascade rather than jumping straight to heavy infrastructure simulation:
+1. [Read Mode] [Multi-agent] [Test-time scaling] Static Codebase Understanding, Making hypotheses and predicitons for hypothesis, also sending questions to human engineer
+2. [Read Mode] [Multi-agent] Runs experiments to test hypothesis and improve understanding
+3. [Read Mode] [Multi-agent] [High-recall] Static Problem Candidate Generation with problem execution proof building type per problem (Level 1, Level 2, Level 3 or Level 4)
+4. [Execution Mode] [Multi-agent] Independent Build/Test/Package/Deploy or Publish Command Runner, Problem Execution Proof Builder and Problem Report Builder
+    1. Level 1 (Static AST Analysis): Candidate agents generate hypotheses using static code/diff analysis.
+    2. Level 2 (In-Memory Verification): If a candidate bug can be proven with a standard mock or unit test, do it here (fast, low compute).
+    3. Level 3 (Containerized Verification): If the bug requires stateful dependencies (e.g., database, cache, message bus), invoke Testcontainers and/or Floci to run a localized integration proof.
+    4. Level 4 (Full Topology Simulation): Only for cross-service, workflow, or infrastructure bugs, spin up Act and/or lightweight cluster topologies (e.g., via Kind, Proxmox, OpenStack or Floci) as a final verification step.
+5. [Execution Mode] [Multi-agent] [Test-time scaling] [Confidence Calibrated Statements] [High-precision] [Very Low regression-inducing FP rate] Verifier that Review the Report to Produce the Final Problem Report
 
-1. Level 1 (Static AST Analysis): Candidate agents generate hypotheses using static code/diff analysis.
+That produces a report in the form:
 
-2. Level 2 (In-Memory Verification): If a candidate bug can be proven with a standard mock or unit test, do it here (fast, low compute).
+### Functional Problems
+- Critical Problems: {"problems_a": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Important Problems: {"problems_b": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Enhancement Opportunities: {"problems_g": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Non-critical score: float
 
-3. Level 3 (Containerized Verification): If the bug requires stateful dependencies (e.g., database, cache, message bus), invoke Testcontainers and/or Floci to run a localized integration proof.
+### Security Problems
+- Critical Problems: {"problems_c": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Important Problems: {"problems_d": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Enhancement Opportunities: {"problems_h": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Non-critical score: float
 
-4. Level 4 (Full Topology Simulation): Only for cross-service, workflow, or infrastructure bugs, spin up Act and/or lightweight cluster topologies (e.g., via Kind, Proxmox, OpenStack or Floci) as a final verification step.
+### Code Quality & Documentation Problems
+- Critical Problems: {"problems_e": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Important Problems: {"problems_f": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Enhancement Opportunities: {"problems_i": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Non-critical score: float
+
+### Performance Problems
+- Critical Problems: {"problems_g": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Important Problems: {"problems_f": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Enhancement Opportunities: {"problems_j": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
+- Non-critical score: float
+
+Where:
+- non-critical score is a score of the diff excluding criticla problems. In ralph loop, you set a score treshold which determines when you pass review or not. Critical problems are not considered because all of them must be solved. This allows humans to be called only for: (1) answering questions; (2) solving stuck loops; (3) reviewing low-confidence critical problems.
+- critical regression-inducing false positives (generally functional false positives) extremely close to 0
+- non-critical regression-inducing false positives (generally functional false positives) are close to 0
+- code quality & documentation problems proofs are cosntructed by makig a program that calls LLMs to check
+- the whole system is trained end-to-end with RL to optimize for extemely low regression-inducing false positives, high-recall, decent precision and calibrated confidence.
 
 ## Humans become the escalation layer
 
