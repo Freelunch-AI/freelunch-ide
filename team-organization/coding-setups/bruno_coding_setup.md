@@ -160,6 +160,12 @@ Similarly:
 - never run destructive commands without my permission. Always try to dry run them before if possible.
 - never try to extract the last bit of performance at the expense of making code complexity higher, unnles specifically prompted for extreme performance optimization
 
+### Testing Hierarchy
+- Level 1: Unit tests (Must pass)
+- Level 2: Integration tests (Must pass)
+- Level 3: End-to-end tests (Must pass when cross-component changes are involved)
+- Skipping any required level = Not Complete
+
 > This is the end of the AGENTS.md file
 
 ---
@@ -222,7 +228,7 @@ B2: Tests & Logic
     2. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec and Deisgn System if doing GUI work (issue-specific spec and global spec) catching inconsistencies with spec/design system, things not specified in specs/design system and problems in spec/design system that needed to be overruled**. Incosistencies between code/tests;issue-specific-spec/global-spec should be flagged to the user with recommendations. Important: should try to make multiple related tests pass at a time, always aim for the smallest coherent behavioral slice, as end-to-end as possible across the components) that produces a useful feedback signal  [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
 
-11. [Make/Remake plan.md first & keep updating the plan as you progress] **/refactifnecessary evaluate refactoring opportunities that would improve code clarity, quality and maintanability, [Make plan first & keep updating the plan as you progress]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
+11. [Make/Remake plan.md first & keep updating the plan as you progress] **/refact-coreimplementation-task-if-necessary evaluate refactoring opportunities just for the last core implementaion task just realizsed. These should be changes that maintian same functionality but improve code clarity, quality and maintanability, [Make plan first & keep updating the plan as you progress]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
 
  ----<<separate terminal block (reset context) >>----
 
@@ -236,11 +242,13 @@ B2: Tests & Logic
 
 ---- New Session (reset context) ----
 
-**Requirement to continue the flow: the plan.md needs to be done, i.e., all core implementation tasks finished**
+**Requirement to continue the flow: core-implementation-tasks-plan.md needs to be fully complete, i.e., all core implementation tasks finished**
+
+15. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours.
 
 C: Code Review
 
-13. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
+16. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
     1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Review against Spec (global and issue-specific) and Design System if doing GUI work catching inconsistencies with spec/design system, things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work) that needed to be overruled)
     2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
@@ -248,25 +256,27 @@ C: Code Review
 
 D: Security Review, Documentation & PR
 
-15. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Reviewer Suggestions]
+17. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Reviewer Suggestions]
     1. **/secreview Specialized Security Review** flagging critical problems & warnings
     2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary ccode/test/docs changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
-16. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
+18. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handlded. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours.
+
+19. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
 
  ----<<separate terminal block (reset context) >>----
 
-17. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+20. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
 ----<</separate terminal block >>----
 
-18. **/pr (1) Check the pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
+21. **/pr (1) Check the pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
 
 ---- New Session (reset context) ----
 
 E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
-19. Loop until 1 is sucessfull or go back to a previous step 
+22. Loop until 1 is sucessfull or go back to a previous step 
     1. (On PR Review or CI failure Notification manually checked by user) **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
     2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
