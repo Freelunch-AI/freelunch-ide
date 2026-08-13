@@ -105,6 +105,7 @@ Where:
 - spec_grounding is a causal justification how why the code is not prducing the intended behaviour described in the spec, with spec citations
 - can be configured to use a different random_seed at each run (usefull for getting ralph loops unstuck) where it uses different models, and slighly different prompts and hyperparameters
 - awarm has specific agents for each type of problem
+- lunch review can be configured for 3 different levels of compute: light (lowest cost, good results), medium (costs more, better results) and heavy (costs the most, best results)
 
 ## Humans become the escalation layer
 
