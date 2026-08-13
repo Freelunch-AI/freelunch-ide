@@ -115,9 +115,10 @@ The ideal workflow is simple: claude code is generating code, lunch review is re
 
 This changes the role of the engineer from **reviewer of every change** to **investigator of the changes that actually need human judgment**. Instead of spending hours reviewing code that is probably correct, engineers spend their time on the small fraction of changes.
 
-## Review during development, not just PRs
+## Review during development via CLI or Review PRs via Gitub Action
 
-The same system can run during development via cli or triggered by your main coding agent harness (e.g., claude code), to catch problems ebefore PR phase. The earlier a problem is encounterd, the cheaper it is to fix it.
+- During development: via cli or triggered by your main coding agent harness (e.g., claude code), to catch problems before PR phase. The earlier a problem is encounterd, the cheaper it is to fix it.
+- For PR: at every PR or triggered by PR comment. Requests changes for critical problems.
 
 ## Training Pipeline
 
