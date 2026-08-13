@@ -4,12 +4,12 @@ AI-assisted Development and Project management, with github/jira/linear/etc inte
 
 Features:
 - kanban for your agents
-- agents for solving issues with PRs, agents for creating draft bug issues using monitoring/observability data, agents for creating draft feature or enhancement issues using product data
+- ephemeral agents for solving issues with PRs, always-on agents for creating draft bug issues using monitoring/observability data, chron agents for creating draft feature or enhancement issues using product data, always-on agents for proactively pushing refactoring PRs that remove technical debt
 - automatic type labelling of Issues & PRs and tracking sucess rate of agents on theses types. When sucess rate is above threshold, requires no more human approval (e.g., issue approval or pr review)
 - assign issues to local and remote agents
 - get notified on important remote agent events
 - cost manageemnt
-- self-improvement of agents
+- self-improvement of agents/harnesses
 - automatic discovery of best company/repo-specific coding setup for human developers
 - optional deployment of self-hosted LLM API for agents to use instead of cloud APIs
 - first mate: have a manager agent that orchestrates all the other agents for you, instead of you doing it manually
