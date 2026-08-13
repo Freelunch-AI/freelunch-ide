@@ -139,7 +139,7 @@ This changes the role of the engineer from **reviewer of every change** to **inv
         - producing a mistake
     5. punsihed a lot for:
         - giving high confidence on a mistake
-4. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that solved Bug issues
+4. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that got reviewed and patched.
 
 ## First Users
 
