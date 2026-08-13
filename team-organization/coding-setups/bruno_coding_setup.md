@@ -2,7 +2,8 @@
 
 ## Project Rules (AGENTS.md)
 
-Explanation of the /.agent directory structure can be found in ./agent/directory_structure.md. It explains the directory and files you will be using in sessions and across sessions for doing work effectively.
+- Explanation of the /.agent directory structure is in ./agent/directory_structure.md. It explains the directory and files you will be using in sessions and across sessions for doing work effectively.
+- Explanation of the terminology used in this project is in terminology.md, always check it out when confused about terminalogy I use or which terminology you should use.
 
 ### Who are you (the AI agent)
 
