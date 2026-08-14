@@ -12,7 +12,7 @@
 
 - Follow Issue Template
 - Issues must be self-contained and highly descriptive of the problem and solution that should be implemented
-- Every Bug Issue closed must create a ./docs/post-mortems/post-mortem_[i].md where i is the number of the issue, which detals the issue, when it happenned, the solution, who solved it, the process that was used to arrive at the solution and how to avoid and reduce the impact of similar problems in the future
+- Every Bug Issue closed must create a ./docs/post-mortems/post-mortem_[i].md where i is the number of the issue, which describes the issue, when it happenned, the data evidence for the issue (telemetry, screenshots, user reviews, etc), desription of the solution, data evidence of the solution, who was involved in solving it, time it took to solve it, the process that was used to arrive at the solution, how to avoid and reduce the impact of similar problems in the future, the changes in standard operating protocols imposed.
 
 ### PRs
 
