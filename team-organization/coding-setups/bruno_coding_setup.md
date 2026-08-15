@@ -343,7 +343,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 1. Start a new session with opencode: do code review with Model A and store the review in .agent/session/code_reviews/code_review_[A].md, where A is a placeholder for the actual mode name 
 2. Start a new session with opencode: do code review with Model B and store the review in .agent/session/code_reviews/code_review_[B].md, where B is a placeholder for the actual mode name
-3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session/coe-reviews/ folder and store the resulting code review inside .agent/session/code_reviews/final_code_review
+3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session/code-reviews/ folder and store the resulting code review inside .agent/session/code_reviews/final_code_review.md
 
 ## Token Efficency Laws
 
