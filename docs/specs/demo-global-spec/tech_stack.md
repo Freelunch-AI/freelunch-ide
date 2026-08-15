@@ -24,7 +24,6 @@ This covers the tooling used to build, test, document, and ship the FreeLunch pa
 - Versioned Go package publishing for the FreeLunch CLI/core engine → **GitHub Releases** + **Go module proxy**
 - Versioned monorepo template publishing for the FreeLunch CLI bootstrap flow → **GitHub Releases** / **GitHub repository template**
 - Documentation site for the repo and product narrative → **MkDocs** (locked version in pixi)
-- Architecture Diagrams: **Mermaid**
 
 ## 2. Stack for the product (the devops platform demo)
 
