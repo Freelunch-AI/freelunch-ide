@@ -10,13 +10,9 @@ This means the product isn't simply a GitHub bot that comments on pull requests.
 
 ## The Technology we use
 
-Rather than relying on one reviewer model, the system creates a swarm of specialized agents. An investigator might explore the codebase and identify suspicious behavior, a test agent might construct counterexamples and execute targeted tests, a security agent might investigate vulnerabilities, and an adversarial reviewer might try to disprove the findings of the other agents. A verifier then evaluates the evidence before the swarm reaches a final decision.
-
-The important property is that these agents don't have to use the same model. Different models can specialize in different failure modes, and the swarm can combine them according to whatever configuration produces the best results.
+We use an agetn swarm to perform the review with a problem candidate generation phase and a problem filtering phase.
 
 ### The key difference: we train the swarm
-
-This is the fundamental distinction from today's AI code-review products. With conventional AI review, the workflow is essentially **PR → existing model → review**. We instead want **code → specialized review swarm → investigation → verification → outcome → reward → RL training → better swarm**.
 
 We leverage swarm-aware multi-model RL infrastructure such as AgentJet to train the agents toward the outcome of the entire review process. The optimization target isn't "did the model write a convincing review?" It is **"did the swarm discover a real defect?"**
 
@@ -56,8 +52,8 @@ Regression-inducing false positive examples: findings that cause tests to be rew
 
 1. [Read Mode] [Multi-agent] [Test-time scaling] Static Codebase Understanding, Making hypotheses and predicitons for hypothesis, also sending questions to human engineer
 2. [Read Mode] [Multi-agent] Runs experiments to test hypothesis and improve understanding
-3. [Read Mode] [Multi-agent] [High-recall] Static Problem Candidate Generation with causal evidence, specification/contract grounding and problem execution proof building type per problem (Level 1, Level 2, Level 3 or Level 4)
-4. [Execution Mode] [Multi-agent] Independent Build/Test/Package/Deploy or Publish Command Runner, Problem Execution Proof Builder and Problem Report Builder
+3. [Read Mode] [Multi-agent] [High-recall] Static Problem Candidate Generation with causal evidence, specification/contract grounding and problem execution proof (Failing Test) building type per problem (Level 1, Level 2, Level 3 or Level 4)
+4. [Execution Mode] [Multi-agent] Independent Build/Test/Package/Deploy or Publish Command Runner, Problem Execution Proof (Failing Test) Builder and Problem Report Builder
     1. Level 1 (Static AST Analysis): Candidate agents generate hypotheses using static code/diff analysis.
     2. Level 2 (In-Memory Verification): If a candidate bug can be proven with a standard mock or unit test, do it here (fast, low compute).
     3. Level 3 (Containerized Verification): If the bug requires stateful dependencies (e.g., database, cache, message bus), invoke Testcontainers and/or Floci to run a localized integration proof.
@@ -100,7 +96,7 @@ Where:
 - non-critical score is a score of the diff excluding criticla problems. In ralph loop, you set a score treshold which determines when you pass review or not. Critical problems are not considered because all of them must be solved. This allows humans to be called only for: (1) answering questions; (2) solving stuck loops; (3) reviewing low-confidence critical problems.
 - critical high-confidence regression-inducing false positives (generally functional false positives) extremely close to 0
 - non-critical high-confidence regression-inducing false positives (generally functional false positives) are close to 0
-- code quality & documentation problems proofs are cosntructed by makig a program that calls LLMs to check
+- code quality & documentation problems proofs are cosntructed by makig a test that calls LLMs to check
 - the whole system is trained end-to-end with RL to optimize for extemely low high-confidence regression-inducing false positives, high-recall, decent precision and calibrated confidence.
 - spec_grounding is a causal justification how why the code is not prducing the intended behaviour described in the spec, with spec citations
 - can be configured to use a different random_seed at each run (usefull for getting ralph loops unstuck) where it uses different models, and slighly different prompts and hyperparameters
