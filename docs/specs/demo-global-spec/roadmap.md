@@ -1,5 +1,3 @@
-Absolutely. The key change is that the **Sample Application starts in Group 2 as a golden L1→L2 fixture**, while **Group 4 is where that same application becomes the first end-to-end deployed slice**. I’ve also kept PR criticality/selective testing post-Demo and the corrected CUE terminology throughout.
-
 # FreeLunch — Demo Features: Implementation Order & Roadmap
 
 ## Mock
@@ -8,41 +6,16 @@ Absolutely. The key change is that the **Sample Application starts in Group 2 as
 
 ## OSS Design References
 
-We will probably borrow patterns from:
+We will probably borrow some ideas/patterns from:
 
 * **Kubero** — a Kubernetes-based, developer-friendly platform
 * **OKD** — open source edition of Red Hat OpenShift, a Kubernetes-based complete platform focused on enterprises
 * **Tilt** — a strong developer/experimentation experience for Kubernetes
 * **Backstage** — a plugin-based internal developer platform interface
-* **Ray** — a modern distributed programming framework for Python; inspiration for the `lunch-lang` distributed programming framework idea to be used within `freelunch-ide`, although Ray operates as a runtime while `lunch-lang` would operate at compile time
-
-The goal is to take ideas from these tools to simplify the developer experience without copying their implementation wholesale.
-
+* **Ray** — a modern distributed programming framework for Python; inspiration for the `lunch-lang` distributed programming framework idea to be used within `freelunch-ide`, although Ray operates as a runtime while `lunch-lang` would operate at compile time                                                                                                                |
 ---
 
-# Glossary
-
-| Term                                      | Definition                                                                                                                                                                                                                                                                             |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Monorepo**                              | The single Git repository for a customer organization. Contains all products, services, workflows, platform configuration, generated L2 artifacts, and CI/CD configuration. One monorepo per customer.                                                                                 |
-| **Workload**                              | Any single deployable unit inside the monorepo. In the Demo, this is a Service; the Workflow directory remains a placeholder for post-Demo DAG workflows.                                                                                                                              |
-| **Service**                               | A long-running, always-on, request-driven Workload such as HTTP, gRPC, or an event consumer.                                                                                                                                                                                           |
-| **Workflow (DAG)**                        | A trigger-driven Workload that runs to completion and has per-run execution state. App DAG workflows such as Airflow are post-Demo.                                                                                                                                                    |
-| **Layer 1 (L1)**                          | FreeLunch's high-level configuration model. Developers define Workloads through FreeLunch abstractions rather than directly authoring Kubernetes resources.                                                                                                                            |
-| **CUE**                                   | The configuration language, constraint system, and evaluation engine used internally by FreeLunch to validate and evaluate L1 configuration and platform policies into deterministic L2 artifacts. CUE is an implementation mechanism rather than the primary user-facing abstraction. |
-| **Layer 2 (L2)**                          | Kubernetes/Helm artifacts generated from L1 through CUE evaluation. L2 is the deployment source of truth. Customers can view and edit L2 directly; conflicts with the higher-level configuration are surfaced explicitly.                                                              |
-| **Canvas**                                | The primary visual authoring surface for Workloads. Developers configure FreeLunch Workloads through visual blocks and configuration controls; the underlying L1 representation is maintained deterministically in the monorepo.                                                       |
-| **Persona**                               | One of the three core personas: Platform Admin, Platform Engineer, or Developer. Temporary approval grants may be assigned to personas for staging/production review.                                                                                                                  |
-| **Hotfix**                                | A permission grantable by a Platform Admin to any Persona. Allows an explicitly audited merge to `main` without normal CI gates.                                                                                                                                                       |
-| **Ephemeral Staging Environment**         | A short-lived isolated environment spun up per PR and torn down after merge/close. Its desired state is managed through the same GitOps path as other environments.                                                                                                                    |
-| **Blue-Green Deployment**                 | An Argo Rollouts-managed promotion between active (blue) and preview (green) versions, with the previous revision retained for a configured rollback window.                                                                                                                           |
-| **Agent Integration Layer**               | A read-only REST API with an OpenAPI contract and a first-party skill through which coding agents query workload, pipeline, error, cost, and observability data. Repository changes remain the agent's normal write path.                                                              |
-| **Local Dev/Experimentation Environment** | A fully local Kubernetes environment for validating workloads before shared CI/Staging. It uses ProxMox + Talos Linux and is inspired by the developer experience of Tilt.                                                                                                             |
-| **CI Executor**                           | Dagger is the reusable, container-native execution layer for CI steps. GitHub Actions is the remote CI orchestrator; Act emulates GitHub Actions locally.                                                                                                                              |
-
----
-
-# Deferred Decisions and Scope
+## Deferred Decisions and Scope
 
 * **Kubernetes as the primary target** — the Demo is centered on vanilla Kubernetes rather than a managed cloud-specific stack.
 * **Local environment** — the Demo uses ProxMox + Talos Linux to provide a local VM-based Kubernetes environment. This is local virtualization, not a simulation of a specific public cloud.
@@ -53,7 +26,7 @@ The goal is to take ideas from these tools to simplify the developer experience 
 
 ---
 
-# Implementation Strategy
+## Implementation Strategy
 
 The roadmap is organized around **vertical dependency slices**, rather than installing infrastructure components merely because they are available.
 
