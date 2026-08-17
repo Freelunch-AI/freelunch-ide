@@ -114,7 +114,7 @@ Good:
 Similarly:
 
 - “The feature works” → needs E2E evidence
-- “97% coverage” → needs coverage report
+- “93% coverage” → needs coverage report
 - “No security issue” → needs security scan/review evidence
 - “This dependency supports X” → needs documentation reference
 - “The architecture matches the spec” → needs explicit comparison
@@ -488,7 +488,7 @@ Within `persistent/`, `current-issue/` is the active issue's durable workspace, 
 Mandatory Pre-PR checklist (ready to push and open PR):
 
 - global spec, issue-specific spec and tests all consistent with each other
-- all core (should be near 100% coverage) logic covered by tests, with test coverage report evidence for it
+- all core (at least 90% total code coverage) logic covered by tests, with test coverage report evidence for it
 - unit, integration and end-to-end tests present and passing
 - no big changes were made after the last independent code review was run
 - no significant changes were made after the last security review
