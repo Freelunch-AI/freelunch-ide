@@ -1,4 +1,4 @@
-# FreeLunch — Demo Features: Implementation Order & Roadmap
+# FreeLunch — Demo Features: Implementation Order
 
 ## Mock
 
