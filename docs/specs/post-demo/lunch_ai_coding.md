@@ -9,8 +9,8 @@ Features:
 - assign issues to local and remote agents
 - get notified on important remote agent events
 - cost manageemnt
-- self-improvement of agents/harnesses
-- automatic discovery of best company/repo-specific coding setup for human developers
+- self-improvement of models/harnesses. Automatic discovery of best company/repo-specific coding setup
+- custom coding model always beating major LLM APIs: proactive monitoring of where new LLM APIs beat the custom model, then finetuning the cusotm model on distilled data from the best performing API for the specific lagging place. this is until custom model is agian the best model.
 - optional deployment of self-hosted LLM API for agents to use instead of cloud APIs
 - first mate: have a manager agent that orchestrates all the other agents for you, instead of you doing it manually
 
