@@ -140,6 +140,67 @@ This changes the role of the engineer from **reviewer of every change** to **inv
 5. distill the traces of the big system and finetune the best open course coding model on it.
 6. Result: A single model/Single Agent for cidate generation + A single model/Single Agent for candidate verification
 
+## Why Review Must Go Beyond Final Diff Review
+
+A final diff is only the **end state** of a coding agent's work. For training coding agents, reviewing only the final diff loses the most valuable information: **how the agent arrived there**.
+
+A final diff review answers:
+
+> **"Is this change correct?"**
+
+A trajectory review answers the more important training question:
+
+> **"Where did the agent's reasoning or implementation process go wrong, and how should it have proceeded?"**
+
+### Final Diff Review
+
+The fundamental review task remains:
+
+```text
+Specification + Code Diff → Review
+```
+
+This provides high-quality supervision for correctness, regressions, missing requirements, and architectural violations.
+
+However, it cannot reliably identify:
+
+* incorrect decisions that were later corrected,
+* wasted exploration,
+* dead-end approaches,
+* the first point where the agent diverged from the plan,
+* why a particular change was made,
+* whether the agent is converging toward the intended solution.
+
+### Trajectory Review
+
+For agent training, the model should additionally review the **sequence of changes**:
+
+```text
+Specification + Plan + Diff₁ → Diff₂ → ... → Diffₙ
+                         ↓
+                   Review FM
+```
+
+This allows the reviewer to provide **process-level supervision**:
+
+* identify the first incorrect step,
+* explain why it diverged from the specification or plan,
+* distinguish productive exploration from wasted work,
+* identify missing investigations or tests,
+* recommend the next corrective action,
+* assess whether the trajectory is converging.
+
+This is particularly important because coding-agent RL has sparse objective feedback: a trajectory that receives `0 tests passed` could represent either a completely misguided attempt or a nearly-correct solution that failed on one final detail.
+
+### Design Principle
+
+The Review Foundation Model should therefore support **both final-state and process review**:
+
+> **Diff review determines whether the implementation satisfies the specification. Trajectory review determines whether the agent's path toward that implementation was sound.**
+
+This makes the model useful not only as a PR reviewer, but as a **process-supervision model for training coding agents**.
+
+
 ## First Users
 
 The product will win fastest in more mature repos with strong existing unit-test coverage, clear module boundaries, and high business risk (e.g., financial logic, smart contracts, core API services) where compute costs are easily justified by defect prevention.
