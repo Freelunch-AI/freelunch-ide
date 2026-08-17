@@ -14,7 +14,7 @@ We use an agetn swarm to perform the review with a problem candidate generation 
 
 ### The key difference: we train the swarm
 
-We leverage swarm-aware multi-model RL infrastructure such as AgentJet to train the agents toward the outcome of the entire review process. The optimization target isn't "did the model write a convincing review?" It is **"did the swarm discover a real defect?"**
+We leverage swarm-aware multi-model optimization infrastructure such as AgentJet (Multi-agent RL) for inner loop model optimizaiton and DSPY (LLM-based program optimization) for outer loop system optmization to train the agents toward the outcome of the entire review process. The optimization target isn't "did the model write a convincing review?" It is **"did the swarm discover a real defect?"**
 
 This allows us to optimize the entire system: which agents participate, which models they use, what tools they invoke, how deeply they investigate, how they debate, how they verify findings, when they escalate to humans, how results are combined, and how findings are filtered. The models are components. **The swarm is the thing being optimized.**
 
