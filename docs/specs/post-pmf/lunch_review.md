@@ -137,6 +137,8 @@ This changes the role of the engineer from **reviewer of every change** to **inv
     5. punsihed a lot for:
         - giving high confidence on a mistake
 4. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that got reviewed and patched.
+5. distill the traces of the big system and finetune the best open course coding model on it.
+6. Result: A single model/Single Agent for cidate generation + A single model/Single Agent for candidate verification
 
 ## First Users
 
