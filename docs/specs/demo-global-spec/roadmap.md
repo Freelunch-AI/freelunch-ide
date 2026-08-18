@@ -49,11 +49,12 @@ monorepo/
 ### 1.2 Local Dev/Experimentation Environment
 The fully-local runtime environment for the Demo.
 
-> **Story:** As a Platform Admin, I run `freelunch install` on a fresh machine with Docker installed and a local development environment appears with Kubernetes provisioned into an emulated VPC via Ansible/Terraform and Floci emulating AWS services alongside it. All FreeLunch components deploy into it without touching the internet.
+> **Story:** As a Platform Admin, I run `freelunch install` on a fresh machine with Docker installed and a local development environment appears with a Kubernetes cluster running locally in containers. All FreeLunch components deploy into it without touching the internet.
 
 - **Kubernetes** — primary runtime target for the Demo
-- **ProxMox** + **Talos Linux** — local Talix Linux VM cluster
-- **Provisioning** — the local environment is provisioned into a virtual local VPC using Terraform, rather than relying on a simple Kind-only setup that wont translate directly to real cloud deployment later that will require IaC.
+- **k3d** (k3s in Docker) — the local cluster runs as Docker containers, not as VMs
+- **Provisioning** — the cluster is defined declaratively by a committed k3d configuration file, so every developer gets the same cluster from the same command
+- **Cross-platform by requirement** — the team develops on macOS, Linux and WSL2, and the Demo environment must be reproducible on all of them. Docker is the only common denominator; anything requiring a hypervisor is not.
 - **Fresh start only** — `freelunch start` creates the environment from scratch for the Demo
 
 ### 1.3 Auth Service (Local Instance)
