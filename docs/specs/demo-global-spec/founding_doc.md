@@ -268,7 +268,27 @@ FreeLunch composes these capabilities into a coherent developer experience.
 
 ---
 
-# 5. Demo Scope
+# 5. Personas
+
+### Platform Admin
+
+Owns the platform, organization configuration, identity, and emergency permissions.
+
+### Platform Engineer
+
+Defines platform capabilities, policies, infrastructure, and deployment configuration.
+
+### Developer
+
+Builds, deploys, observes, and operates applications through the platform.
+
+### Tech Lead
+
+A developer with additional responsibility for reviewing and merging changes.
+
+---
+
+# 6. Demo Scope
 
 ## 5.1 Required
 
@@ -330,7 +350,7 @@ FreeLunch composes these capabilities into a coherent developer experience.
 
 ---
 
-# 6. Explicitly Out of Demo Scope
+# 7. Explicitly Out of Demo Scope
 
 The Demo does **not** attempt to solve the entire platform vision.
 
@@ -379,7 +399,7 @@ The Demo does **not** attempt to solve the entire platform vision.
 
 ---
 
-# 7. Demo vs MVP
+# 8. Demo vs MVP
 
 The Demo proves the **core developer experience**.
 
@@ -392,29 +412,9 @@ Major additions include:
 * Proper authentication.
 * Proper security.
 * A/B testing.
-* Validation with a real scaleup.
+* Validation with a real scaleup. Nrth star metric: DORA metrics modulated by the startup's growth rate (DORA metrics are harder the faster a company is is changing its product and adapating to more users).
 
 The most important validation is not feature completeness: it is demonstrating that a real scaleup can operate and grow applications with significantly less platform complexity and headcount.
-
----
-
-# 8. Personas
-
-### Platform Admin
-
-Owns the platform, organization configuration, identity, and emergency permissions.
-
-### Platform Engineer
-
-Defines platform capabilities, policies, infrastructure, and deployment configuration.
-
-### Developer
-
-Builds, deploys, observes, and operates applications through the platform.
-
-### Tech Lead
-
-A developer with additional responsibility for reviewing and merging changes.
 
 ---
 
@@ -483,11 +483,6 @@ Comparison criteria:
 | Capabilities         | Can the platform support realistic scaleup requirements?           |
 | Complexity           | How much Kubernetes/cloud-native knowledge is required?            |
 | Portability          | Can the customer operate the underlying artifacts independently?   |
-| Lock-in              | How difficult is it to leave the platform?                         |
-| Cost                 | What infrastructure and engineering cost does the approach create? |
-| Headcount            | How much platform/DevOps expertise is required?                    |
-
-The strongest validation is adoption by a real scaleup.
 
 ---
 
