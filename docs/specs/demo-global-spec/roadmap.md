@@ -112,7 +112,7 @@ Everything after this builds on that working slice.
 
 Define the canonical directory topology for the customer monorepo.
 
-> **Story:** As a Platform Admin, I run `freelunch init my-company` and a local Git repository is scaffolded with the canonical directory structure. GitHub remote creation/push is handled by the GitHub integration rather than being implicitly part of repository scaffolding.
+> **Story:** As a Platform Admin, I run `freelunch start my-company` and a local Git repository is scaffolded with the canonical directory structure. GitHub remote creation/push is handled by the GitHub integration rather than being implicitly part of repository scaffolding.
 
 ```text
 monorepo/
@@ -129,10 +129,10 @@ monorepo/
 
 * `products/<product-name>/workflows/` remains a placeholder because app DAG workflows are post-Demo.
 * `.github/workflows/` contains thin orchestration that invokes Dagger rather than duplicating build/test logic.
+* Separation between platform config (Platform Engineers) and canvas-maintained Workload definitions (Developers)
 * `l2/` is generated from L1 but remains customer-visible and editable by authorized Platform Engineers.
 * The platform version is declared in `platform/freelunch.yaml`.
-* The FreeLunch product repository's own TypeScript + Go tooling is an implementation concern and is not mixed into the customer monorepo definition.
-* The customer monorepo is multi-language friendly and includes linting that validates user edits against FreeLunch-supported structures.
+* The FreeLunch IDE/CLI repository itself is a TypeScript + Go project with dev tooling & its own CI/CD setup with: virtual environment/package management, formatting, testing, building, test coverage, detection & correction of stale documentation (optional), packaging, publishing versioned binaries/user monorepo template and docs-site publishing.
 
 ## 1.2 Local Dev/Experimentation Environment
 
