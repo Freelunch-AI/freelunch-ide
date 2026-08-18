@@ -39,6 +39,16 @@ archives:
     ids:
       - freelunch
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    # roadmap.md 1.1 requires versioned *template* publishing alongside the
+    # package. `freelunch init` scaffolds a customer monorepo from these files,
+    # so they must travel with the binary that reads them — a release carrying
+    # only the CLI would leave init with nothing to copy.
+    files:
+      # A bare directory src, not a glob: a glob such as templates/**/* makes
+      # GoReleaser strip the matched parent dirs, which flattened the
+      # monorepo/ level and would collide once a second template is added.
+      - src: templates
+        dst: templates
 
 checksum:
   name_template: checksums.txt
