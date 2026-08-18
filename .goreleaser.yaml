@@ -9,10 +9,12 @@ project_name: freelunch
 
 before:
   hooks:
-    - go mod download
+    - go -C src/cli mod download
 
 builds:
   - id: freelunch
+    # The Go module is rooted at src/cli/, not at the repository root.
+    dir: src/cli
     main: ./cmd/freelunch
     binary: freelunch
     env:
@@ -27,9 +29,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/Freelunch-AI/freelunch-ide/internal/buildinfo.version={{ .Version }}
-      - -X github.com/Freelunch-AI/freelunch-ide/internal/buildinfo.commit={{ .FullCommit }}
-      - -X github.com/Freelunch-AI/freelunch-ide/internal/buildinfo.date={{ .CommitDate }}
+      - -X github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo.version={{ .Version }}
+      - -X github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo.commit={{ .FullCommit }}
+      - -X github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo.date={{ .CommitDate }}
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:

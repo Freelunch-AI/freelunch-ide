@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Freelunch-AI/freelunch-ide/internal/managers"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/managers"
 )
 
 // LevelEnvVar names the environment variable that overrides the log level.

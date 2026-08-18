@@ -1,7 +1,7 @@
 // Type-checking and editor/ESLint view of the package: covers tests too, emits
 // nothing. The emitting build lives in tsconfig.build.json.
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
     "composite": false,

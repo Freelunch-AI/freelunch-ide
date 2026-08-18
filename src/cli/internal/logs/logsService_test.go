@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Freelunch-AI/freelunch-ide/internal/managers"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/managers"
 )
 
 // NewManagerForTests builds a container for this package's tests. By convention

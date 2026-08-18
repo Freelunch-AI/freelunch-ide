@@ -1,4 +1,4 @@
-module github.com/Freelunch-AI/freelunch-ide
+module github.com/Freelunch-AI/freelunch-ide/src/cli
 
 go 1.25.0
 

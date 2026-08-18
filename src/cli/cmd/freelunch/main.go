@@ -13,9 +13,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Freelunch-AI/freelunch-ide/internal/command"
-	"github.com/Freelunch-AI/freelunch-ide/internal/logs"
-	"github.com/Freelunch-AI/freelunch-ide/internal/managers"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/command"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/logs"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/managers"
 )
 
 func main() {

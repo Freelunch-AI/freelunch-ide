@@ -6,12 +6,23 @@
 version: '3'
 
 vars:
-  # Explicit package patterns rather than ./... — some npm packages vendor Go
-  # sources under node_modules, and the Go tool would otherwise build them.
+  # The Go module is rooted at src/cli/, so every Go task runs with `dir:` set
+  # to GO_DIR rather than at the repository root.
+  GO_DIR: src/cli
+  # The npm workspace is rooted at src/ide_src/, so node_modules lives there.
+  TS_DIR: src/ide_src
+  # Prettier covers the whole repository, not just the workspace that ships it —
+  # YAML under templates/ and .github/ included. It must therefore run from the
+  # repository root, or .gitignore/.prettierignore resolve against src/ide_src/.
+  PRETTIER: src/ide_src/node_modules/.bin/prettier
+  # Explicit package patterns rather than ./... . node_modules now sits outside
+  # the module, so ./... would in fact be safe — the patterns are kept because
+  # they stay correct if an npm workspace is ever added under src/cli/.
   GO_PKGS: ./cmd/... ./internal/...
+  # Relative to GO_DIR: the binary is still written to the repository-root bin/.
   BIN_DIR: bin
   CLI_BINARY: freelunch
-  LDFLAGS_PKG: github.com/Freelunch-AI/freelunch-ide/internal/buildinfo
+  LDFLAGS_PKG: github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo
 
 tasks:
   default:
@@ -23,8 +34,20 @@ tasks:
   setup:
     desc: Install Go and Node dependencies
     cmds:
-      - go mod download
+      - task: setup:go
+      - task: setup:ts
+
+  setup:ts:
+    desc: Install Node dependencies
+    dir: '{{.TS_DIR}}'
+    cmds:
       - npm ci
+
+  setup:go:
+    desc: Download Go module dependencies
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - go mod download
 
   # --- Formatting ---------------------------------------------------------
 
@@ -34,19 +57,26 @@ tasks:
 
   fmt:go:
     desc: Format Go sources
+    dir: '{{.GO_DIR}}'
     cmds:
       - golangci-lint fmt
 
   fmt:ts:
-    desc: Format TypeScript sources and configs
+    desc: Format every non-Go source in the repository with Prettier
     cmds:
-      - npm run format
+      - '{{.PRETTIER}} --write .'
 
   fmt:check:
     desc: Verify formatting without rewriting files
     cmds:
+      - task: fmt:check:go
+      - '{{.PRETTIER}} --check .'
+
+  fmt:check:go:
+    desc: Verify Go formatting without rewriting files
+    dir: '{{.GO_DIR}}'
+    cmds:
       - golangci-lint fmt --diff
-      - npm run format:check
 
   # --- Linting ------------------------------------------------------------
 
@@ -56,11 +86,13 @@ tasks:
 
   lint:go:
     desc: Lint Go sources
+    dir: '{{.GO_DIR}}'
     cmds:
       - golangci-lint run {{.GO_PKGS}}
 
   lint:ts:
     desc: Lint TypeScript sources
+    dir: '{{.TS_DIR}}'
     cmds:
       - npm run lint
 
@@ -72,16 +104,19 @@ tasks:
 
   test:go:
     desc: Run Go tests
+    dir: '{{.GO_DIR}}'
     cmds:
       - go test -race {{.GO_PKGS}}
 
   test:ts:
     desc: Run TypeScript tests
+    dir: '{{.TS_DIR}}'
     cmds:
       - npm test
 
   test:cover:
     desc: Run Go tests and write an HTML coverage report
+    dir: '{{.GO_DIR}}'
     cmds:
       - go test -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
       - go tool cover -html=coverage.out -o coverage.html
@@ -95,15 +130,16 @@ tasks:
 
   build:cli:
     desc: Build the freelunch CLI into bin/
+    dir: '{{.GO_DIR}}'
     cmds:
-      - mkdir -p {{.BIN_DIR}}
+      - mkdir -p ../../{{.BIN_DIR}}
       - >-
         go build
         -trimpath
         -ldflags "-X {{.LDFLAGS_PKG}}.version={{.VERSION}} -X {{.LDFLAGS_PKG}}.commit={{.COMMIT}} -X {{.LDFLAGS_PKG}}.date={{.BUILD_DATE}}"
-        -o {{.BIN_DIR}}/{{.CLI_BINARY}}
+        -o ../../{{.BIN_DIR}}/{{.CLI_BINARY}}
         ./cmd/{{.CLI_BINARY}}
-      - '{{.BIN_DIR}}/{{.CLI_BINARY}} version'
+      - '../../{{.BIN_DIR}}/{{.CLI_BINARY}} version'
     vars:
       VERSION:
         sh: git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev
@@ -114,6 +150,7 @@ tasks:
 
   build:ts:
     desc: Compile the TypeScript workspace
+    dir: '{{.TS_DIR}}'
     cmds:
       - npm run build
 
@@ -143,4 +180,10 @@ tasks:
     desc: Remove build output
     cmds:
       - rm -rf {{.BIN_DIR}} dist coverage.out coverage.html
+      - task: clean:ts
+
+  clean:ts:
+    desc: Remove TypeScript build output
+    dir: '{{.TS_DIR}}'
+    cmds:
       - npm run clean

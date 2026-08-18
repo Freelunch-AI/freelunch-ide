@@ -15,8 +15,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Freelunch-AI/freelunch-ide/internal/buildinfo"
-	"github.com/Freelunch-AI/freelunch-ide/internal/managers"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo"
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/managers"
 )
 
 // ExitError lets a command choose the process exit code. main unwraps it; any

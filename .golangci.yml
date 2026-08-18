@@ -41,7 +41,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/Freelunch-AI/freelunch-ide
+        - github.com/Freelunch-AI/freelunch-ide/src/cli
   exclusions:
     paths:
       - node_modules
