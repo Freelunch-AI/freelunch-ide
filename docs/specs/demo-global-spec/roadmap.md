@@ -221,9 +221,10 @@ The customer-visible deployment layer.
 * Platform Engineers may edit L2 directly.
 * L2 is the deployment source of truth.
 * L1 is the higher-level authoring model; L2 is the rendered deployment state.
-* L1/L2 conflicts are explicit and must be resolved through Git/FreeLunch workflows.
+* L1/L2 conflicts are explicit and must be resolved through Git/FreeLunch workflows. The conflict resolution is for determining the final l2. After conflcit resolution, l1 might be inconsistent with l2, but which parts are actually incosistent? We have to determine that indepedent l1->l2 builds that happen, and only flag l1 fields which are part of a build that is incosistent (because of direct l2 modification). These should appear clearly as "overrulled" to the developer
 * `l2/<environment>/` provides a place for environment-specific desired state.
-* Deployment does not happen from the compiler directly; deployment happens later through GitOps.
+* Deployment does not happen from the compiler directly; deployment happens later through GitOps (Act as Github Actions Emulator).
+* l2 artifacts we are generating are not something specific to Proxmox/Talos etc. Proxmox/Talos/etc are just dev dependencies which will enable us to emulate the real cloud environmetn l2 artifact should be going to.
 
 ## 2.4 ★ Sample Application — L1/L2 Golden Fixture
 
@@ -381,7 +382,7 @@ Connect identity, repository permissions, CI gates, and Kubernetes authorization
 * Kubernetes RBAC enforces cluster-side permissions.
 * Temporary approval grants map to explicit GitHub/deployment gates.
 * A Persona group in the OIDC provider alone does **not** enforce permissions in GitHub or Kubernetes.
-* Hotfix bypasses must be explicit, auditable, and limited to authorized users.
+* Hotfix bypasses must be explicit, auditable, and limited to authorized users. Hotfixes still require PR approval.
 
 ---
 
