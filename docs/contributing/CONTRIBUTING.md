@@ -175,10 +175,12 @@ item 3 above.
 for four platforms only:
 
 ```
-platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
+platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
 ```
 
-There is no `win-64`. Pixi will refuse to install on native Windows. This matches
+There is no `win-64`. Pixi will refuse to install on native Windows. (`osx-64` was also
+dropped — nobody on the team uses an Intel Mac, and it held several packages far below the
+versions the other platforms can resolve.) This matches
 `tech_stack.md`, which states the development OS is **Linux or WSL2**.
 
 WSL2 is not a workaround or a downgrade — it is real Linux running inside Windows, and it is
@@ -264,7 +266,9 @@ folder. It takes a few minutes the first time and does not touch the rest of you
 pixi run setup
 ```
 
-This downloads the Go modules and the npm packages.
+This downloads the Go modules and the npm packages, and installs the pinned **k3d** and
+**kubectl** into `~/.freelunch/bin`. They are not placed on your `PATH` and not installed
+system-wide, so they cannot collide with tools you already use.
 
 #### Step 6 — Verify everything works
 
@@ -290,6 +294,8 @@ versions rather than whatever happens to be installed on your machine.
 | `pixi run fmt` | Auto-format all code. Run this if `check` complains about formatting. |
 | `pixi run lint` | Run the linters only. |
 | `pixi run setup` | Re-install dependencies (after someone adds a new one). |
+| `pixi run task cluster:up` | Start the local Kubernetes cluster. See [local-cluster.md](local-cluster.md). |
+| `pixi run task cluster:down` | Delete the local cluster. |
 
 Try the built CLI:
 
@@ -373,8 +379,9 @@ The module path changed in this PR. Run `pixi run setup` to refresh dependencies
 |---|---|
 | `Taskfile.yml` | The real definition of every build command |
 | `pixi.toml` | Which tools and versions are provisioned |
-| `docs/roadmap.md` | The ordered feature specification — the source of truth for scope |
-| `docs/tech_stack.md` | The technology choices and the reasoning |
+| `docs/specs/demo-global-spec/roadmap.md` | The ordered feature specification — the source of truth for scope |
+| `docs/specs/demo-global-spec/tech_stack.md` | The technology choices and the reasoning |
+| `docs/contributing/local-cluster.md` | Running the local Kubernetes cluster |
 | `src/cli/internal/` | The Go services, and the best examples to copy when adding one |
 
 If any step here fails, ask before working around it. A broken setup usually means the

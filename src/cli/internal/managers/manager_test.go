@@ -54,6 +54,19 @@ func (e *errLogsService) Warn(_ context.Context, _ string)  {}
 func (e *errLogsService) Error(_ context.Context, _ string) {}
 func (e *errLogsService) Debug(_ context.Context, _ string) {}
 
+// errClusterService fails as a ClusterService.
+type errClusterService struct{ errStub }
+
+func (e *errClusterService) WithServiceManager(sm ServiceManager) ClusterService {
+	e.sm = sm
+	return e
+}
+func (e *errClusterService) Create(_ context.Context) error { return nil }
+func (e *errClusterService) Delete(_ context.Context) error { return nil }
+func (e *errClusterService) Status(_ context.Context) (*ClusterStatus, error) {
+	return &ClusterStatus{}, nil
+}
+
 // errCommandService fails as a CommandService.
 type errCommandService struct{ errStub }
 
@@ -79,6 +92,9 @@ func TestNewManager(t *testing.T) {
 			if sm.LogsService() == nil {
 				t.Error("LogsService() = nil, want a no-op")
 			}
+			if sm.ClusterService() == nil {
+				t.Error("ClusterService() = nil, want a no-op")
+			}
 			if sm.CommandService() == nil {
 				t.Error("CommandService() = nil, want a no-op")
 			}
@@ -99,6 +115,16 @@ func TestNewManager_noOpsAreCallable(t *testing.T) {
 
 	if err := sm.CommandService().Execute(ctx, []string{"anything"}); err != nil {
 		t.Errorf("no-op CommandService.Execute() error = %v, want nil", err)
+	}
+
+	if err := sm.ClusterService().Create(ctx); err != nil {
+		t.Errorf("no-op ClusterService.Create() error = %v, want nil", err)
+	}
+	if err := sm.ClusterService().Delete(ctx); err != nil {
+		t.Errorf("no-op ClusterService.Delete() error = %v, want nil", err)
+	}
+	if _, err := sm.ClusterService().Status(ctx); err != nil {
+		t.Errorf("no-op ClusterService.Status() error = %v, want nil", err)
 	}
 }
 
@@ -138,6 +164,47 @@ func Test_serviceManagerFinal_LogsService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.m.LogsService(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("LogsService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_WithClusterService(t *testing.T) {
+	type args struct{ s ClusterService }
+	sm := NewManager()
+	s := NewNoOpsClusterService()
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		args args
+		want ServiceManager
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), args: args{s}, want: sm},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.WithClusterService(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("WithClusterService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_ClusterService(t *testing.T) {
+	sm := NewManager()
+	s := NewNoOpsClusterService()
+	sm.WithClusterService(s)
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		want ClusterService
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), want: s},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.ClusterService(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ClusterService() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -221,6 +288,13 @@ func Test_serviceManagerFinal_Start(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "cluster service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithClusterService(&errClusterService{errStub{failStart: true}})
+			},
+			wantErr: true,
+		},
+		{
 			name: "command service failure aborts",
 			build: func() ServiceManager {
 				return NewManager().WithCommandService(&errCommandService{errStub{failStart: true}})
@@ -267,6 +341,13 @@ func Test_serviceManagerFinal_Close(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "cluster service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithClusterService(&errClusterService{errStub{failClose: true}})
+			},
+			wantErr: true,
+		},
+		{
 			name: "command service failure aborts",
 			build: func() ServiceManager {
 				return NewManager().WithCommandService(&errCommandService{errStub{failClose: true}})
@@ -300,6 +381,13 @@ func Test_serviceManagerFinal_Healthy(t *testing.T) {
 			name:    "success with no-ops",
 			build:   NewManager,
 			wantErr: false,
+		},
+		{
+			name: "cluster service unhealthy",
+			build: func() ServiceManager {
+				return NewManager().WithClusterService(&errClusterService{errStub{failHealth: true}})
+			},
+			wantErr: true,
 		},
 		{
 			name: "logs service unhealthy",

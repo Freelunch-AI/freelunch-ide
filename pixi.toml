@@ -9,7 +9,10 @@ version = "0.0.0"
 description = "FreeLunch IDE and CLI — platform engine, workbench frontend, and docs"
 authors = ["FreeLunch <https://github.com/Freelunch-AI>"]
 channels = ["conda-forge"]
-platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
+# osx-64 was dropped: nobody on the team uses an Intel Mac, and it held the
+# floor for several conda-forge packages far below what the rest of the
+# platforms can resolve. Apple Silicon is covered by osx-arm64.
+platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
 
 [dependencies]
 # Core engine and CLI. Must satisfy the directive in go.mod.
@@ -27,6 +30,27 @@ goreleaser = ">=2.11,<3"
 # IDE frontend toolchain. npm ships with nodejs; package versions are pinned by
 # package-lock.json, not here.
 nodejs = ">=24,<27"
+
+# Kubernetes tooling for the local Demo environment (roadmap 1.2).
+# Mind the conda-forge name: Helm ships as `kubernetes-helm`, and pinning the
+# bare name `helm` fails to resolve. 4.2.4 is available on all four platforms
+# this workspace declares.
+kubernetes-helm = ">=4.2,<5"
+
+# kubectl and k3d are deliberately NOT here; scripts/install-*.sh fetch them at
+# pinned versions into ~/.freelunch/bin. Three reasons, in order of weight:
+#
+#   1. A customer running `freelunch install` has Docker and nothing else — no
+#      pixi. The CLI must be able to provision these tools itself, so pixi
+#      could only ever solve this for us and not for them. One mechanism for
+#      both is what keeps the shipped path and the tested path identical.
+#   2. kubectl ships as `kubernetes-client`, whose newest build common to all
+#      four declared platforms is 1.23.6 — osx-64 and linux-aarch64 lag far
+#      behind. That is several years older than the k3s server we run and well
+#      outside the supported version skew.
+#   3. The conda-forge package named `k3d` is K3D Jupyter, an unrelated 3D
+#      plotting library. It resolves and installs cleanly, so adding it here
+#      would fail silently rather than loudly.
 
 [activation.env]
 # Pixi is the single source of truth for the Go version. GOTOOLCHAIN defaults to

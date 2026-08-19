@@ -1,0 +1,88 @@
+# Declarative definition of the FreeLunch local Demo cluster (roadmap 1.2).
+#
+# This file is the artifact that makes the environment reproducible: every
+# developer gets the same cluster from the same command, on macOS, Linux or
+# WSL2. It replaces the Terraform module the earlier ProxMox/Talos plan called
+# for — there are no VMs to provision, so the cluster shape is the only thing
+# that needs declaring.
+#
+# Bring it up with:
+#     pixi run task cluster:up
+#
+# It lives inside the Go module so a future ClusterService can //go:embed it
+# and ship the identical definition to customers; go:embed cannot reach outside
+# the module.
+#
+# Schema reference: k3d.io/v1alpha5, the config version accepted by k3d v5.9.0.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+
+metadata:
+  name: freelunch
+
+# Pinned explicitly rather than relying on the k3d default. The default happens
+# to be this image today, but it is tied to the k3d version, so an unpinned
+# cluster would silently change k8s version when k3d is bumped. Keep the minor
+# version in step with KUBECTL_VERSION in ../toolchain/scripts/versions.env —
+# kubectl supports one minor of skew either way.
+image: rancher/k3s:v1.35.5-k3s1
+
+# One server and one agent. A multi-node topology is what makes scheduling,
+# DaemonSets and node affinity behave like a real cluster rather than a
+# single-box toy, but every node is a container on the same host, so extra
+# agents cost memory without adding capacity. The Demo eventually runs ArgoCD,
+# Keycloak, Vault, SigNoz and OpenCost on a laptop; raise `agents` only if a
+# scheduling behaviour actually needs it.
+servers: 1
+agents: 1
+
+ports:
+  # Published on the k3d load balancer, which is the piece that makes this work
+  # identically on macOS. Container IPs are not routable from a macOS host
+  # because Docker runs inside a VM, so host port publishing is the only
+  # reliable path in — this is exactly the problem that made MetalLB unusable
+  # under the previous Talos/QEMU plan.
+  #
+  # 8080/8443 rather than 80/443 deliberately: ports below 1024 are privileged
+  # on Linux, so binding them would demand root from the Linux developers for
+  # no benefit. Nothing here needs the well-known ports.
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer
+  - port: 8443:443
+    nodeFilters:
+      - loadbalancer
+
+registries:
+  # A cluster-local image registry. Needed well before Group 2: it is how
+  # locally built images reach the cluster without a public registry, and it is
+  # the foundation of the airgap requirement in 1.2 ("without touching the
+  # internet") — images are pulled once and served locally thereafter.
+  #
+  # Port 5050, not the registry default 5000: on recent macOS the AirPlay
+  # Receiver service binds 5000, so a registry there fails to start on some
+  # machines and works on others. Avoiding the collision entirely is cheaper
+  # than diagnosing it per laptop.
+  create:
+    name: freelunch-registry
+    host: '0.0.0.0'
+    hostPort: '5050'
+
+options:
+  k3d:
+    wait: true
+    # Fail rather than hang if the cluster does not come up. The default is no
+    # timeout, which turns a broken Docker into an indefinite wait.
+    timeout: '300s'
+    disableLoadbalancer: false
+  kubeconfig:
+    # Writes the cluster into the user's default kubeconfig and switches to it.
+    #
+    # This does mutate a file outside FreeLunch's own directories, which is a
+    # departure from how the toolchain installers behave. It is deliberate:
+    # it is what every k3d, kind and minikube user expects, `kubectl get nodes`
+    # working immediately is the point of the environment, and k3d removes the
+    # context again on cluster delete. The cluster is explicitly disposable
+    # ("fresh start only"), so the entry is short-lived.
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true

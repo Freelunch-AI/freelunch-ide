@@ -50,6 +50,42 @@ type (
 		Execute(ctx context.Context, args []string) error
 	}
 
+	// ClusterStatus describes the local Demo cluster at a point in time.
+	//
+	// It lives here rather than in the cluster package because the interface
+	// below names it, and managers cannot import a concrete service package
+	// without creating an import cycle.
+	ClusterStatus struct {
+		// Name of the cluster as k3d knows it.
+		Name string
+		// Running reports whether the cluster exists and its nodes are up.
+		Running bool
+		// Nodes are the node names, empty when the cluster is not running.
+		Nodes []string
+	}
+
+	// ClusterService owns the local Kubernetes cluster described by roadmap
+	// 1.2. It orchestrates the pinned k3d and kubectl binaries rather than
+	// reimplementing cluster management: the declarative config is the source
+	// of truth, and this service only drives it.
+	ClusterService interface {
+		GenericService
+		WithServiceManager(sm ServiceManager) ClusterService
+		ServiceManager() ServiceManager
+
+		// Create brings the cluster up from the embedded configuration. It is
+		// an error if the cluster already exists — 1.2 specifies "fresh start
+		// only", so callers delete and recreate rather than reconciling.
+		Create(ctx context.Context) error
+
+		// Delete tears the cluster down. Deleting a cluster that does not
+		// exist succeeds, so teardown is safe to run unconditionally.
+		Delete(ctx context.Context) error
+
+		// Status reports whether the cluster is running and which nodes it has.
+		Status(ctx context.Context) (*ClusterStatus, error)
+	}
+
 	// ServiceManager is the container every service holds a reference to, and
 	// the only route from one service to another. Registering an implementation
 	// returns the manager, so wiring reads as a single chain in main.
@@ -57,12 +93,15 @@ type (
 		GenericService
 		WithLogsService(ls LogsService) ServiceManager
 		LogsService() LogsService
+		WithClusterService(cs ClusterService) ServiceManager
+		ClusterService() ClusterService
 		WithCommandService(cs CommandService) ServiceManager
 		CommandService() CommandService
 	}
 
 	serviceManagerFinal struct {
 		logsService    LogsService
+		clusterService ClusterService
 		commandService CommandService
 	}
 )
@@ -74,6 +113,7 @@ type (
 func NewManager() ServiceManager {
 	return &serviceManagerFinal{
 		logsService:    NewNoOpsLogsService(),
+		clusterService: NewNoOpsClusterService(),
 		commandService: NewNoOpsCommandService(),
 	}
 }
@@ -83,6 +123,11 @@ func NewManager() ServiceManager {
 // work happens in CommandService.Execute, after this returns.
 func (m *serviceManagerFinal) Start(ctx context.Context) error {
 	if err := m.logsService.Start(ctx); err != nil {
+		return err
+	}
+
+	if err := m.clusterService.Start(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
 		return err
 	}
 
@@ -102,6 +147,11 @@ func (m *serviceManagerFinal) Close(ctx context.Context) error {
 		return err
 	}
 
+	if err := m.clusterService.Close(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
 	if err := m.logsService.Close(ctx); err != nil {
 		return err
 	}
@@ -114,6 +164,11 @@ func (m *serviceManagerFinal) Close(ctx context.Context) error {
 // exists for an explicit diagnostic command to drive.
 func (m *serviceManagerFinal) Healthy(ctx context.Context) error {
 	if err := m.logsService.Healthy(ctx); err != nil {
+		return err
+	}
+
+	if err := m.clusterService.Healthy(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
 		return err
 	}
 
@@ -132,6 +187,15 @@ func (m *serviceManagerFinal) WithLogsService(ls LogsService) ServiceManager {
 
 func (m *serviceManagerFinal) LogsService() LogsService {
 	return m.logsService
+}
+
+func (m *serviceManagerFinal) WithClusterService(cs ClusterService) ServiceManager {
+	m.clusterService = cs.WithServiceManager(m)
+	return m
+}
+
+func (m *serviceManagerFinal) ClusterService() ClusterService {
+	return m.clusterService
 }
 
 func (m *serviceManagerFinal) WithCommandService(cs CommandService) ServiceManager {

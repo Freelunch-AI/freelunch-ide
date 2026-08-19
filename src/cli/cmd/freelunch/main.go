@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/cluster"
 	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/command"
 	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/logs"
 	"github.com/Freelunch-AI/freelunch-ide/src/cli/internal/managers"
@@ -30,6 +31,7 @@ func run() int {
 
 	sm := managers.NewManager().
 		WithLogsService(logs.NewLogsService()).
+		WithClusterService(cluster.NewClusterService()).
 		WithCommandService(command.NewCommandService())
 
 	if err := sm.Start(ctx); err != nil {

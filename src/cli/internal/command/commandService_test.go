@@ -286,3 +286,332 @@ func TestExitError_errorsAs(t *testing.T) {
 		t.Errorf("Code = %d, want 7", exit.Code)
 	}
 }
+
+// fakeClusterService is a hand-written ClusterService for the cluster command
+// tests. The command bodies are what is under test here, so it records calls and
+// returns canned answers rather than driving k3d or Docker.
+type fakeClusterService struct {
+	sm managers.ServiceManager
+
+	createErr error
+	deleteErr error
+	status    *managers.ClusterStatus
+	statusErr error
+
+	createCalls int
+	deleteCalls int
+	statusCalls int
+}
+
+func (f *fakeClusterService) Start(_ context.Context) error   { return nil }
+func (f *fakeClusterService) Close(_ context.Context) error   { return nil }
+func (f *fakeClusterService) Healthy(_ context.Context) error { return nil }
+
+func (f *fakeClusterService) WithServiceManager(sm managers.ServiceManager) managers.ClusterService {
+	f.sm = sm
+	return f
+}
+
+func (f *fakeClusterService) ServiceManager() managers.ServiceManager { return f.sm }
+
+func (f *fakeClusterService) Create(_ context.Context) error {
+	f.createCalls++
+	return f.createErr
+}
+
+func (f *fakeClusterService) Delete(_ context.Context) error {
+	f.deleteCalls++
+	return f.deleteErr
+}
+
+func (f *fakeClusterService) Status(_ context.Context) (*managers.ClusterStatus, error) {
+	f.statusCalls++
+	return f.status, f.statusErr
+}
+
+// newTestServiceWithCluster wires a fake ClusterService alongside the real
+// command service, so the cluster commands can be exercised without a cluster.
+func newTestServiceWithCluster(
+	t *testing.T, cs *fakeClusterService,
+) (s *commandServiceFinal, out, errOut *bytes.Buffer, ctx context.Context) {
+	t.Helper()
+
+	sm, ctx := NewManagerForTests()
+	sm.WithClusterService(cs)
+	s = sm.WithCommandService(NewCommandService()).CommandService().(*commandServiceFinal)
+
+	out, errOut = &bytes.Buffer{}, &bytes.Buffer{}
+	s.out = out
+	s.errOut = errOut
+
+	return s, out, errOut, ctx
+}
+
+func Test_commandServiceFinal_RunInstall(t *testing.T) {
+	createErr := errors.New("k3d cluster create failed")
+
+	tests := []struct {
+		name    string
+		cluster *fakeClusterService
+		wantErr bool
+		wantOut []string
+	}{
+		{
+			name:    "creates the cluster",
+			cluster: &fakeClusterService{},
+			wantErr: false,
+			wantOut: []string{"Cluster created"},
+		},
+		{
+			name:    "surfaces a creation failure",
+			cluster: &fakeClusterService{createErr: createErr},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, _, _, ctx := newTestServiceWithCluster(t, tt.cluster)
+			var buf bytes.Buffer
+
+			err := s.RunInstall(ctx, &buf)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("RunInstall() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.cluster.createCalls != 1 {
+				t.Errorf("Create() called %d times, want 1", tt.cluster.createCalls)
+			}
+			for _, want := range tt.wantOut {
+				if !strings.Contains(buf.String(), want) {
+					t.Errorf("output missing %q; got:\n%s", want, buf.String())
+				}
+			}
+		})
+	}
+}
+
+// Test_commandServiceFinal_RunInstall_wrapsClusterError asserts the underlying
+// error is not flattened into a string, so a caller can still match on it.
+func Test_commandServiceFinal_RunInstall_wrapsClusterError(t *testing.T) {
+	createErr := errors.New("no tools")
+	s, _, _, ctx := newTestServiceWithCluster(t, &fakeClusterService{createErr: createErr})
+
+	err := s.RunInstall(ctx, &bytes.Buffer{})
+	if !errors.Is(err, createErr) {
+		t.Errorf("RunInstall() error = %v, want it to wrap %v", err, createErr)
+	}
+}
+
+func Test_commandServiceFinal_RunUninstall(t *testing.T) {
+	deleteErr := errors.New("k3d cluster delete failed")
+
+	tests := []struct {
+		name    string
+		cluster *fakeClusterService
+		wantErr bool
+		wantOut []string
+	}{
+		{
+			name:    "deletes the cluster",
+			cluster: &fakeClusterService{},
+			wantErr: false,
+			wantOut: []string{"Cluster deleted"},
+		},
+		{
+			name:    "surfaces a deletion failure",
+			cluster: &fakeClusterService{deleteErr: deleteErr},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, _, _, ctx := newTestServiceWithCluster(t, tt.cluster)
+			var buf bytes.Buffer
+
+			err := s.RunUninstall(ctx, &buf)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("RunUninstall() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.cluster.deleteCalls != 1 {
+				t.Errorf("Delete() called %d times, want 1", tt.cluster.deleteCalls)
+			}
+			for _, want := range tt.wantOut {
+				if !strings.Contains(buf.String(), want) {
+					t.Errorf("output missing %q; got:\n%s", want, buf.String())
+				}
+			}
+		})
+	}
+}
+
+func Test_commandServiceFinal_RunStatus(t *testing.T) {
+	statusErr := errors.New("pinned cluster tools not found")
+
+	tests := []struct {
+		name       string
+		cluster    *fakeClusterService
+		wantErr    bool
+		wantOut    []string
+		wantNotOut []string
+	}{
+		{
+			name: "reports a running cluster and its nodes",
+			cluster: &fakeClusterService{status: &managers.ClusterStatus{
+				Name:    "freelunch",
+				Running: true,
+				Nodes:   []string{"k3d-freelunch-server-0", "k3d-freelunch-agent-0"},
+			}},
+			wantOut: []string{"freelunch", "running", "k3d-freelunch-server-0", "k3d-freelunch-agent-0"},
+		},
+		{
+			name: "reports a cluster that is not running",
+			cluster: &fakeClusterService{status: &managers.ClusterStatus{
+				Name: "freelunch",
+			}},
+			wantOut:    []string{"not running", "freelunch install"},
+			wantNotOut: []string{"k3d-freelunch"},
+		},
+		{
+			// The interface permits a nil status; it must not panic.
+			name:    "tolerates a nil status",
+			cluster: &fakeClusterService{status: nil},
+			wantOut: []string{"not running"},
+		},
+		{
+			name:    "surfaces a status failure",
+			cluster: &fakeClusterService{statusErr: statusErr},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, _, _, ctx := newTestServiceWithCluster(t, tt.cluster)
+			var buf bytes.Buffer
+
+			err := s.RunStatus(ctx, &buf)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("RunStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.cluster.statusCalls != 1 {
+				t.Errorf("Status() called %d times, want 1", tt.cluster.statusCalls)
+			}
+			for _, want := range tt.wantOut {
+				if !strings.Contains(buf.String(), want) {
+					t.Errorf("output missing %q; got:\n%s", want, buf.String())
+				}
+			}
+			for _, notWant := range tt.wantNotOut {
+				if strings.Contains(buf.String(), notWant) {
+					t.Errorf("output unexpectedly contains %q; got:\n%s", notWant, buf.String())
+				}
+			}
+		})
+	}
+}
+
+// Test_commandServiceFinal_Execute_clusterCommands covers the wiring end to end:
+// that each command is registered, reaches the ClusterService, and rejects args.
+func Test_commandServiceFinal_Execute_clusterCommands(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		cluster     *fakeClusterService
+		wantErr     bool
+		wantOut     []string
+		wantCreate  int
+		wantDelete  int
+		wantStatusN int
+	}{
+		{
+			name:       "install creates the cluster",
+			args:       []string{"install"},
+			cluster:    &fakeClusterService{},
+			wantOut:    []string{"Cluster created"},
+			wantCreate: 1,
+		},
+		{
+			name:       "uninstall deletes the cluster",
+			args:       []string{"uninstall"},
+			cluster:    &fakeClusterService{},
+			wantOut:    []string{"Cluster deleted"},
+			wantDelete: 1,
+		},
+		{
+			name:        "status reports the cluster",
+			args:        []string{"status"},
+			cluster:     &fakeClusterService{status: &managers.ClusterStatus{Name: "freelunch"}},
+			wantOut:     []string{"not running"},
+			wantStatusN: 1,
+		},
+		{
+			name:    "install rejects arguments",
+			args:    []string{"install", "extra"},
+			cluster: &fakeClusterService{},
+			wantErr: true,
+		},
+		{
+			name:    "uninstall rejects arguments",
+			args:    []string{"uninstall", "extra"},
+			cluster: &fakeClusterService{},
+			wantErr: true,
+		},
+		{
+			name:    "status rejects arguments",
+			args:    []string{"status", "extra"},
+			cluster: &fakeClusterService{},
+			wantErr: true,
+		},
+		{
+			name:       "install propagates a cluster failure",
+			args:       []string{"install"},
+			cluster:    &fakeClusterService{createErr: errors.New("docker is not running")},
+			wantErr:    true,
+			wantCreate: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, out, _, ctx := newTestServiceWithCluster(t, tt.cluster)
+
+			err := s.Execute(ctx, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Execute(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+			}
+			if tt.cluster.createCalls != tt.wantCreate {
+				t.Errorf("Create() called %d times, want %d", tt.cluster.createCalls, tt.wantCreate)
+			}
+			if tt.cluster.deleteCalls != tt.wantDelete {
+				t.Errorf("Delete() called %d times, want %d", tt.cluster.deleteCalls, tt.wantDelete)
+			}
+			if tt.cluster.statusCalls != tt.wantStatusN {
+				t.Errorf("Status() called %d times, want %d", tt.cluster.statusCalls, tt.wantStatusN)
+			}
+			for _, want := range tt.wantOut {
+				if !strings.Contains(out.String(), want) {
+					t.Errorf("output missing %q; got:\n%s", want, out.String())
+				}
+			}
+		})
+	}
+}
+
+// Test_commandServiceFinal_rootHelpAdvertisesRealCommands guards the defect
+// Phase 6 closes: the root help promised a monorepo scaffold that does not
+// exist, while the commands that do exist went unmentioned.
+func Test_commandServiceFinal_rootHelpAdvertisesRealCommands(t *testing.T) {
+	s, out, _, ctx := newTestServiceWithCluster(t, &fakeClusterService{})
+
+	if err := s.Execute(ctx, []string{}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	for _, want := range []string{"install", "uninstall", "status", "version"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("root help missing command %q; got:\n%s", want, out.String())
+		}
+	}
+	// Nothing scaffolds a monorepo yet; `freelunch init` is roadmap 1.1's
+	// remaining half.
+	if strings.Contains(out.String(), "scaffold") {
+		t.Errorf("root help still advertises scaffolding; got:\n%s", out.String())
+	}
+}

@@ -92,10 +92,9 @@ func (s *commandServiceFinal) newRootCommand() *cobra.Command {
 		Use:   "freelunch",
 		Short: "FreeLunch platform CLI",
 		Long: "freelunch bootstraps and inspects a FreeLunch platform installation.\n\n" +
-			"Setup commands scaffold a customer monorepo and install the platform;\n" +
-			"inspection commands report the state of workloads, environments, and\n" +
-			"pipelines. Every change to a running system goes through GitOps, not\n" +
-			"through this CLI.",
+			"install creates the local Demo cluster on Docker, uninstall tears it down,\n" +
+			"and status reports what is running. Every change to a running system goes\n" +
+			"through GitOps, not through this CLI.",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		// Print help instead of an unhelpful "unknown command" for a bare invocation.
@@ -108,6 +107,9 @@ func (s *commandServiceFinal) newRootCommand() *cobra.Command {
 	root.SetErr(s.errOut)
 	root.CompletionOptions.HiddenDefaultCmd = true
 
+	root.AddCommand(s.newInstallCommand())
+	root.AddCommand(s.newUninstallCommand())
+	root.AddCommand(s.newStatusCommand())
 	root.AddCommand(s.newVersionCommand())
 
 	return root
@@ -146,4 +148,119 @@ func (s *commandServiceFinal) RunVersion(ctx context.Context, out io.Writer, asJ
 		"freelunch %s\n  commit:   %s\n  built:    %s\n  go:       %s\n  platform: %s\n",
 		info.Version, info.Commit, info.Date, info.GoVersion, info.Platform)
 	return err
+}
+
+// newInstallCommand builds `freelunch install`.
+//
+// The name follows roadmap.md:370 and the 1.2 story, which both use install for
+// provisioning. It is deliberately not `start`: k3d distinguishes creating a
+// cluster from starting one that already exists, and reserving `start` for the
+// latter keeps both words meaning what they ordinarily mean.
+func (s *commandServiceFinal) newInstallCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "install",
+		Short: "Create the local Demo cluster",
+		Long: "install creates the local Demo Kubernetes cluster from the pinned k3d\n" +
+			"configuration that ships inside this binary.\n\n" +
+			"Docker must be running and the pinned tools must already be installed.\n" +
+			"Creation is fresh-start only: run uninstall first to recreate a cluster\n" +
+			"that already exists.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return s.RunInstall(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+}
+
+// newUninstallCommand builds `freelunch uninstall`.
+func (s *commandServiceFinal) newUninstallCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "uninstall",
+		Short: "Delete the local Demo cluster",
+		Long: "uninstall tears the local Demo cluster down, removing its containers,\n" +
+			"volumes and kubeconfig entry.\n\n" +
+			"Deleting a cluster that is not there succeeds, so this is safe to run\n" +
+			"unconditionally.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return s.RunUninstall(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+}
+
+// newStatusCommand builds `freelunch status`.
+func (s *commandServiceFinal) newStatusCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Report whether the local Demo cluster is running",
+		Long: "status reports whether the local Demo cluster exists and which nodes it\n" +
+			"has.\n\n" +
+			"A cluster that is absent is a normal answer rather than a failure, so this\n" +
+			"exits zero either way; only being unable to ask is an error.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return s.RunStatus(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+}
+
+// RunInstall is the cobra-free body of `freelunch install`.
+func (s *commandServiceFinal) RunInstall(ctx context.Context, out io.Writer) error {
+	s.sm.LogsService().Debug(ctx, "running the install command")
+
+	// Creation takes roughly a minute, so say something before blocking. This is
+	// program output rather than a diagnostic: it is the command reporting on the
+	// work it was asked to do.
+	if _, err := fmt.Fprintln(out, "Creating the local Demo cluster; this takes about a minute."); err != nil {
+		return err
+	}
+
+	if err := s.sm.ClusterService().Create(ctx); err != nil {
+		return err
+	}
+
+	_, err := fmt.Fprintln(out, "Cluster created. Run `freelunch status` to inspect it.")
+	return err
+}
+
+// RunUninstall is the cobra-free body of `freelunch uninstall`.
+func (s *commandServiceFinal) RunUninstall(ctx context.Context, out io.Writer) error {
+	s.sm.LogsService().Debug(ctx, "running the uninstall command")
+
+	if err := s.sm.ClusterService().Delete(ctx); err != nil {
+		return err
+	}
+
+	_, err := fmt.Fprintln(out, "Cluster deleted.")
+	return err
+}
+
+// RunStatus is the cobra-free body of `freelunch status`.
+func (s *commandServiceFinal) RunStatus(ctx context.Context, out io.Writer) error {
+	s.sm.LogsService().Debug(ctx, "running the status command")
+
+	status, err := s.sm.ClusterService().Status(ctx)
+	if err != nil {
+		return err
+	}
+
+	// The interface permits a nil status, so treat it the same as a cluster that
+	// is not there rather than dereferencing it.
+	if status == nil || !status.Running {
+		_, err = fmt.Fprintln(out, "Cluster is not running. Run `freelunch install` to create it.")
+		return err
+	}
+
+	if _, err = fmt.Fprintf(out, "Cluster %q is running, with %d node(s):\n",
+		status.Name, len(status.Nodes)); err != nil {
+		return err
+	}
+
+	for _, node := range status.Nodes {
+		if _, err = fmt.Fprintf(out, "  %s\n", node); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

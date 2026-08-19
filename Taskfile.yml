@@ -9,6 +9,10 @@ vars:
   # The Go module is rooted at src/cli/, so every Go task runs with `dir:` set
   # to GO_DIR rather than at the repository root.
   GO_DIR: src/cli
+  # Pinned cluster tools are installed here by the toolchain scripts; they are
+  # deliberately not on the user's PATH, so tasks address them explicitly.
+  FL_BIN: '{{.FREELUNCH_BIN_DIR | default (printf "%s/.freelunch/bin" .HOME)}}'
+  CLUSTER_CONFIG: src/cli/internal/cluster/k3d-cluster.yaml
   # The npm workspace is rooted at src/ide_src/, so node_modules lives there.
   TS_DIR: src/ide_src
   # Prettier covers the whole repository, not just the workspace that ships it —
@@ -32,10 +36,52 @@ tasks:
       - task --list
 
   setup:
-    desc: Install Go and Node dependencies
+    desc: Install Go, Node and cluster dependencies
     cmds:
       - task: setup:go
       - task: setup:ts
+      - task: setup:cluster-tools
+
+  setup:cluster-tools:
+    desc: Install pinned k3d and kubectl into ~/.freelunch/bin
+    cmds:
+      - task: setup:k3d
+      - task: setup:kubectl
+
+  setup:k3d:
+    desc: Install the pinned k3d into ~/.freelunch/bin
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/install-k3d.sh
+
+  setup:kubectl:
+    desc: Install the pinned kubectl into ~/.freelunch/bin
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/install-kubectl.sh
+
+  pin:tools:
+    desc: Regenerate checksums.txt for the versions pinned in versions.env
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/pin-tools.sh
+
+  # --- Local cluster ------------------------------------------------------
+
+  cluster:up:
+    desc: Create the local Demo cluster from the committed k3d config
+    deps: [setup:cluster-tools]
+    cmds:
+      - '{{.FL_BIN}}/k3d cluster create --config {{.CLUSTER_CONFIG}}'
+      - '{{.FL_BIN}}/kubectl get nodes'
+
+  cluster:down:
+    desc: Delete the local Demo cluster
+    cmds:
+      - '{{.FL_BIN}}/k3d cluster delete --config {{.CLUSTER_CONFIG}}'
+
+  cluster:status:
+    desc: Show the local Demo cluster and its nodes
+    cmds:
+      - '{{.FL_BIN}}/k3d cluster list'
+      - '{{.FL_BIN}}/kubectl get nodes -o wide'
 
   setup:ts:
     desc: Install Node dependencies
