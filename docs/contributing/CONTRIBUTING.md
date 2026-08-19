@@ -8,6 +8,12 @@
 
 ## Contributing Rules
 
+### Global Spec (founding_doc.md, roadmap.md, tech_stack.md)
+
+- is the source of truth for that work we need to do
+- remains high-level: does not include implementaiton details that are subject to freuqnt changes such as data models, code structure, etc
+- is updated after every Code PR merge: previous steps are removed and remaining docs are updated with new requirements surfaced.
+
 ### Issues
 
 - Follow Issue Template
