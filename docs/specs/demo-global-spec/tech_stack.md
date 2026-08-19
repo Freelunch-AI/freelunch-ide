@@ -7,7 +7,8 @@ Notes:
 - these are not strict requirements, think of it as an implementaion guide
 - we might realize during implementation that some tools are worth more borrowing ideas/code than to actually just use them out-of-the-box
 - embedded tool UIs doesnt mean we wont provide our code-centric user experience for it, just means we can provide to the user, easily via plugin, a good UI that is already battle tested, as our baseline.
-- Most influential decisions: **Theia**, **ProxMox**, **Talos Linux**, **Go**
+- Most influential decisions: **Theia**, **k3d**, **Go**
+- **k3d** and **kubectl** are version-pinned, but *not* through pixi. conda-forge's `k3d` package is K3D Jupyter, an unrelated 3D plotting library that installs cleanly and silently, and its `kubernetes-client` (kubectl) is years older than the k3s server. Both are installed instead by checksum-verified download into `~/.freelunch/bin`. This is also the honest shape of the product: a customer running `freelunch install` has no pixi, so the CLI provisions its own tools.
 
 ## 1. Stack for the FreeLunch repo itself
 
@@ -23,7 +24,7 @@ This covers the tooling used to build, test, document, and ship the FreeLunch pa
 - Primary language for the IDE frontend → **TypeScript**
 - Versioned Go package publishing for the FreeLunch CLI/core engine → **GitHub Releases** + **Go module proxy**
 - Versioned monorepo template publishing for the FreeLunch CLI bootstrap flow → **GitHub Releases** / **GitHub repository template**
-- Documentation site for the repo and product narrative → **MkDocs** (locked version in pixi)
+- Documentation site for the repo and product narrative → **MkDocs** — **undecided:** unlike Cilium in section 2, MkDocs *is* on conda-forge (1.6.1, noarch, checked 2026-08-19), so pinning it is available to us whenever we want it. It has simply never been added to `pixi.toml`, so an earlier "locked version in pixi" note here was aspirational rather than a fact. `roadmap.md:46` does require docs-site publishing, so this stays an open gap.
 - Architecture Diagrams: **Mermaid**
 
 ## 2. Stack for the product (the devops platform demo)
@@ -31,13 +32,13 @@ This covers the tooling used to build, test, document, and ship the FreeLunch pa
 This covers the runtime, delivery, and operations stack used to demonstrate the FreeLunch platform to customers.
 
 - Programming Languages Supported: **Any**
-- Local cloud-service emulation Cloud Compute Cluster → **ProxMox** (locked version in pixi) running **Talos Linux** with **MetalLB**
-- Cloud Workloads Runtime → **Kubernetes** (locked CLI version in pixi) with **Cilium Mesh/Gateway**
+- Local Cloud Compute Cluster → **k3d** (k3s in Docker), using the load balancer k3d ships built in. **Docker** is a documented system prerequisite, not a pixi dependency. This replaces ProxMox + Talos Linux + MetalLB, which no longer appear anywhere in the Demo — see the rationale in `founding_doc.md`.
+- Cloud Workloads Runtime → **Kubernetes** (CLI pinned by download, per the note above) with **Cilium Mesh/Gateway** — **undecided, not yet available to us:** neither `cilium` nor `cilium-cli` is packaged on conda-forge (checked 2026-08-19), so Cilium cannot be pinned in pixi and would need the same download-and-checksum treatment as k3d and kubectl. Note also that the k3d cluster currently runs k3s's default **flannel** CNI, so adopting Cilium means disabling that (`--flannel-backend=none --disable-network-policy`) on top of acquiring the tool. Recorded here so the choice is made deliberately later rather than assumed.
 - Container registry for built images → **Harbor** (locked version in pixi)
 - GitOps deployment engine for L2 artifacts → **ArgoCD** (locked version in pixi)
 - Kubernetes manifest packaging for deployed workloads → **Helm** (locked version in pixi)
-- Infra Provisioning → **Terraform** (locked version in pixi)
-- Kubernetes Installation → comes for free with **Talos Linux**
+- Infra Provisioning → a committed **k3d configuration file**, which is what makes the cluster reproducible across macOS, Linux and WSL2. The Demo provisions no VMs and no virtual VPC, so there is nothing for **Terraform** to do locally; it returns post-Demo, written against a real cloud.
+- Kubernetes Installation → comes for free with **k3d**, which runs **k3s**
 - Identity provider for human authentication in the IDE → **Keycloak** (locked version in pixi)
 - Secrets management for application credentials → **Vault** (locked version in pixi)
 - Secret synchronization from Vault into Kubernetes → **external-secrets-operator**
