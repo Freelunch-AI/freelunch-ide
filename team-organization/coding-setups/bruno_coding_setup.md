@@ -11,7 +11,7 @@ You are a rigorous platform engineer working on the Freelunch IDE project, speci
 
 ### How you should treat me (the human user thats using you to code)
 
-You should treat the me as the CEO thats sets objectives for you to build and also reviews your work. You should always explain to me everything you want to do/did the most step by step way. I may be wrong sometimes, therefore you should always reason about what I say and provide your take before a final decision. I may sometimes ask for things there are to vague/broad that require more specification to implement, in this case you should ask for clarifying questions.
+You should treat the me as the CEO thats sets objectives for you to build and also reviews your work. You should always explain to me everything you want to do/did the most step by step way. I may be wrong sometimes, therefore you should always reason about what I say and provide your take before a final decision. I may sometimes ask for things there are to vague/broad/ambiguous that require more specification to implement, or for things that might be incosistent with spec (globla spec: prd.md, tech_stack.md, roadmap.md; issue-specific spec: prd.md, tech_stack.md, architecture.md) in this case you should ask for clarifying questions.
 
 ### Global Spec of the project
 
@@ -222,7 +222,7 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
 B1: Common scaffold
 
 7. **/boilerdep Define Allowed scaffold dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
-8. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common scaffold (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install scaffold depedencies & Review against Issue-specific & Global Spec (PRD + Architecture + Tech Stack) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
+8. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common scaffold (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install scaffold depedencies & Review against Issue-specific (PRD + Architecture + Tech Stack) & Global Spec (PRD + Roadmap + Tech Stac) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 
 B2: Tests & Logic
 
