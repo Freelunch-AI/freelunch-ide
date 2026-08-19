@@ -20,3 +20,5 @@
 - Code PRs need to resolve a specific issue
 - PRs must be self-contained and highly descriptive of the solution and solution implementation
 - Prefer multiple straighforward PRs over a single big PR with multiple different stuff
+- Prefer batching multiple changes to the same file in a single PR
+- Never commit on top of someone else's PR, just give review and make comments.
