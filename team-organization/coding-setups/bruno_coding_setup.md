@@ -42,20 +42,20 @@ Can use these projects for borrowing ideas & patterns if you deem necessary.
 
 You might be doing a step and realize your plan.md or core-implementation-tasks-plan.md needs to be changed in some way. You should change immediately. How you should change them:
 - if want to change plan.md: you can change directly, overwritting the file.
-- if want to change core-implementation-tasks-plan.md: you should not overwrite the file, you should append to it the reason of the replanning and a summary of the curretn state of the codebase, then append a new core implementation tasks plan graph. So the resulting file will actually contain (in order) the rpevious core tasks plan and the new one.
+- if want to change core-implementation-tasks-plan.md: you should not overwrite the file, you should append to it the reason of the replanning and a summary of the current state of the codebase, then append a new core implementation tasks plan graph aling with an explanation of what was changed and why. So the resulting file will actually contain (in order) the previous core tasks plan and the new one.
 
 ### Big Refactoring mid-coding: rewriting tests and/or modifying scaffold (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside)
 
 You might be doing a step and realize your tests and/or scaffold (directories, files, interfaces, data models, etc; the skeleton in which logic gets written inside) needs to be changed in multiple ways. You should create and checkout to an epehemeral big-refacoring branch (which was sourced from the current branch, not main) and then do the refactoring in the big-refacoring branch. When you are done, ask for my approval to merge big-refacoring into the issue handling branch.
 
-Small refactorings you can just do without this branching and asking for my approval ceremony.
+Small or Localized refactorings you can just do, without this branching and asking for my approval ceremony.
 
 ### Patterns to use
 
 - testing folder that mimicks the actual folder structure
 - always work on the standard virtual environment for the project
-- test-first development (this is not strict tdd where need to make one function red -> green at a time, only then to move to the next)
-- Use dependency injection where it improves testability or separation of concerns; avoid unnecessary abstractions.
+- test-first development where tests are wrritne before code (this is not: strict tdd where need to make one function red -> green at a time and only then to move to the next)
+- Use dependency injection where it improves testability or separation of concerns; 
 
 ### Code Quality & Testing
 
@@ -83,7 +83,7 @@ Inference → may proceed and do what you want.
 Low-risk assumption → may proceed and do what you want.
 Medium-risk assumption → proceed only if easily reversible.
 High-risk assumption → ask user before acting.
-uncertainty → dont use this to inform your next actions
+uncertainty → dont use this to inform your next actions, requires isolated exploration.
 
 ### Bug Handling
 
@@ -489,23 +489,25 @@ Mandatory Pre-PR checklist (ready to push and open PR):
 
 - global spec, issue-specific spec and tests all consistent with each other
 - all core (at least 90% total code coverage) logic covered by tests, with test coverage report evidence for it
-- unit, integration and end-to-end tests present and passing
+- unit, integration and end-to-end (if possible) tests present and passing
 - no big changes were made after the last independent code review was run
 - no significant changes were made after the last security review
 - documentation is up to date with the code
-- user understand the PR that will be made at the function interface/class interface/file/directory level
+- user understands the PR that will be made at the function interface/class interface/file/directory level
 
 Making PRs:
 
-- ensure the pre-pr-checklist.md is checked before making a PR
+- ensure the Mandatory Pre-PR checklist is checked before making a PR
 - follow the project's PR template
-- in the pr you write: highlight key decisions, problems encoutered, solutions and tradeoffs chosen
-- in the pr you write: highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
-- in the pr you write: make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
+- in the pr you write:
+        - highlight key decisions, problems encoutered, solutions and tradeoffs chosen
+        - highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
+        - make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
 
 Handling PR Comments and Reviews:
 
-- you should respond PR comments adresing the issues raised or just respond PR questions made by other developers
-- you should make apprpriate changes according to the feedback received
+- you should respond PR comments addresing the problems raised by them (PR comments are not always 100% correct, so you have to judge the comment's good and bad points (if any), then respond with your posistion on the concern raised by the comment) or just respond PR questions made by other developers
+- you should make appropriate changes according to what you think should be changed after reading the comments
+- if not shure what to change becasue of subjective/incosistent/ambiguous PR comments, then ask me clarifying questions.
 
 
