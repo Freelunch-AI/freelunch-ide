@@ -33,6 +33,15 @@ const ClusterName = "freelunch"
 // halves together.
 const BinDirEnvVar = "FREELUNCH_BIN_DIR"
 
+// ImagesDirEnvVar overrides the directory the k3s airgap image bundle is read
+// from, mirroring BinDirEnvVar. The installer script honours the same variable.
+const ImagesDirEnvVar = "FREELUNCH_IMAGES_DIR"
+
+// nodeImagesPath is where k3s looks for image tarballs to import at startup.
+// Anything mounted here is loaded into the node's containerd before workloads
+// are scheduled, which is what lets a cluster come up with no network.
+const nodeImagesPath = "/var/lib/rancher/k3s/agent/images"
+
 // ErrNoTools is returned when the pinned binaries cannot be located. It is
 // exported so a caller can tell "setup was never run" apart from a genuine
 // cluster failure, via errors.Is.
@@ -133,6 +142,51 @@ func binDir() (string, error) {
 	return filepath.Join(home, ".freelunch", "bin"), nil
 }
 
+// imagesDir is where install-airgap-images.sh caches the k3s image bundle.
+func imagesDir() (string, error) {
+	if dir := os.Getenv(ImagesDirEnvVar); dir != "" {
+		return dir, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".freelunch", "images"), nil
+}
+
+// airgapVolume returns the k3d --volume argument that mounts the cached image
+// bundle into every node, or "" when no cache is present.
+//
+// A missing cache is deliberately not an error: creating a cluster with a
+// working network still succeeds without it, and failing here would break the
+// path most contributors use. The caller logs which mode it chose, because
+// "airgap worked" and "the network quietly carried it" look identical
+// otherwise.
+func airgapVolume() (string, error) {
+	dir, err := imagesDir()
+	if err != nil {
+		return "", err
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		// Not cached, or unreadable. Either way there is nothing to mount.
+		return "", nil
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "k3s-airgap-images-") {
+			// Mounted on servers and agents alike: an agent schedules pods too,
+			// so it needs the same images the server does.
+			return fmt.Sprintf("%s:%s@server:*;agent:*", dir, nodeImagesPath), nil
+		}
+	}
+
+	return "", nil
+}
+
 // toolset resolves the pinned binaries once, on first use.
 func (s *clusterServiceFinal) toolset(ctx context.Context) (*toolset, error) {
 	s.once.Do(func() {
@@ -198,7 +252,21 @@ func (s *clusterServiceFinal) Create(ctx context.Context) error {
 
 	s.sm.LogsService().Debug(ctx, "creating cluster "+ClusterName)
 
-	out, err := s.runner.Run(ctx, tools.k3d, "cluster", "create", "--config", path)
+	args := []string{"cluster", "create", "--config", path}
+
+	volume, err := airgapVolume()
+	if err != nil {
+		return err
+	}
+	if volume != "" {
+		args = append(args, "--volume", volume)
+		s.sm.LogsService().Debug(ctx, "mounting cached k3s images: "+volume)
+	} else {
+		s.sm.LogsService().Debug(ctx,
+			"no cached k3s images; the cluster will pull them from the network")
+	}
+
+	out, err := s.runner.Run(ctx, tools.k3d, args...)
 	if err != nil {
 		return fmt.Errorf("k3d cluster create failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}

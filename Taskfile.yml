@@ -58,6 +58,11 @@ tasks:
     cmds:
       - ./{{.GO_DIR}}/internal/toolchain/scripts/install-kubectl.sh
 
+  setup:airgap-images:
+    desc: Cache the k3s image bundle in ~/.freelunch/images for offline cluster creation
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/install-airgap-images.sh
+
   pin:tools:
     desc: Regenerate checksums.txt for the versions pinned in versions.env
     cmds:
@@ -69,7 +74,15 @@ tasks:
     desc: Create the local Demo cluster from the committed k3d config
     deps: [setup:cluster-tools]
     cmds:
-      - '{{.FL_BIN}}/k3d cluster create --config {{.CLUSTER_CONFIG}}'
+      # Mirrors what ClusterService.Create does. If the two diverged, an airgap
+      # verified through one path would say nothing about the other.
+      - |
+        if ls "$HOME/.freelunch/images"/k3s-airgap-images-* >/dev/null 2>&1; then
+          {{.FL_BIN}}/k3d cluster create --config {{.CLUSTER_CONFIG}} \
+            --volume "$HOME/.freelunch/images:/var/lib/rancher/k3s/agent/images@server:*;agent:*"
+        else
+          {{.FL_BIN}}/k3d cluster create --config {{.CLUSTER_CONFIG}}
+        fi
       - '{{.FL_BIN}}/kubectl get nodes'
 
   cluster:down:

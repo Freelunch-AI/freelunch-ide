@@ -102,7 +102,8 @@ Two details:
   something like `<product-name>` because angle brackets are **illegal in Windows
   filenames** and would break the template for Windows users.
 - **`freelunch init` does not exist yet.** These are the folders it will one day copy. The
-  CLI currently has only `help` and `version`.
+  CLI has `install`, `uninstall`, `status` and `version`; scaffolding a monorepo is the
+  half of roadmap 1.1 that is still outstanding.
 
 ### 5. All source code moved into `src/`
 
@@ -270,6 +271,11 @@ This downloads the Go modules and the npm packages, and installs the pinned **k3
 **kubectl** into `~/.freelunch/bin`. They are not placed on your `PATH` and not installed
 system-wide, so they cannot collide with tools you already use.
 
+It deliberately does **not** download the k3s image bundle, which is about 220MB and only
+needed to create a cluster with no network. If you want that, run
+`pixi run task setup:airgap-images` once — see
+[local-cluster.md](local-cluster.md) for how it works and how to verify it honestly.
+
 #### Step 6 — Verify everything works
 
 ```bash
@@ -296,6 +302,7 @@ versions rather than whatever happens to be installed on your machine.
 | `pixi run setup` | Re-install dependencies (after someone adds a new one). |
 | `pixi run task cluster:up` | Start the local Kubernetes cluster. See [local-cluster.md](local-cluster.md). |
 | `pixi run task cluster:down` | Delete the local cluster. |
+| `pixi run task setup:airgap-images` | Cache the k3s images so the cluster can be created offline (~220MB, optional). |
 
 Try the built CLI:
 
@@ -303,6 +310,19 @@ Try the built CLI:
 pixi run build
 ./bin/freelunch version
 ```
+
+The CLI drives the same cluster as the tasks above, and it is the path a customer actually
+gets — they have a `freelunch` binary and no pixi, no checkout and no Taskfile:
+
+```bash
+./bin/freelunch install     # create the local Demo cluster
+./bin/freelunch status      # is it running, and which nodes
+./bin/freelunch uninstall   # tear it down
+```
+
+Use whichever is at hand: the tasks print more while you are working on the cluster
+itself, the CLI is what we ship. Both read the same pinned k3d and kubectl from
+`~/.freelunch/bin`, and both mount the airgap image cache when it exists.
 
 ### Finer-grained commands
 
@@ -346,6 +366,13 @@ These have each caused a real problem already.
 
 6. **Use Conventional Commit messages** — `feat:`, `fix:`, `chore:`, `docs:`, `test:`. The
    release tooling reads these prefixes to generate changelogs.
+
+7. **Run the Go linter from `src/cli`, never from the repository root.** From the root it
+   prints a confident `0 issues.` while also emitting
+   `typechecking error: ... directory prefix internal does not contain main module`. There
+   is no Go module at the root, so it checked nothing — the clean result is meaningless.
+   `pixi run check` does this correctly; the trap is only when you invoke
+   `golangci-lint` by hand.
 
 ---
 

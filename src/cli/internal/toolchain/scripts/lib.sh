@@ -9,6 +9,13 @@ fl_install_dir() {
   echo "${FREELUNCH_BIN_DIR:-${HOME}/.freelunch/bin}"
 }
 
+# Directory the airgap image bundle is cached in. Separate from the bin dir
+# because it holds hundreds of MB of container images rather than executables,
+# and a user may reasonably want it somewhere else.
+fl_images_dir() {
+  echo "${FREELUNCH_IMAGES_DIR:-${HOME}/.freelunch/images}"
+}
+
 # Sets FL_OS and FL_ARCH to the names upstream uses in its release artifacts.
 fl_detect_platform() {
   FL_OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -47,8 +54,11 @@ fl_sha256() {
 # deliberately read from the repository rather than fetched alongside the
 # download: a checksum retrieved at install time only proves the transport was
 # intact, whereas this one was recorded when the release was reviewed.
+# The os/arch default to the detected platform, but may be overridden: the
+# airgap bundle holds *container* images, which are always linux regardless of
+# the host running the installer.
 fl_expected_sum() {
-  local tool="$1" version="$2" dir sum
+  local tool="$1" version="$2" os="${3:-${FL_OS}}" arch="${4:-${FL_ARCH}}" dir sum
   dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
   if [ ! -f "${dir}/checksums.txt" ]; then
@@ -56,11 +66,11 @@ fl_expected_sum() {
     return 1
   fi
 
-  sum="$(awk -v t="${tool}" -v v="${version}" -v o="${FL_OS}" -v a="${FL_ARCH}" \
+  sum="$(awk -v t="${tool}" -v v="${version}" -v o="${os}" -v a="${arch}" \
     '$1 == t && $2 == v && $3 == o && $4 == a {print $5}' "${dir}/checksums.txt")"
 
   if [ -z "${sum}" ]; then
-    echo "error: no pinned checksum for ${tool} ${version} ${FL_OS}/${FL_ARCH}." >&2
+    echo "error: no pinned checksum for ${tool} ${version} ${os}/${arch}." >&2
     echo "       checksums.txt is stale — run 'pixi run task pin:tools' and commit it." >&2
     return 1
   fi

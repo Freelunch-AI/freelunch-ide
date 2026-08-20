@@ -90,6 +90,12 @@ func withoutTools(t *testing.T) {
 func newServiceForTest(t *testing.T) (*clusterServiceFinal, *fakeRunner, context.Context) {
 	t.Helper()
 
+	// Isolate the airgap image cache. Without this every test would read the
+	// developer's real ~/.freelunch/images, so whether Create mounts a volume
+	// would depend on whether that machine had run setup — the tests would pass
+	// or fail based on the host rather than the code.
+	t.Setenv(ImagesDirEnvVar, t.TempDir())
+
 	sm, ctx := NewManagerForTests()
 	runner := newFakeRunner()
 	sm.WithClusterService(NewClusterServiceWithRunner(runner))
@@ -397,5 +403,178 @@ func Test_embeddedConfigMatchesClusterName(t *testing.T) {
 	want := "name: " + ClusterName
 	if !strings.Contains(string(k3dConfig), want) {
 		t.Errorf("embedded config does not contain %q; ClusterName and the YAML have drifted", want)
+	}
+}
+
+// withAirgapCache points the images dir at a temp dir holding a stub bundle,
+// and returns that dir. The contents are never read — k3s consumes them inside
+// the node, so all this code does is decide whether to mount.
+func withAirgapCache(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	stub := filepath.Join(dir, "k3s-airgap-images-arm64.tar.gz")
+	if err := os.WriteFile(stub, []byte("not a real tarball"), 0o600); err != nil {
+		t.Fatalf("cannot write stub bundle: %v", err)
+	}
+	t.Setenv(ImagesDirEnvVar, dir)
+
+	return dir
+}
+
+func Test_airgapVolume(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(t *testing.T) string
+		wantMount bool
+	}{
+		{
+			name:      "cached bundle is mounted",
+			setup:     withAirgapCache,
+			wantMount: true,
+		},
+		{
+			name: "empty cache directory mounts nothing",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				t.Setenv(ImagesDirEnvVar, dir)
+				return dir
+			},
+			wantMount: false,
+		},
+		{
+			name: "missing cache directory is not an error",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "never-created")
+				t.Setenv(ImagesDirEnvVar, dir)
+				return dir
+			},
+			wantMount: false,
+		},
+		{
+			name: "unrelated files are ignored",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				if err := os.WriteFile(filepath.Join(dir, "README"), []byte("x"), 0o600); err != nil {
+					t.Fatalf("cannot write file: %v", err)
+				}
+				t.Setenv(ImagesDirEnvVar, dir)
+				return dir
+			},
+			wantMount: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := tt.setup(t)
+
+			got, err := airgapVolume()
+			if err != nil {
+				t.Fatalf("airgapVolume() error = %v, want nil", err)
+			}
+
+			if !tt.wantMount {
+				if got != "" {
+					t.Errorf("airgapVolume() = %q, want empty", got)
+				}
+				return
+			}
+
+			// The destination is the only path k3s scans at startup; getting it
+			// wrong yields a silently network-dependent cluster.
+			want := dir + ":" + nodeImagesPath + "@server:*;agent:*"
+			if got != want {
+				t.Errorf("airgapVolume() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// Test_clusterServiceFinal_CreateMountsAirgapCache is the unit-level half of
+// Phase 7: a cached bundle must reach k3d as a --volume, on both node roles.
+func Test_clusterServiceFinal_CreateMountsAirgapCache(t *testing.T) {
+	withTools(t)
+	dir := withAirgapCache(t)
+
+	svc, runner, ctx := newServiceForTest(t)
+	// newServiceForTest isolates the images dir; re-point it at the populated
+	// one, since it runs after the setup helper above.
+	t.Setenv(ImagesDirEnvVar, dir)
+
+	if err := svc.Create(ctx); err != nil {
+		t.Fatalf("Create() error = %v, want nil", err)
+	}
+
+	args := runner.calls[0].args
+	idx := -1
+	for i, a := range args {
+		if a == "--volume" {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		t.Fatalf("Create() args = %v, want a --volume mounting the image cache", args)
+	}
+	if idx+1 >= len(args) {
+		t.Fatalf("Create() args = %v, --volume has no value", args)
+	}
+
+	want := dir + ":" + nodeImagesPath + "@server:*;agent:*"
+	if args[idx+1] != want {
+		t.Errorf("Create() volume = %q, want %q", args[idx+1], want)
+	}
+}
+
+// Test_clusterServiceFinal_CreateWithoutAirgapCache pins the fallback: no
+// cache must still create a cluster, because that is the path a contributor
+// who has not run setup takes.
+func Test_clusterServiceFinal_CreateWithoutAirgapCache(t *testing.T) {
+	withTools(t)
+	svc, runner, ctx := newServiceForTest(t)
+
+	if err := svc.Create(ctx); err != nil {
+		t.Fatalf("Create() error = %v, want nil", err)
+	}
+
+	for _, a := range runner.calls[0].args {
+		if a == "--volume" {
+			t.Errorf("Create() args = %v, want no --volume without a cache", runner.calls[0].args)
+		}
+	}
+}
+
+// Test_k3sVersionMatchesClusterConfig guards the one mismatch that would make
+// an airgap look like it works.
+//
+// versions.env pins the k3s release whose image bundle we download; the
+// embedded k3d config pins the k3s image the cluster actually boots. If they
+// drift, the cache is populated with images the cluster never asks for, and it
+// silently falls back to pulling from the network — indistinguishable from
+// success until someone turns the network off.
+//
+// The two spellings differ by necessity: Docker tags cannot contain '+', so
+// the release tag v1.35.5+k3s1 appears in the image as v1.35.5-k3s1.
+func Test_k3sVersionMatchesClusterConfig(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "toolchain", "scripts", "versions.env"))
+	if err != nil {
+		t.Fatalf("cannot read versions.env: %v", err)
+	}
+
+	var pinned string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if after, ok := strings.CutPrefix(strings.TrimSpace(line), "K3S_VERSION="); ok {
+			pinned = after
+			break
+		}
+	}
+	if pinned == "" {
+		t.Fatal("versions.env has no K3S_VERSION; the airgap bundle cannot be pinned")
+	}
+
+	wantTag := "rancher/k3s:" + strings.ReplaceAll(pinned, "+", "-")
+	if !strings.Contains(string(k3dConfig), wantTag) {
+		t.Errorf("k3d-cluster.yaml does not use image %q (K3S_VERSION=%s in versions.env)",
+			wantTag, pinned)
 	}
 }

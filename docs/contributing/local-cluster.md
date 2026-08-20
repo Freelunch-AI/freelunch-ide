@@ -169,6 +169,7 @@ and served locally afterwards.
 | `pixi run task cluster:down` | Delete the cluster |
 | `pixi run task cluster:status` | Cluster list plus `kubectl get nodes -o wide` |
 | `pixi run task setup:cluster-tools` | Reinstall/repair k3d and kubectl |
+| `pixi run task setup:airgap-images` | Cache the k3s image bundle for offline creation (~220MB) |
 | `pixi run task pin:tools` | Regenerate `checksums.txt` after a version bump |
 
 The same cluster lifecycle is also on the CLI, which is the path a customer gets — they
@@ -191,6 +192,89 @@ anything is strange, delete and recreate rather than repairing in place:
 ```bash
 pixi run task cluster:down && pixi run task cluster:up
 ```
+
+---
+
+## Offline / airgapped cluster creation
+
+Roadmap 1.2 requires the environment to come up "without touching the internet". A k3d
+cluster does **not** manage that on its own: the `rancher/k3s` image ships no preloaded
+workload images, so traefik, coredns, local-path-provisioner, klipper-lb, klipper-helm,
+metrics-server, pause and busybox are all pulled from the network as the cluster boots.
+
+Cache them once:
+
+```bash
+pixi run task setup:airgap-images
+```
+
+That downloads the official `k3s-airgap-images-<arch>.tar.gz` for the pinned k3s release
+into `~/.freelunch/images`, verifying it against the digest in `checksums.txt`. It is
+about **220 MB**, which is why it is not part of `pixi run setup` — run it when you need
+offline capability.
+
+After that, both `freelunch install` and `pixi run task cluster:up` mount that directory
+into every node at `/var/lib/rancher/k3s/agent/images`, and k3s imports the bundle at
+startup before scheduling anything. Cluster creation takes the same ~25s as it does
+online. Without the cache, both fall back to pulling from the network — the CLI logs
+which mode it chose at `Debug`.
+
+Use the **official bundle**, never a hand-written image list. Enumerating a running
+cluster with `crictl images` returns six images; the release's own `k3s-images.txt` lists
+eight. `busybox` and `metrics-server` are pulled later than a fresh inspection catches, so
+a hand-rolled list looks complete and fails only once the network is actually gone.
+
+### Verifying an airgap honestly
+
+Two traps make this easy to get wrong.
+
+**`k3d cluster create` reporting success proves very little.** It waits for the k3s server
+process, not for workloads. With registries unreachable and no cache, k3d still prints
+"Cluster 'freelunch' created successfully!" while the node holds nothing but `pause` and
+every component is stuck. Always check what actually runs:
+
+```bash
+kubectl -n kube-system rollout status deploy/traefik
+kubectl -n kube-system get pods
+```
+
+**Do not test with a Docker `--internal` network.** It looks like the obvious way to
+remove connectivity, but k3s refuses to start on one:
+
+```
+level=fatal msg="Error: no default routes found in /proc/net/route or /proc/net/ipv6_route"
+```
+
+k3s needs a default route to select its node IP, so an internal network fails for a reason
+that has nothing to do with images — it tells you nothing about your airgap. Blackhole the
+registries instead, which leaves the network intact but makes every pull fail:
+
+```yaml
+# /tmp/airgap-registries.yaml
+mirrors:
+  docker.io:
+    endpoint: ["http://127.0.0.1:1"]
+  registry.k8s.io:
+    endpoint: ["http://127.0.0.1:1"]
+  ghcr.io:
+    endpoint: ["http://127.0.0.1:1"]
+  quay.io:
+    endpoint: ["http://127.0.0.1:1"]
+```
+
+```bash
+k3d cluster create --config <config> \
+  --volume "$HOME/.freelunch/images:/var/lib/rancher/k3s/agent/images@server:*;agent:*" \
+  --registry-config /tmp/airgap-registries.yaml
+```
+
+Run it once **without** the `--volume` first. If that still yields a working cluster, your
+test has no teeth and the real one is not proving anything either.
+
+One thing the cache does not cover: the three images Docker itself needs on the host —
+`rancher/k3s`, `ghcr.io/k3d-io/k3d-proxy` and `ghcr.io/k3d-io/k3d-tools`. Those are pulled
+by the Docker daemon, not by k3s, so a truly offline first run needs them already present
+in the local Docker image store.
 
 ---
 

@@ -6,9 +6,10 @@
 #
 #     pixi run task pin:tools
 #
-# Neither tool needs its binaries downloaded to be re-pinned — k3d publishes a
-# single checksums.txt per release and kubectl publishes a .sha256 per os/arch,
-# so this is a handful of small HTTP requests rather than ~250MB of downloads.
+# Nothing here needs its payload downloaded to be re-pinned — k3d publishes a
+# single checksums.txt per release, kubectl a .sha256 per os/arch, and k3s a
+# sha256sum-<arch>.txt covering every asset. So this is a handful of small HTTP
+# requests rather than ~700MB of downloads.
 #
 # Why the digests are stored in-tree rather than fetched at install time:
 # verifying a download against a checksum fetched at the same moment only
@@ -72,6 +73,25 @@ for platform in ${PLATFORMS}; do
     exit 1
   fi
   echo "kubectl ${KUBECTL_VERSION} ${os} ${arch} ${sum}" >>"${tmp}/out"
+done
+
+# --- k3s airgap images: one sha256sum-<arch>.txt per arch -------------------
+# Container images are always linux, so these rows are recorded under os
+# `linux` no matter which host regenerates them. The arch list is the set of
+# arches in PLATFORMS, deduplicated — darwin/arm64 and linux/arm64 both run
+# linux/arm64 containers.
+K3S_ARCHES="$(for platform in ${PLATFORMS}; do echo "${platform##*/}"; done | sort -u)"
+
+for arch in ${K3S_ARCHES}; do
+  echo "fetching k3s ${K3S_VERSION} airgap image checksum for linux/${arch}"
+  # The release tag contains '+', which must be percent-encoded in a URL.
+  sum="$(fetch "https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION/+/%2B}/sha256sum-${arch}.txt" |
+    awk -v want="k3s-airgap-images-${arch}.tar.gz" '$2 == want {print $1}')"
+  if [ -z "${sum}" ]; then
+    echo "error: no k3s airgap image checksum published for ${arch} at ${K3S_VERSION}" >&2
+    exit 1
+  fi
+  echo "k3s-airgap-images ${K3S_VERSION} linux ${arch} ${sum}" >>"${tmp}/out"
 done
 
 mv "${tmp}/out" "${OUT}"
