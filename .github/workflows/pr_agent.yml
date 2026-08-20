@@ -22,6 +22,7 @@ jobs:
           config.custom_model_max_tokens: "1000000"
           config.max_model_tokens: "32000"
           config.propagate_tool_errors: "true"
+          litellm.drop_params: "true"
 
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
