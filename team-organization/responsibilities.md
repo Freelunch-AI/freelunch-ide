@@ -6,6 +6,8 @@
 - If you needs input from someone else, you should directly ping hit whatsapp;
 - Everyone must ensure clear communication in any channel; Its everyone responsibility to say his own opinion;
 - Everyone must be present on all the team meetings (weekly);
+- Everyone opens Issues;
+- Everyone makes PRs;
 
 ## Roles and Responsabilities
 
@@ -18,28 +20,18 @@
 - Reserve Tech Leads: Bruno and Mohit
 
 ### PM-specific Responsabilities 
-- Review & Approve/Give Feedback to Roadmap PRs
-- Define Tech Stack
+- Review/Approve/Give Feedback to Global Spec PRs
 - Guide Developers
-- Open Issues
 - Do all the work outside of the project itself: recruiting, fundraising, etc
-- Resolve issues by making PRs
 - Close Issues
 - Define Milestones with Deadlines
 
 ### Tech Lead-specific Responsabilities
-- Review & Approve/Give Feedback to Implementation PRs
-- Define Tech Stack
+- Review/Approve/Give Feedback to Implementation PRs
 - Guide Developers
-- Open Issues
-- Resolve issues by making PRs
 - Close Issues and PRs
 
 ### Developer-specific Responsabilities
-
-- Open Issues
-- Resolve issues by making PRs
-- Suggest Roadmap
-- Suggest Tech Stack
+- Suggest Changes to Global Spec via PR
 
 
