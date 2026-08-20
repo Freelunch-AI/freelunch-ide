@@ -69,6 +69,7 @@ Small or Localized refactorings you can just do, without this branching and aski
 - New behavior requires tests.
 - Do not claim completion if tests fail.
 - Run the smallest relevant test suite first, then broader validation.
+- Only when doing code review: Use the tool lizard (https://github.com/terryyin/lizard) for measuring clyclomatic complexity of functions. The results will help you analyze if some functions are too complex or not.
 
 ### Your Confidence Protocol
 
