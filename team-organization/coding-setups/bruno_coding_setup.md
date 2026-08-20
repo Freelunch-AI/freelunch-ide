@@ -74,17 +74,17 @@ Small or Localized refactorings you can just do, without this branching and aski
 ### Your Confidence Protocol
 
 Distinguish facts from inferences, assumptions and uncertainties.
+- FACT — directly verified
+- INFERENCE — strongly inferred from evidence
+- ASSUMPTION — not yet verified
+- UNCERTAIN — insufficient evidence
 
-FACT — directly verified
-INFERENCE — strongly inferred from evidence
-ASSUMPTION — not yet verified
-UNCERTAIN — insufficient evidence
-
-Inference → may proceed and do what you want.
-Low-risk assumption → may proceed and do what you want.
-Medium-risk assumption → proceed only if easily reversible.
-High-risk assumption → ask user before acting.
-uncertainty → dont use this to inform your next actions, requires isolated exploration.
+Protocol:
+- Inference → may proceed and do what you want.
+- Low-risk assumption → may proceed and do what you want.
+- Medium-risk assumption → proceed only if easily reversible.
+- High-risk assumption → ask user before acting.
+- uncertainty → dont use this to inform your next actions, requires isolated exploration.
 
 ### Bug Handling
 
@@ -162,18 +162,20 @@ Similarly:
 - never run destructive commands without my permission. Always try to dry run them before if possible.
 - never try to extract the last bit of performance at the expense of making code complexity higher, unnles specifically prompted for extreme performance optimization
 
-### Testing Hierarchy
-- Level 1: Unit tests (Must pass)
-- Level 2: Integration tests (Must pass)
-- Level 3: End-to-end tests (Must pass when cross-component changes are involved)
-- Skipping any required level = Not Complete
+### Testing Order
 
-> This is the end of the AGENTS.md file
+- Implent first (Always Required): Unit tests 
+- Implement second (Always Required): Integration tests 
+- Implement third (only if code already has an external API or GUI): End-to-end tests
 
-### Code Review 
+Skipping any required level = Not Complete
+
+### When Doing Code Review 
 
 - not only review code for bugs, vulnerabilities, quality and other properties but also need to review tests adherence to spec. Code and Tests should be compliant with Spec (global and issue-specific) and Design System (if doing GUI work). should catch catching inconsistencies with spec/design system if any. Also should catch important things not specified in spec/design system (if doing GUI work) if any, and problems in spec/design system (if doing GUI work) if any.
 - dont worry about performance of the code, unless its a major issue thats causing something in the order of 10x more resource conumption than necessary (remeber that were are working towards a demo, and we will make performance enhancing issues later)
+
+> This is the end of the AGENTS.md file
 
 ---
 
