@@ -191,7 +191,8 @@ Notes for implementation:
 - "AI Review" menas the same AI thats coding reviews its own work
 - "Independent AI Reviewer" means that a different model with fresh context must be used
 - When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/session-persistant-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistant/knowledge/non_obvious_conjectures_and_facts.md, then finally empty all files inside .agent/session-persistant-candidate
-- At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message. 
+- At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message.
+- If stuck in a loop, developers should try changing the implementer model from the default to other 
 
 ### Issue Flow (note: bug, refactoring or performance issue handling allow skipping multiple steps that are required for a new feature, skip when you deem the step unnecessary):
 
@@ -206,7 +207,7 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
     ----<<separate terminal block (reset context) >>----
     
     2. **/reviewspec** Review Spec with Indepedente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in global spec and problems in global spec. Incosistencies between both specs should be flagged to the user with recommendations. If you detect a problem in global, spec first modify global spec, then update issue-specific spec. [User Approval Gate]
-    3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings 
+    3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings. Stores final sec review in .agent/session/code_reviews/final_specsec_review.md
 
     ----<</separate terminal block >>----
 
@@ -221,16 +222,16 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
 
 B1: Common scaffold
 
-7. **/boilerdep Define Allowed scaffold dependencies** (e.g., programming language, build tool, testing tools, package manager, etc) [User Approval Gate with AI Review Suggestions]
+7. **/boilerdep Define Allowed scaffold dependencies (e.g., programming language, build tool, testing tools, package manager, etc)** You cannot use dependencies that are not actively maintained (search github to see last PRs). A specific dependency should can chosen over its alternatives if it has important capabilities other dont, if its signfificantly more popular, if its signficantly easier to use or if its signficantly older. [User Approval Gate with AI Review Suggestions]
 8. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/boiler Setup/Modify the common scaffold (stucture/skeleton/foundation)** (directories, files, functions, classes, types, docstrings, data models (if statefull stuff is required), dev/test/build/package/publish command automations, etc) that are needed before core implementation, install scaffold depedencies & Review against Issue-specific (PRD + Architecture + Tech Stack) & Global Spec (PRD + Roadmap + Tech Stac) catching inconsistencies with spec, things not specified in spec and problems in spec that needed to be overruled [User Approval Gate with AI Review Suggestions]
 
 B2: Tests & Logic
 
 9. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions] **/writetests Write/Modify the functional tests** (unit tests, integration tests) & Review the tests against spec (Issue-specific & Global Spec) to see if they are consistent. Incosistencies between tests/issue-specific-spec/global-spec should be flagged to the user with recommendations. [User Approval Gate with AI Independent Reviewer Suggestions] 
-10. **/testtests Test the functional tests with placeholder feature code (all tests must fail in this phase) and guarantee test coverage of all core logic ((should be near 100% coverage))**
+10. **/testtests Test the functional tests with placeholder feature code (all tests must fail in this phase) and guarantee test coverage of all core logic ((should be over 90% and ideally near 100% coverage))**
 
 11. Loop until 3 is sucessfull [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. **/featdep Define Allowed feature code dependecies** [User Approval Gate with AI Review Suggestions]
+    1. **/featdep Define Allowed feature code dependecies with explanation why use each dependency**. You cannot use dependencies that are not actively maintained (search github to see last PRs). A specific dependency should can chosen over its alternatives if it has important capabilities other dont, if its signfificantly more popular, if its signficantly easier to use or if its signficantly older [User Approval Gate with AI Review Suggestions]
     2. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec and Deisgn System if doing GUI work (issue-specific spec and global spec) catching inconsistencies with spec/design system, things not specified in specs/design system and problems in spec/design system that needed to be overruled**. Incosistencies between code/tests;issue-specific-spec/global-spec should be flagged to the user with recommendations. Important: should try to make multiple related tests pass at a time, always aim for the smallest coherent behavioral slice, as end-to-end as possible across the components) that produces a useful feedback signal  [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
 
@@ -257,8 +258,8 @@ B2: Tests & Logic
 C: Code Review
 
 16. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review** (including Code Review, including review against compliance to Spec (global and issue-specific) and Design System (if doing GUI work) catching inconsistencies with spec/design system, things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/code_reviews/final_code_review file
-    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session/code_reviews/final_code_review [User Approval Gate with AI Reviewer Suggestions]
+    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/code_reviews/final_code_review file
+    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session/code_reviews/final_code_review.md [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
 
@@ -268,7 +269,9 @@ D: Security Review, Documentation & PR
     1. **/secreview Specialized Security Review** flagging critical problems & warnings
     2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary ccode/test/docs changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
-18. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
+18. Loop until 1 is sucesfull
+        1. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
+        2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
 19. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
 
@@ -286,15 +289,19 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
 22. Loop until 1 is sucessfull or go back to a previous step 
     1. (On PR Review or CI failure Notification manually checked by user) **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
-    2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test/docs changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
+    2. Loop until 1 is succesfull
+        1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/code_reviews/final_code_review file
+        2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test/docs changes** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
     ---- New Session (reset context) ----
 
     3. Loop until 1 is succesfull
-        1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings 
+        1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings. Stores final sec review in .agent/session/code_reviews/final_sec_review.md
         2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
-    4. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
+    4. Loop until 1 is sucesfull
+        1. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
+        2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
      ----<<separate terminal block (reset context) >>----
     
@@ -337,7 +344,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - document (should first staleness and incompleteness of existing documentation (if any) and then update/create: (1) Contributor Documentation: visualization o repositoty strcture explaining succintly each directory and file, (1.2) Step by step contributor tutorial to help a newcomer understand the codebase; (2) User Documentation (only do after first version 0.1.0 is released): (2.1) User API Reference. (2.2) User step by step tutorial starting from sratch; (2.3) User guides to do common stuff; (2.4) FAQ. 
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
-    - Use existing skills: skill-creator, i-have-adhd, chrome-devtools-cli, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistent/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was grilled in the last grill and user-codebase-questions.jsonl file), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
+    - Use existing skills: skill-creator, i-have-adhd, mutation-testing, chrome-devtools-cli, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistent/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was grilled in the last grill and user-codebase-questions.jsonl file), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
 
 ## How Code Review is Done
 
