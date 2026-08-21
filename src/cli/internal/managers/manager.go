@@ -86,6 +86,96 @@ type (
 		Status(ctx context.Context) (*ClusterStatus, error)
 	}
 
+	// AuthStatus describes the local auth service at a point in time.
+	//
+	// It lives here rather than in the auth package because the interface
+	// below names it, and managers cannot import a concrete service package
+	// without creating an import cycle.
+	AuthStatus struct {
+		// Ready reports whether the server is up and serving OIDC discovery.
+		Ready bool
+		// Realm is the realm name, empty when the realm is not imported yet.
+		Realm string
+		// IssuerURL is the issuer the server advertises, which is the value
+		// that actually breaks when hostname configuration is wrong.
+		IssuerURL string
+	}
+
+	// AuthService owns the local OIDC identity provider described by roadmap
+	// 1.3. It orchestrates kubectl against manifests embedded in the binary;
+	// it does not talk to the Kubernetes API directly.
+	AuthService interface {
+		GenericService
+		WithServiceManager(sm ServiceManager) AuthService
+		ServiceManager() ServiceManager
+
+		// Install applies the auth service and its realm to the running
+		// cluster. It is an error if no cluster is running.
+		Install(ctx context.Context) error
+
+		// Delete removes it. Deleting what is not there succeeds.
+		Delete(ctx context.Context) error
+
+		// Status reports readiness and the advertised issuer.
+		Status(ctx context.Context) (*AuthStatus, error)
+	}
+
+	// SecretsStatus describes the local secrets store at a point in time.
+	//
+	// It lives here rather than in the secrets package because the interface
+	// below names it, and managers cannot import a concrete service package
+	// without creating an import cycle.
+	SecretsStatus struct {
+		// Ready reports whether the store is up and answering.
+		Ready bool
+		// Sealed is reported separately because a running-but-sealed store is
+		// the failure that looks most like success from the outside.
+		Sealed bool
+		// Engine is the mount path and version in use, e.g. "secret/ (kv v2)".
+		// Recorded because the v1/v2 distinction is what breaks 2.1.
+		Engine string
+	}
+
+	// SecretsService owns the local secrets store described by roadmap 1.4.
+	// It orchestrates kubectl against manifests embedded in the binary.
+	SecretsService interface {
+		GenericService
+		WithServiceManager(sm ServiceManager) SecretsService
+		ServiceManager() ServiceManager
+
+		// Install applies the store to the running cluster and waits for it
+		// to answer. It is an error if no cluster is running.
+		Install(ctx context.Context) error
+
+		// Delete removes it. Deleting what is not there succeeds.
+		Delete(ctx context.Context) error
+
+		// Status reports readiness, seal state and the mounted engine.
+		Status(ctx context.Context) (*SecretsStatus, error)
+
+		// PutSecret writes one key/value pair at a logical path, e.g.
+		// ("example_service", "api-key", "..."). Re-runnable by design: dev mode
+		// loses its contents on restart, so seeding is part of install, not a
+		// one-off.
+		PutSecret(ctx context.Context, path, key, value string) error
+	}
+
+	// ScaffoldService owns customer-monorepo bootstrapping (roadmap 1.1).
+	// The canonical template is embedded in the binary, so a bare binary can
+	// init with nothing else installed.
+	ScaffoldService interface {
+		GenericService
+		WithServiceManager(sm ServiceManager) ScaffoldService
+		ServiceManager() ServiceManager
+
+		// Init creates dir with the canonical monorepo structure, renames the
+		// example_product placeholder to product, stamps the platform version,
+		// and runs `git init`. It is an error if dir already exists, and a
+		// failed init removes what it created rather than leaving a partial
+		// repository behind.
+		Init(ctx context.Context, dir, product string) error
+	}
+
 	// ServiceManager is the container every service holds a reference to, and
 	// the only route from one service to another. Registering an implementation
 	// returns the manager, so wiring reads as a single chain in main.
@@ -95,14 +185,23 @@ type (
 		LogsService() LogsService
 		WithClusterService(cs ClusterService) ServiceManager
 		ClusterService() ClusterService
+		WithAuthService(as AuthService) ServiceManager
+		AuthService() AuthService
+		WithSecretsService(ss SecretsService) ServiceManager
+		SecretsService() SecretsService
+		WithScaffoldService(sc ScaffoldService) ServiceManager
+		ScaffoldService() ScaffoldService
 		WithCommandService(cs CommandService) ServiceManager
 		CommandService() CommandService
 	}
 
 	serviceManagerFinal struct {
-		logsService    LogsService
-		clusterService ClusterService
-		commandService CommandService
+		logsService     LogsService
+		clusterService  ClusterService
+		authService     AuthService
+		secretsService  SecretsService
+		scaffoldService ScaffoldService
+		commandService  CommandService
 	}
 )
 
@@ -112,9 +211,12 @@ type (
 // rest without nil checks.
 func NewManager() ServiceManager {
 	return &serviceManagerFinal{
-		logsService:    NewNoOpsLogsService(),
-		clusterService: NewNoOpsClusterService(),
-		commandService: NewNoOpsCommandService(),
+		logsService:     NewNoOpsLogsService(),
+		clusterService:  NewNoOpsClusterService(),
+		authService:     NewNoOpsAuthService(),
+		secretsService:  NewNoOpsSecretsService(),
+		scaffoldService: NewNoOpsScaffoldService(),
+		commandService:  NewNoOpsCommandService(),
 	}
 }
 
@@ -131,6 +233,21 @@ func (m *serviceManagerFinal) Start(ctx context.Context) error {
 		return err
 	}
 
+	if err := m.authService.Start(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.secretsService.Start(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.scaffoldService.Start(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
 	if err := m.commandService.Start(ctx); err != nil {
 		m.logsService.Error(ctx, err.Error())
 		return err
@@ -143,6 +260,21 @@ func (m *serviceManagerFinal) Start(ctx context.Context) error {
 // else can still report while shutting down.
 func (m *serviceManagerFinal) Close(ctx context.Context) error {
 	if err := m.commandService.Close(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.scaffoldService.Close(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.secretsService.Close(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.authService.Close(ctx); err != nil {
 		m.logsService.Error(ctx, err.Error())
 		return err
 	}
@@ -172,6 +304,21 @@ func (m *serviceManagerFinal) Healthy(ctx context.Context) error {
 		return err
 	}
 
+	if err := m.authService.Healthy(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.secretsService.Healthy(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
+	if err := m.scaffoldService.Healthy(ctx); err != nil {
+		m.logsService.Error(ctx, err.Error())
+		return err
+	}
+
 	if err := m.commandService.Healthy(ctx); err != nil {
 		m.logsService.Error(ctx, err.Error())
 		return err
@@ -196,6 +343,33 @@ func (m *serviceManagerFinal) WithClusterService(cs ClusterService) ServiceManag
 
 func (m *serviceManagerFinal) ClusterService() ClusterService {
 	return m.clusterService
+}
+
+func (m *serviceManagerFinal) WithAuthService(as AuthService) ServiceManager {
+	m.authService = as.WithServiceManager(m)
+	return m
+}
+
+func (m *serviceManagerFinal) AuthService() AuthService {
+	return m.authService
+}
+
+func (m *serviceManagerFinal) WithSecretsService(ss SecretsService) ServiceManager {
+	m.secretsService = ss.WithServiceManager(m)
+	return m
+}
+
+func (m *serviceManagerFinal) SecretsService() SecretsService {
+	return m.secretsService
+}
+
+func (m *serviceManagerFinal) WithScaffoldService(sc ScaffoldService) ServiceManager {
+	m.scaffoldService = sc.WithServiceManager(m)
+	return m
+}
+
+func (m *serviceManagerFinal) ScaffoldService() ScaffoldService {
+	return m.scaffoldService
 }
 
 func (m *serviceManagerFinal) WithCommandService(cs CommandService) ServiceManager {

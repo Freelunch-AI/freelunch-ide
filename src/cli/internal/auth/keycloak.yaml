@@ -1,0 +1,122 @@
+# Local auth service for roadmap 1.3 — Keycloak in dev mode.
+#
+# NOT SECURE, and deliberately so: dev mode keeps an in-memory H2 database and a
+# known bootstrap password. It holds no real credentials and loses everything on
+# restart, which is why the realm is imported from committed JSON rather than
+# created by hand in the console.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: freelunch-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: freelunch-system
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: freelunch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/part-of: freelunch
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.7.2
+          # --import-realm loads every realm JSON found in the import directory at
+          # startup. Because the database is in-memory (dev mode), this runs on
+          # every boot, which is exactly what makes the realm durable: the
+          # committed JSON is the source of truth, the console is not.
+          args: ['start-dev', '--import-realm']
+          env:
+            # 26.x renamed these from KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD.
+            # The old names are silently ignored, leaving a server with no admin.
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: 'admin'
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              value: 'admin'
+            # The address the server believes it is serving. Keycloak bakes this
+            # into the OIDC discovery document's `issuer` and every endpoint URL,
+            # so if it is wrong every redirect and token validation fails in a way
+            # that looks like a client misconfiguration. It must be the
+            # host-reachable URL, port included.
+            - name: KC_HOSTNAME
+              value: 'http://keycloak.localhost:8080'
+            # Traefik terminates in front of us and forwards plain HTTP.
+            - name: KC_HTTP_ENABLED
+              value: 'true'
+            - name: KC_PROXY_HEADERS
+              value: 'xforwarded'
+            # Exposes /health/* on the management port, which is what a readiness
+            # probe — and later ClusterService-style Status — can actually ask.
+            - name: KC_HEALTH_ENABLED
+              value: 'true'
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: freelunch-system
+spec:
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# Host-based routing rather than a path prefix. A path prefix would additionally
+# need KC_HTTP_RELATIVE_PATH to match, or the admin console redirects itself out
+# of the prefix. *.localhost resolves to loopback on macOS and Linux without
+# touching /etc/hosts.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: freelunch-system
+spec:
+  rules:
+    - host: keycloak.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080

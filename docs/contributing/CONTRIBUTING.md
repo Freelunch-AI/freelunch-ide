@@ -101,9 +101,12 @@ Two details:
   will rename to the customer's real product name. We use a normal name rather than
   something like `<product-name>` because angle brackets are **illegal in Windows
   filenames** and would break the template for Windows users.
-- **`freelunch init` does not exist yet.** These are the folders it will one day copy. The
-  CLI has `install`, `uninstall`, `status` and `version`; scaffolding a monorepo is the
-  half of roadmap 1.1 that is still outstanding.
+- **`freelunch init <dir>` copies these folders.** It embeds the template in the binary,
+  renames `example_product` to `--product <name>` when given, stamps the platform version
+  into `platform/freelunch.yaml`, and runs `git init` — the result is ready to commit.
+  A test (`Test_embeddedTemplateMatchesRepoTemplate`) fails if this directory and the
+  embedded copy in `src/cli/internal/scaffold/template/` ever drift: **edit both
+  together.**
 
 ### 5. All source code moved into `src/`
 
@@ -315,9 +318,10 @@ The CLI drives the same cluster as the tasks above, and it is the path a custome
 gets — they have a `freelunch` binary and no pixi, no checkout and no Taskfile:
 
 ```bash
-./bin/freelunch install     # create the local Demo cluster
-./bin/freelunch status      # is it running, and which nodes
-./bin/freelunch uninstall   # tear it down
+./bin/freelunch init my-company   # scaffold a customer monorepo (git repo, ready to push)
+./bin/freelunch install           # create the local Demo environment (cluster, auth, secrets)
+./bin/freelunch status            # what is running
+./bin/freelunch uninstall         # tear it down
 ```
 
 Use whichever is at hand: the tasks print more while you are working on the cluster
@@ -400,6 +404,145 @@ The module path changed in this PR. Run `pixi run setup` to refresh dependencies
 
 ---
 
+## Part 6 — Group 1: what the CLI now does, and why it is built this way
+
+Roadmap **Group 1** — the platform foundation — is implemented: **1.1** (monorepo
+scaffolding), **1.2** (local Kubernetes environment), **1.3** (auth service) and **1.4**
+(secrets store). This section is the tour for someone seeing it for the first time: what
+each piece does, the decisions behind it, and the traps that were found the hard way so
+you do not find them again.
+
+The end-to-end experience it adds up to:
+
+```bash
+freelunch init my-company     # a customer monorepo, git-initialised, ready to push
+freelunch install             # cluster + auth + secrets, from nothing, in ~60 seconds
+freelunch status              # truthful health of all of it
+freelunch uninstall           # everything gone again
+```
+
+The same binary a customer downloads does all of this with **no pixi, no checkout, no
+Helm, and no tools beyond Docker and git** — every configuration it applies is embedded
+in the binary itself, so a release provably runs the exact definitions it was tested
+with.
+
+### 1.1 — `freelunch init` (monorepo scaffolding)
+
+Creates the canonical customer monorepo from `roadmap.md` 1.1: `platform/` (owned by
+Platform Engineers), `products/<product>/services|workflows/` (canvas-maintained, Developers),
+`.github/workflows/` (CI/CD). It stamps the CLI's own version into
+`platform/freelunch.yaml` — that is the baseline `freelunch upgrade` will one day diff —
+runs `git init`, and refuses to touch a directory that already exists. A failed init
+removes everything it created: you never get a half-scaffolded repo.
+
+Decisions worth knowing:
+
+- The template placeholder is a **normal, buildable name** (`example_product`), never
+  `<angle-bracket>` tokens — those are illegal in Windows filenames. `--product shop`
+  renames it at init time; without the flag the placeholder stays until a real product
+  exists.
+- The template lives **twice**: `templates/monorepo/` (published as the GitHub template)
+  and an embedded copy in `src/cli/internal/scaffold/template/` (what the binary uses,
+  because `go:embed` cannot reach above its package). A test fails the build if they
+  drift — **edit both together**.
+
+### 1.2 — the local Demo environment (k3d cluster)
+
+`freelunch install` creates a two-node Kubernetes cluster as Docker containers using
+**k3d** (k3s in Docker), from a declarative config embedded in the binary. Traefik
+ingress on host ports 8080/8443, a local image registry on 5050.
+
+**Why k3d and not the originally specced ProxMox + Talos VMs:** the team runs three
+operating systems, and the VM-based spec produced an environment at most one of us could
+execute (ProxMox needs bare metal; MetalLB's load-balancer IPs are unreachable from a
+macOS host). Docker is the common denominator. The full rationale is in
+`founding_doc.md` and the spec change is merged — this is settled, not open.
+
+**Why k3d and kubectl are pinned downloads, not pixi packages** (the exception to the
+pixi rule): conda-forge's `k3d` package is *K3D Jupyter, a 3D plotting library* that
+installs cleanly and silently; its kubectl is years older than our k3s server. And a
+customer running `freelunch install` has no pixi anyway — the CLI must provision its own
+tools. They are fetched at pinned versions, digest-verified against an in-tree
+`checksums.txt`, into `~/.freelunch/bin`.
+
+**Offline capability:** `pixi run task setup:airgap-images` caches the official k3s image
+bundle; with it present, cluster creation touches no network (verified by blackholing all
+registries — see `local-cluster.md` for why that, and not a Docker `--internal` network,
+is the honest test).
+
+### 1.3 — the auth service (Keycloak)
+
+`freelunch install` deploys **Keycloak 26.7.2** into the cluster and imports the
+`freelunch` realm from committed JSON. The realm defines the **3 Personas** as groups
+(`platform-admin`, `platform-engineer`, `developer`), the two temporary approval grants
+(`developer-tech-lead`, `platform-tech-lead` — deliberately *not* Personas, per 2.4), a
+`hotfix` realm role, demo users (carol/bob/alice, password `demo`), and two OAuth2
+clients: `freelunch-ide` (browser login for the Group 7 IDE, PKCE) and `freelunch-agent`
+(machine-to-machine, for the Group 8 agent API).
+
+- **The realm JSON is the source of truth.** The database is in-memory; anything created
+  by hand in the console is lost on restart, and the committed JSON is re-imported on
+  every boot. To change the realm, edit the JSON and `freelunch install --only auth`.
+- **Why raw manifests and not the Keycloak Helm chart:** the standard Bitnami chart
+  *died* in August 2025 when Bitnami moved its catalogue behind a paid tier. ~100 lines
+  of YAML we own, embedded in the binary, beats a dependency that can be revoked.
+- **The hostname trap:** Keycloak bakes its configured hostname into every URL it
+  advertises. `freelunch status` prints the OIDC issuer for exactly this reason — if it
+  ever shows an in-cluster address instead of `keycloak.localhost:8080`, that is the bug.
+
+### 1.4 — the secrets store (OpenBao)
+
+`freelunch install` deploys **OpenBao 2.6.2** (dev mode) and seeds the demo credential
+`secret/example_service · api-key` on every run.
+
+- **Why OpenBao and not HashiCorp Vault, which the tech stack originally named:** Vault
+  has been **BUSL-1.1 licensed since 2023** — it restricts embedding in a commercial
+  product, which is exactly what `freelunch install` does. OpenBao is the Linux
+  Foundation fork of the last open (MPL-2.0) codebase with the same HTTP API. Beware:
+  conda-forge's `vault` package still advertises MPL-2.0; that metadata is stale.
+- **The KV v2 path rewrite** is the trap to internalise before Group 2: the CLI writes
+  `secret/example_service`, but the HTTP API — which external-secrets-operator uses —
+  reads `secret/data/example_service`. Misconfigure that and ESO reports an *empty
+  secret, not an error*. The exact `SecretStore` YAML to start 2.1 from is in
+  `secrets-store.md`.
+- The store is deliberately **not secure** (in-memory, known root token) and holds
+  nothing real; contents vanish on restart and install re-seeds them.
+
+### How it all hangs together (the architecture)
+
+Every component follows the same pattern, and it is the pattern to copy for Group 2:
+
+- **One service per component** (`ClusterService`, `AuthService`, `SecretsService`,
+  `ScaffoldService`) behind interfaces in `internal/managers` — the IoC container from
+  Part 1. Marcos writes the interfaces; implementations follow them.
+- **The CLI orchestrates real tools** (k3d, kubectl, git) rather than reimplementing
+  them, through a `Runner` seam — which is why the whole suite runs **without Docker, a
+  cluster, or a network**: tests fake the Runner, not the world.
+- **Every configuration is `go:embed`ded** — cluster config, Keycloak manifests, realm
+  JSON, OpenBao manifests, the monorepo template. A released binary is self-contained
+  and carries exactly what was tested.
+- **`status` never trusts secondhand readiness.** It probes what a consumer would use:
+  the OIDC discovery endpoint over HTTP (pod-ready ≠ Traefik-routed), the store's own
+  seal status. If `status` says ready, it is.
+
+### What Group 1 does *not* include — known and deliberate
+
+- **1.3's login story ends at the endpoints**: nothing logs in until the IDE exists
+  (Group 7). The clients are registered and verified; the consumer is future work.
+- **1.4's story ends at the store**: no pod receives an env var until
+  external-secrets-operator (2.1). Do not file that as a bug — the spec places that leg
+  in Group 2.
+- Everything is verified on **macOS/Apple Silicon only** so far. The runbooks are
+  written to be executed verbatim on Linux/WSL2 — the first person on those platforms
+  should run them and correct anything wrong.
+- The airgap image cache covers k3s's own images, not yet Keycloak's or OpenBao's.
+
+Runbooks, each a verified transcript rather than a design sketch:
+[local-cluster.md](local-cluster.md) · [auth-service.md](auth-service.md) ·
+[secrets-store.md](secrets-store.md)
+
+---
+
 ## Where to look next
 
 | File | What it holds |
@@ -409,6 +552,8 @@ The module path changed in this PR. Run `pixi run setup` to refresh dependencies
 | `docs/specs/demo-global-spec/roadmap.md` | The ordered feature specification — the source of truth for scope |
 | `docs/specs/demo-global-spec/tech_stack.md` | The technology choices and the reasoning |
 | `docs/contributing/local-cluster.md` | Running the local Kubernetes cluster |
+| `docs/contributing/auth-service.md` | Running the local auth service (Keycloak) |
+| `docs/contributing/secrets-store.md` | Running the local secrets store (OpenBao) |
 | `src/cli/internal/` | The Go services, and the best examples to copy when adding one |
 
 If any step here fails, ask before working around it. A broken setup usually means the

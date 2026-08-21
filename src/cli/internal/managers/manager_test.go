@@ -67,6 +67,42 @@ func (e *errClusterService) Status(_ context.Context) (*ClusterStatus, error) {
 	return &ClusterStatus{}, nil
 }
 
+// errAuthService fails as an AuthService.
+type errAuthService struct{ errStub }
+
+func (e *errAuthService) WithServiceManager(sm ServiceManager) AuthService {
+	e.sm = sm
+	return e
+}
+func (e *errAuthService) Install(_ context.Context) error { return nil }
+func (e *errAuthService) Delete(_ context.Context) error  { return nil }
+func (e *errAuthService) Status(_ context.Context) (*AuthStatus, error) {
+	return &AuthStatus{}, nil
+}
+
+// errSecretsService fails as a SecretsService.
+type errSecretsService struct{ errStub }
+
+func (e *errSecretsService) WithServiceManager(sm ServiceManager) SecretsService {
+	e.sm = sm
+	return e
+}
+func (e *errSecretsService) Install(_ context.Context) error { return nil }
+func (e *errSecretsService) Delete(_ context.Context) error  { return nil }
+func (e *errSecretsService) Status(_ context.Context) (*SecretsStatus, error) {
+	return &SecretsStatus{}, nil
+}
+func (e *errSecretsService) PutSecret(_ context.Context, _, _, _ string) error { return nil }
+
+// errScaffoldService fails as a ScaffoldService.
+type errScaffoldService struct{ errStub }
+
+func (e *errScaffoldService) WithServiceManager(sm ServiceManager) ScaffoldService {
+	e.sm = sm
+	return e
+}
+func (e *errScaffoldService) Init(_ context.Context, _, _ string) error { return nil }
+
 // errCommandService fails as a CommandService.
 type errCommandService struct{ errStub }
 
@@ -125,6 +161,27 @@ func TestNewManager_noOpsAreCallable(t *testing.T) {
 	}
 	if _, err := sm.ClusterService().Status(ctx); err != nil {
 		t.Errorf("no-op ClusterService.Status() error = %v, want nil", err)
+	}
+	if err := sm.AuthService().Install(ctx); err != nil {
+		t.Errorf("no-op AuthService.Install() error = %v, want nil", err)
+	}
+	if err := sm.AuthService().Delete(ctx); err != nil {
+		t.Errorf("no-op AuthService.Delete() error = %v, want nil", err)
+	}
+	if _, err := sm.AuthService().Status(ctx); err != nil {
+		t.Errorf("no-op AuthService.Status() error = %v, want nil", err)
+	}
+	if err := sm.SecretsService().Install(ctx); err != nil {
+		t.Errorf("no-op SecretsService.Install() error = %v, want nil", err)
+	}
+	if err := sm.SecretsService().PutSecret(ctx, "p", "k", "v"); err != nil {
+		t.Errorf("no-op SecretsService.PutSecret() error = %v, want nil", err)
+	}
+	if _, err := sm.SecretsService().Status(ctx); err != nil {
+		t.Errorf("no-op SecretsService.Status() error = %v, want nil", err)
+	}
+	if err := sm.ScaffoldService().Init(ctx, "d", "p"); err != nil {
+		t.Errorf("no-op ScaffoldService.Init() error = %v, want nil", err)
 	}
 }
 
@@ -295,6 +352,27 @@ func Test_serviceManagerFinal_Start(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "auth service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithAuthService(&errAuthService{errStub{failStart: true}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "secrets service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithSecretsService(&errSecretsService{errStub{failStart: true}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "scaffold service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithScaffoldService(&errScaffoldService{errStub{failStart: true}})
+			},
+			wantErr: true,
+		},
+		{
 			name: "command service failure aborts",
 			build: func() ServiceManager {
 				return NewManager().WithCommandService(&errCommandService{errStub{failStart: true}})
@@ -348,6 +426,27 @@ func Test_serviceManagerFinal_Close(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "auth service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithAuthService(&errAuthService{errStub{failClose: true}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "secrets service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithSecretsService(&errSecretsService{errStub{failClose: true}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "scaffold service failure aborts",
+			build: func() ServiceManager {
+				return NewManager().WithScaffoldService(&errScaffoldService{errStub{failClose: true}})
+			},
+			wantErr: true,
+		},
+		{
 			name: "command service failure aborts",
 			build: func() ServiceManager {
 				return NewManager().WithCommandService(&errCommandService{errStub{failClose: true}})
@@ -390,6 +489,27 @@ func Test_serviceManagerFinal_Healthy(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "auth service unhealthy",
+			build: func() ServiceManager {
+				return NewManager().WithAuthService(&errAuthService{errStub{failHealth: true}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "secrets service unhealthy",
+			build: func() ServiceManager {
+				return NewManager().WithSecretsService(&errSecretsService{errStub{failHealth: true}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "scaffold service unhealthy",
+			build: func() ServiceManager {
+				return NewManager().WithScaffoldService(&errScaffoldService{errStub{failHealth: true}})
+			},
+			wantErr: true,
+		},
+		{
 			name: "logs service unhealthy",
 			build: func() ServiceManager {
 				return NewManager().WithLogsService(&errLogsService{errStub{failHealth: true}})
@@ -408,6 +528,129 @@ func Test_serviceManagerFinal_Healthy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.build().Healthy(context.Background()); (err != nil) != tt.wantErr {
 				t.Errorf("Healthy() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_WithAuthService(t *testing.T) {
+	type args struct{ s AuthService }
+	sm := NewManager()
+	s := NewNoOpsAuthService()
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		args args
+		want ServiceManager
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), args: args{s}, want: sm},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.WithAuthService(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("WithAuthService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_AuthService(t *testing.T) {
+	sm := NewManager()
+	s := NewNoOpsAuthService()
+	sm.WithAuthService(s)
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		want AuthService
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), want: s},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.AuthService(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("AuthService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_WithSecretsService(t *testing.T) {
+	type args struct{ s SecretsService }
+	sm := NewManager()
+	s := NewNoOpsSecretsService()
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		args args
+		want ServiceManager
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), args: args{s}, want: sm},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.WithSecretsService(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("WithSecretsService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_SecretsService(t *testing.T) {
+	sm := NewManager()
+	s := NewNoOpsSecretsService()
+	sm.WithSecretsService(s)
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		want SecretsService
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), want: s},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.SecretsService(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("SecretsService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_WithScaffoldService(t *testing.T) {
+	type args struct{ s ScaffoldService }
+	sm := NewManager()
+	s := NewNoOpsScaffoldService()
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		args args
+		want ServiceManager
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), args: args{s}, want: sm},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.WithScaffoldService(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("WithScaffoldService() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_serviceManagerFinal_ScaffoldService(t *testing.T) {
+	sm := NewManager()
+	s := NewNoOpsScaffoldService()
+	sm.WithScaffoldService(s)
+	tests := []struct {
+		name string
+		m    *serviceManagerFinal
+		want ScaffoldService
+	}{
+		{name: "success", m: sm.(*serviceManagerFinal), want: s},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.m.ScaffoldService(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ScaffoldService() = %v, want %v", got, tt.want)
 			}
 		})
 	}

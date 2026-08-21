@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -92,9 +93,11 @@ func (s *commandServiceFinal) newRootCommand() *cobra.Command {
 		Use:   "freelunch",
 		Short: "FreeLunch platform CLI",
 		Long: "freelunch bootstraps and inspects a FreeLunch platform installation.\n\n" +
-			"install creates the local Demo cluster on Docker, uninstall tears it down,\n" +
-			"and status reports what is running. Every change to a running system goes\n" +
-			"through GitOps, not through this CLI.",
+			"init creates a customer monorepo with the canonical FreeLunch structure;\n" +
+			"install creates the local Demo environment on Docker (cluster, auth\n" +
+			"service, secrets store), uninstall tears it down, and status reports what\n" +
+			"is running. Every change to a running system goes through GitOps, not\n" +
+			"through this CLI.",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		// Print help instead of an unhelpful "unknown command" for a bare invocation.
@@ -107,6 +110,7 @@ func (s *commandServiceFinal) newRootCommand() *cobra.Command {
 	root.SetErr(s.errOut)
 	root.CompletionOptions.HiddenDefaultCmd = true
 
+	root.AddCommand(s.newInitCommand())
 	root.AddCommand(s.newInstallCommand())
 	root.AddCommand(s.newUninstallCommand())
 	root.AddCommand(s.newStatusCommand())
@@ -150,6 +154,47 @@ func (s *commandServiceFinal) RunVersion(ctx context.Context, out io.Writer, asJ
 	return err
 }
 
+// newInitCommand builds `freelunch init`.
+func (s *commandServiceFinal) newInitCommand() *cobra.Command {
+	var product string
+
+	cmd := &cobra.Command{
+		Use:   "init <directory>",
+		Short: "Create a customer monorepo with the canonical FreeLunch structure",
+		Long: "init creates a new directory with the canonical customer-monorepo\n" +
+			"structure — platform/, products/<product>/services/ and workflows/, and\n" +
+			".github/workflows/ — stamps the platform version, and runs `git init` so\n" +
+			"the result is ready to commit and push.\n\n" +
+			"The products directory starts as the example_product placeholder; pass\n" +
+			"--product to name it now, or rename it when the first real product\n" +
+			"exists. git must be installed.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return s.RunInit(cmd.Context(), cmd.OutOrStdout(), args[0], product)
+		},
+	}
+
+	cmd.Flags().StringVar(&product, "product", "example_product",
+		"name for the products/<product> directory")
+
+	return cmd
+}
+
+// RunInit is the cobra-free body of `freelunch init`.
+func (s *commandServiceFinal) RunInit(ctx context.Context, out io.Writer, dir, product string) error {
+	s.sm.LogsService().Debug(ctx, "running the init command")
+
+	if err := s.sm.ScaffoldService().Init(ctx, dir, product); err != nil {
+		return err
+	}
+
+	_, err := fmt.Fprintf(out,
+		"Monorepo created at %s (product: %s).\n"+
+			"Next: commit and push it, then run `freelunch install` for the local environment.\n",
+		dir, product)
+	return err
+}
+
 // newInstallCommand builds `freelunch install`.
 //
 // The name follows roadmap.md:370 and the 1.2 story, which both use install for
@@ -157,19 +202,32 @@ func (s *commandServiceFinal) RunVersion(ctx context.Context, out io.Writer, asJ
 // cluster from starting one that already exists, and reserving `start` for the
 // latter keeps both words meaning what they ordinarily mean.
 func (s *commandServiceFinal) newInstallCommand() *cobra.Command {
-	return &cobra.Command{
+	var only []string
+	var skip []string
+
+	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Create the local Demo cluster",
+		Short: "Create the local Demo environment: cluster, auth service, secrets store",
 		Long: "install creates the local Demo Kubernetes cluster from the pinned k3d\n" +
-			"configuration that ships inside this binary.\n\n" +
+			"configuration that ships inside this binary, then installs the platform\n" +
+			"components into it — the auth service (roadmap 1.3) and the secrets\n" +
+			"store (roadmap 1.4).\n\n" +
 			"Docker must be running and the pinned tools must already be installed.\n" +
-			"Creation is fresh-start only: run uninstall first to recreate a cluster\n" +
-			"that already exists.",
+			"Cluster creation is fresh-start only: run uninstall first to recreate a\n" +
+			"cluster that already exists. Components re-apply cleanly.\n\n" +
+			"Use --only to install a subset, or --skip to leave components out:\n" +
+			"  freelunch install --only cluster\n" +
+			"  freelunch install --skip auth,secrets",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return s.RunInstall(cmd.Context(), cmd.OutOrStdout())
+			return s.RunInstall(cmd.Context(), cmd.OutOrStdout(), only, skip)
 		},
 	}
+
+	cmd.Flags().StringSliceVar(&only, "only", nil, "install only these components (cluster, auth, secrets)")
+	cmd.Flags().StringSliceVar(&skip, "skip", nil, "skip these components (cluster, auth, secrets)")
+
+	return cmd
 }
 
 // newUninstallCommand builds `freelunch uninstall`.
@@ -204,22 +262,106 @@ func (s *commandServiceFinal) newStatusCommand() *cobra.Command {
 	}
 }
 
+// installComponents is the ordered component list install works through.
+// Order matters: auth deploys into the cluster, so the cluster goes first.
+var installComponents = []string{"cluster", "auth", "secrets"}
+
+// selectComponents resolves --only/--skip into the subset to act on, in
+// canonical order. Unknown names are an error rather than silently ignored —
+// a typo in --skip that installs the very thing the user excluded is worse
+// than a failed command.
+func selectComponents(only, skip []string) ([]string, error) {
+	known := map[string]bool{}
+	for _, c := range installComponents {
+		known[c] = true
+	}
+	for _, name := range append(append([]string{}, only...), skip...) {
+		if !known[name] {
+			return nil, fmt.Errorf("unknown component %q (known: %s)",
+				name, strings.Join(installComponents, ", "))
+		}
+	}
+
+	selected := map[string]bool{}
+	if len(only) > 0 {
+		for _, name := range only {
+			selected[name] = true
+		}
+	} else {
+		for _, c := range installComponents {
+			selected[c] = true
+		}
+	}
+	for _, name := range skip {
+		delete(selected, name)
+	}
+
+	var result []string
+	for _, c := range installComponents {
+		if selected[c] {
+			result = append(result, c)
+		}
+	}
+	return result, nil
+}
+
 // RunInstall is the cobra-free body of `freelunch install`.
-func (s *commandServiceFinal) RunInstall(ctx context.Context, out io.Writer) error {
+func (s *commandServiceFinal) RunInstall(ctx context.Context, out io.Writer, only, skip []string) error {
 	s.sm.LogsService().Debug(ctx, "running the install command")
 
-	// Creation takes roughly a minute, so say something before blocking. This is
-	// program output rather than a diagnostic: it is the command reporting on the
-	// work it was asked to do.
-	if _, err := fmt.Fprintln(out, "Creating the local Demo cluster; this takes about a minute."); err != nil {
+	components, err := selectComponents(only, skip)
+	if err != nil {
 		return err
 	}
 
-	if err := s.sm.ClusterService().Create(ctx); err != nil {
-		return err
+	for _, component := range components {
+		switch component {
+		case "cluster":
+			// Creation takes roughly a minute, so say something before
+			// blocking. Program output, not a diagnostic: the command is
+			// reporting on the work it was asked to do.
+			if _, err := fmt.Fprintln(out, "Creating the local Demo cluster; this takes about a minute."); err != nil {
+				return err
+			}
+			if err := s.sm.ClusterService().Create(ctx); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out, "Cluster created."); err != nil {
+				return err
+			}
+		case "auth":
+			if _, err := fmt.Fprintln(out, "Installing the auth service."); err != nil {
+				return err
+			}
+			if err := s.sm.AuthService().Install(ctx); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out, "Auth service installed; it takes a moment to come up."); err != nil {
+				return err
+			}
+		case "secrets":
+			if _, err := fmt.Fprintln(out, "Installing the secrets store."); err != nil {
+				return err
+			}
+			if err := s.sm.SecretsService().Install(ctx); err != nil {
+				return err
+			}
+			// Seed the demo credential from the 1.4 story (the spec names the
+			// workload "my-service"; the seed follows the repo's example_*
+			// placeholder convention). Dev mode loses contents on restart, so
+			// this runs on every install rather than once — which is also what
+			// makes re-install after a pod crash produce a working demo.
+			if err := s.sm.SecretsService().PutSecret(ctx,
+				"example_service", "api-key", "example-api-key-value"); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out, "Secrets store installed and seeded."); err != nil {
+				return err
+			}
+		}
 	}
 
-	_, err := fmt.Fprintln(out, "Cluster created. Run `freelunch status` to inspect it.")
+	_, err = fmt.Fprintln(out, "Done. Run `freelunch status` to inspect the environment.")
 	return err
 }
 
@@ -227,11 +369,23 @@ func (s *commandServiceFinal) RunInstall(ctx context.Context, out io.Writer) err
 func (s *commandServiceFinal) RunUninstall(ctx context.Context, out io.Writer) error {
 	s.sm.LogsService().Debug(ctx, "running the uninstall command")
 
+	// Reverse of install order. Deleting components before the cluster is
+	// mostly symbolic — deleting the cluster removes everything in it — but it
+	// keeps the teardown meaningful when the cluster itself is kept in future
+	// variants, and every delete tolerates absence.
+	if err := s.sm.SecretsService().Delete(ctx); err != nil {
+		return err
+	}
+
+	if err := s.sm.AuthService().Delete(ctx); err != nil {
+		return err
+	}
+
 	if err := s.sm.ClusterService().Delete(ctx); err != nil {
 		return err
 	}
 
-	_, err := fmt.Fprintln(out, "Cluster deleted.")
+	_, err := fmt.Fprintln(out, "Demo environment deleted.")
 	return err
 }
 
@@ -262,5 +416,40 @@ func (s *commandServiceFinal) RunStatus(ctx context.Context, out io.Writer) erro
 		}
 	}
 
-	return nil
+	authStatus, err := s.sm.AuthService().Status(ctx)
+	if err != nil {
+		return err
+	}
+
+	if authStatus == nil || !authStatus.Ready {
+		_, err = fmt.Fprintln(out, "Auth service is not ready. It takes ~60s after install; check again shortly.")
+		return err
+	}
+
+	// The issuer is printed because it is the value that breaks first when the
+	// hostname configuration is wrong — visible here, it is diagnosable at a
+	// glance instead of surfacing as a mysterious 401 in a consumer.
+	if _, err = fmt.Fprintf(out, "Auth service is ready: realm %q, issuer %s\n",
+		authStatus.Realm, authStatus.IssuerURL); err != nil {
+		return err
+	}
+
+	secretsStatus, err := s.sm.SecretsService().Status(ctx)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case secretsStatus == nil || (!secretsStatus.Ready && !secretsStatus.Sealed):
+		_, err = fmt.Fprintln(out, "Secrets store is not ready.")
+	case secretsStatus.Sealed:
+		// Dev mode never seals, so this means the deployment was changed out
+		// from under us — worth its own line, since the pod looks healthy.
+		_, err = fmt.Fprintln(out, "Secrets store is SEALED — this dev-mode store should never seal; inspect the deployment.")
+	default:
+		// The engine is printed because the kv v1/v2 distinction is what 2.1
+		// must configure for; visible here, drift is caught at a glance.
+		_, err = fmt.Fprintf(out, "Secrets store is ready: %s\n", secretsStatus.Engine)
+	}
+	return err
 }
