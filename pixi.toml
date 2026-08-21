@@ -52,6 +52,17 @@ kubernetes-helm = ">=4.2,<5"
 #      plotting library. It resolves and installs cleanly, so adding it here
 #      would fail silently rather than loudly.
 
+# conda-forge's Go on Linux invokes the conda cross-compiler
+# (x86_64-conda-linux-gnu-cc) for cgo, and `go test -race` requires cgo.
+# The compiler ships in a separate package, so without this every Go test
+# run on a Linux machine fails with "C compiler ... not found". macOS is
+# not affected: the osx Go builds use the system clang.
+[target.linux-64.dependencies]
+c-compiler = ">=1.8,<2"
+
+[target.linux-aarch64.dependencies]
+c-compiler = ">=1.8,<2"
+
 [activation.env]
 # Pixi is the single source of truth for the Go version. GOTOOLCHAIN defaults to
 # "auto", under which the go command may silently download a toolchain other than
