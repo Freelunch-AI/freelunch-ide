@@ -1,123 +1,88 @@
-# Freelunch Founding Document
+# FreeLunch — Company Intro + Product Requirements Document
 
-## Vision & Business Model
+# 1. Company Intro
 
-Freelunch is the next-gen venture-studio that goes beyond spawning startups.
+## 1.1 What is FreeLunch?
 
-We partner with founders and provide scaleup-infra-as-a-service for our scaleups, via our ai-native platform stack that allows small teams to seamlessly scale with low head count, after they have already reached bootstrapped Product-Market Fit (PMF). We create and support startups building apps (excludes dev tool companies).
-The core platform we provide is the devops/mlops platform, but we also will provide ERP (adapted for scaleup needs), internal tech upskilling platform and offices in the future, so that founders can focus all their efforts on their specific business needs. All these platforms are free and designed for portability: customers retain the standard artifacts and GitOps flow. Dedicated detach or eject automation is post-MVP. The platforms are forkable for our startups (but not publicly forkable), creating a strong inner source (but not open source) ecosystem & community.
+**FreeLunch is a venture studio/accelerator that provides scaleup infrastructure-as-a-service to the companies it builds and supports.**
 
-**Business Model**: 
-- Intermediate Business Model: Developer Platform Consulting or Selling Monthly/Annual Licences of our IDE/Platform.
-- Final Business Model: Venture Studio/Accelerator. We take one of these 3 approaches: (1) bring in founders after validating the idea, giving them 40% equity + salary; (2) bring in pre-scale companies via y combinator-like form application, taking 20% equity of them; (3) bring in founders for an edge city-like idea exploration phase (or with an idea already), validating the idea together with the founder and starting the company together with the founder taking 30% equity. In all cases we help with eventual fundraising through our VC network. Since we operate essentially as a cofounder, we also get diluted as much as the founders in funding rounds. 
+We partner with founders and pre-scale companies after they have reached, or are working toward, bootstrapped Product-Market Fit. Our goal is to let small teams scale software-intensive businesses without having to build large internal platform, DevOps, MLOps, and eventually other operational teams.
 
-Similar Orgs: 
-- [Result](https://www.ycombinator.com/companies/result): from one of Y Combinator’s recent batches. But their focus is small-scale businesses, we focus on companies scaling to infinity with proper software engineering infra (the actual devops/mlops required for building scalable/safe/fast/cost-efficient apps beyond MVPs). Another important difference is the business model: they are a PaaS, while we are a venture-studio/accelerator.
-- [Wildlife Studios](https://wildlifestudios.com/): Venture Studio focused on mobile games with mature platform engineering.
+Our core product is an **AI-native developer platform for building and operating scalable applications**. Over time, FreeLunch may also provide ERP, technical upskilling, offices, and other shared infrastructure.
 
-## Vision of the Core Product via Analogies with existing Tools
+The platforms are designed for **portability**:
 
-Analogy: Freelunch: platform = \
-for_distributed_apps_and_ai_powered(Unreal Engine: visual & all-in-one IDE) +
+* Customers retain standard artifacts and GitOps workflows.
+* Infrastructure remains inspectable and directly operable.
+* Platforms can eventually be detached/ejected automatically.
+* Portfolio companies can fork the platform internally, creating an inner-source ecosystem.
 
- for_distributed_apps_and_all_in_one(Cursor: ai-powered IDE) + 
- 
- lunch_platform_native(Paperclip: remote-first agent orchestration plane) +
- 
- just_similar_visuals_and_marketplace(N8N: node-based IDE) +
+FreeLunch does **not** initially build its own coding agent or LLM. Instead, it turns existing coding agents such as Claude Code and OpenCode into complete software/AI engineering agents by giving them access to platform context, documentation, observability, and operational state.
 
- multi_language_and_build_time_and_made_for_services_on_top_of_k8s(Ray: distributed programming framework) +
- 
-developer_friendly_and_with_finops(Kubefirst: gitops k8s developer platform template) +
+## 1.2 Business Model
 
- Karmada: single-cluster abstraction for multi-cluster
- 
- build_time_platform_with_infra_support_and_with_environment_progression_and_layer_conflict_resolution(Kubero: k8s developer platform)
- 
- inferred_from_code(Infisical: secrets & config management) +
- 
- Rancher: k8s cluster management +
- 
- Terraform/Crossplane: IaC +
- 
- Talscale: Modern VPNs +
- 
- decoupled_from_programming_language(ZenML: tool-agnostic DAGs) + integrated_within_devops(Langfuse: LM Systems Observability) +
- 
- Marimo: structured notebooks +
+### Near Term
 
- SkyPilot: ephemeral workloads layer +
- 
- integrated_within_devops(MLFlow: Artifact Experiment Tracking) +
+FreeLunch monetizes through **platform engineering consulting** and custom developer-platform implementations for scaleups.
 
- declarative_with_visuals_write_audit_publish_pattern_and_data_transformation_management(Ibis tool-agnostic data transformation) +
- 
- Beam: cross-storage data transformation engine + 
- 
- with_copy_on_write_and_anonymization_support(Kubeblocks: k8s structured data storage management) +
- 
- Rook: k8s raw data storage management +
- 
- ready_made_and_webmcp_powered_portal(Backstage: unified dashbaords & control planes in a single view) +
+### Long Term
 
-## Strategy
+FreeLunch becomes a **venture studio/accelerator**, using three main models:
 
-First, we need to focus on the core devops platform and validate that it actually makes company scaling easy. We need to build the Demo (freelunch devops platform), deploy a representative stateless app, and artificially scale it. We also need to compare it to existing open source options and popular PaaS vendors (in terms of devex, capabilities, lock-in & cost).
+1. **Idea → company:** FreeLunch validates an idea with a founder, provides salary and infrastructure, and takes significant founding equity.
+2. **Pre-scale company:** Existing companies apply to join the accelerator in exchange for equity.
+3. **Co-building:** FreeLunch and a founder explore and validate an opportunity together before forming the company.
 
-### Demo Goal
-1. Docs: A developer has access to documentation explaining how the stateless sample app is modeled, deployed, and operated with Freelunch.
-2. Building: The same developer creates multiple services on the canvas: writes source code for one, imports a container image for another, connects them, and adds a virtual Service block for an externally managed database dependency. Cloud Native Buildpacks turn the source into an image, while the canvas-maintained CUE captures configuration, metadata, and image references that compile into versioned Helm charts. The workspace surfaces CI/CD status and logs with observability, secrets, API Gateway, and networking built in.
-3. Scaling: The developer increases inbound traffic artificially to emulate real world product adoption. The infra & services scale automatically to match the increased traffic in a cost-efficient manner.
-4. Incident Resolution: Later, when production fails, the developer inspects traces, topology, logs, deployments, and costs in the same workspace. Claude Code uses the documentation-backed FreeLunch skill and read-only Coding Agent API to correlate the evidence, and the developer rolls back to the retained previous revision through Argo Rollouts.
+FreeLunch also supports portfolio companies with fundraising through its VC network and participates in dilution alongside founders during future financing rounds.
 
-## Demo (showing the idea, but not an MVP yet)
+## 1.3 Product Vision
 
-While traditional PaaS' like Heroku/Railway/Render are nice for 0 -> 1, startups move away from them when scaling (because of high cost, strong limitations and high lock-in). These startups suffer with the complexities of Terraform/K8s, along with all the overwhelming ecosystem of cloud-native tools around them, just to get simple things done; safely, fast and cost-efficient. This distracts them from the actual product they are making, requires expensive DevOps/MLOps/Data hires and work is still duplicated across teams. Freelunch IDE is a new kind of IDE for cloud development (e.g., services and source code are first-class citizens and you build inside composable building blocks of application code and infra) and operations, effectively working as an internal developer platform. It streamlines the entire SDLC (dev/experimentation –> ci –> staging –> prod –> observability), with AI assistance in every stage (from coding, to end-to-end testing, to incident solving). But we don’t develop our own coding agent or LLM (at first), we transform coding agents (e.g., Claude Code or Open Code) into complete Software/AI engineering agents.
+FreeLunch is a **cloud-development IDE and internal developer platform** that combines application development, infrastructure, deployment, experimentation, and operations into one environment.
 
-Freelunch IDE adds developer-friendly abstraction & visual layer on top of the complex Cloud/DevOps/K8s/Data/AI ecosystems, while still letting you deal directly with the underlying tooling (e.g., use kubectl or bring your own cluster) when needed via our 2-layer API model.
-A good analogy is with game engines (e.g., Unity), which are specialized & visual IDEs which streamline game development. In this case, it's for general cloud/k8s development and operations.
-The most similar open source projects out there are currently Kubero (easy source-code-to-k8s deploy), Kubefirst (modern k8s gitops template) Meshery (visual cloud/k8s/services management & observability) & Backstage (central touching point for developers to have everything they need).
+The core analogy is:
 
-[Freelunch Mock](https://github.com/Freelunch-AI/freelunch-ide/blob/main/docs/mock.html)
+> **IDE + Internal Developer Platform as a single product**
 
-The mock is an exploratory interface prototype. The [ordered feature specification](docs/freelunch_ide_features_ordered.md) is the source of truth for Demo/MVP implementation scope.
+Developers should be able to compose services and infrastructure visually, write application code, deploy through GitOps, observe the running system, and diagnose production issues without needing to become experts in the underlying Kubernetes/cloud-native ecosystem.
 
-Demo Innovative Features: (1) K8s-based, with a canvas-maintained layer 1 API (platform abstractions) that deterministically compiles configuration, metadata, and Buildpacks-produced image references into versioned Helm charts and triggers the GitOps deployment flow; (2) a visual cloud-native IDE (backwards-compatible with VS Code) where developers compose and debug scalable building blocks; (3) a read-only Coding Agent API with an OpenAPI contract and a documentation-backed first-party FreeLunch skill for interactive and headless platform workflows. Agent-triggered mutations, ticket creation, and notifications are post-MVP.
+The platform provides a higher-level abstraction while preserving access to the underlying systems.
 
+### Core principles
 
-### Demo Expected Features 
+* **Developer-first:** infrastructure complexity should not dominate application development.
+* **Git-native:** Git remains the source of truth for desired state and changes.
+* **Kubernetes-native:** use Kubernetes and its ecosystem rather than replacing them.
+* **Portable:** customers retain standard deployment artifacts and GitOps workflows.
+* **Layered:** simple abstractions for developers, direct access to lower-level artifacts for platform engineers.
+* **AI-native:** existing coding agents receive platform context and operational capabilities.
+* **Composable:** integrate existing cloud-native tools rather than rebuilding them.
 
-- Infra: (1) Argo Rollouts-managed blue-green deploys and rollbacks for stateless applications; (2) Auth: CI/CD uses GitHub as OIDC Provider, IDE uses Keycloak as OIDC Provider, Pods use K8s as OIDC Provider and Vault as Application Secrets Store; (3) IaC knowledge not necessary for getting services running and observing them; (4) Only superficial K8s knowledge necessary; (5) Autoscaling: pod, node vertical and horizontal autoscaling; (6) Local Dev Environment for developing/validating services powered by K8s-in-Docker (Kind); (7) Backups & Restores already set up; (8) Support for using existing EKS clusters.
-Interfaces: (1) IDE + Dev Portal being the same thing; (2) Minimal CLI for set up and inspection; (3) GitOps for actual modifications to the systems (unit tests -> integration tests (ephemeral) -> staging (ephemeral) -> prod); (4) Personas: platform admin, platform engineer, developer, tech lead (developer that can merge PRs)
-Docs: (1) comes with a stateless sample app and documentation explaining how it is modeled, deployed, and operated
-- Observability: (1) User Infra & App Observability through SigNoz; (2) OpenCost with its Prometheus backend for Demo cost observability; (3) SigNoz and OpenCost UIs embedded in FreeLunch as plugins, with a unified FreeLunch-owned experience planned later
-- Application: (1) Easily build and deploy stateless services without dealing necessarily with containers (powered by cloud-native buildpacks)
-- Platform lifecycle: (1) Declarative platform versioning with compatibility checks and guided resolution for breaking schema changes
-- Lock-in: (1) standard, customer-owned L2 artifacts and GitOps flow remain inspectable and directly operable; automated detach/eject workflows are post-MVP
-- Extensions: any Open VSX extension should work
-- Language support: any language since its based on containers (later, freelunch’s distributed programming framework will require language-specific work, but this is not for the Demo)
+## 1.4 Competitive Position
 
-**Demo Limitations**: (1) fully local & aws-only (local aws cloud emulation); (2) no support for hosting stateful services or orchestrating database/queue migration; (3) no gpu, a/b testing, frontend, data engineering, mlops or confidential computing (TEEs + program attestations) support; (4) not tool-agnostic yet (e.g., relies on terraform instead of allowing any IaC tool); (5) no distributed programming framework yet; (6) no visual slow-motion replay of traces & time-travel yet; (7) no Project Management & AI Agent Management yet; (8) no polyrepo support yet; (9) no on-premise cluster neither embedded device support yet; (10) no emphasis on auth & security; (11) no remote k8s development/experimentation environment support; (12) no Public/Private Hub for reusable blocks; (13) no support for DAGs; (14) no detach/eject automation or agent-triggered platform mutations; (15) no budget enforcement or deployment cost gates; (16) no IDE action logging; (17) no DORA metrics or IDE usage analytics; (18) no system-wide experiment tracking; (19) no widgets for performing monitoring actions; (20) no DataOps promotion of data into production storage systems through GitOps; (21) no lineage-full observability through OpenLineage.
-What's missing to become an MVP? Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
+FreeLunch combines ideas from or uses under the hood:
 
-**Demo Estimated Stack**: theia + typescript, golang, git + pre-commit, Github + Act + Dagger + Bazel, Docker, Trivy, AWS ECR, CUE, ArgoCD, Argo Rollouts, Terraform, AWS EKS, Helm, KEDA, Karpenter, Backstage, Keycloak, external-secrets-operator, Vault, K6, testcontainers, kubetest, wiremock, Open Telemetry, headlamp, SigNoz, OpenCost, Prometheus, MKDocs, Cloudflare.
-**Our own Coding/Experimenting Environment Estimated Stack**: linux/wsl, pixi, git, girus
+* **Kubero / Kubefirst** — developer-friendly Kubernetes and GitOps.
+* **Backstage** — unified developer platform.
+* **Tilt** — local development and experimentation.
+* **Ray** — higher-level distributed programming abstractions.
+* **Karmada** — multi-cluster abstraction.
+* **Terraform / Crossplane** — infrastructure management.
+* **SigNoz / OpenTelemetry** — observability.
+* **OpenCost** — cost visibility.
+* **Infisical / Vault** — secrets management.
+* **SkyPilot** — ephemeral workloads.
+* **MLflow / Langfuse** — AI/ML experimentation and observability.
+* **n8n / ReactFlow** — visual composition.
 
-Basic setup for us to start development: github repo & access control, virtual environment & package management; linting/formatting; building; testing; publishing IDE binary and CLI Golang package; updating docs website.
+FreeLunch's differentiation is combining these capabilities into a **single application-centric development and operations experience**, rather than another collection of independent platform tools.
 
-Monetization while building our product: platform consulting. Being hired to be the outsourced platform engineering team of existing scaleups that don’t have a team for this. Hired to build a custom platform for the company (caveat: will have some specific needs that don't generalize to other companies).
+---
 
-**What's missing to become an MVP?** Support for hosting stateful services, actual deployment to the cloud, a/b testing, proper auth, proper security. And of course, validation with a real-world scaleup using it.
+# 2. Product Requirements Document
 
-## Key Technical Decisions & FAQ
+## 2.1 Product
 
-### General Decisions & FAQ
-- IDE vs Platform Separate from IDE: building a developer platform separate from the IDE is easier and makes adoption easier, however, it can’t provide the seamless developer experience as a single integrated environment where you code, debug and observe your systems in the same place, with holistic AI Assistance. This caps the potential of becoming a groundbreaking tool that changes the way in which teams develop cloud software and scale companies.
-- Theia vs VScode Fork: Use Theia as a replaceable workbench shell, ReactFlow as the center of the user experience, Monaco/xterm/LSP/DAP as the building blocks of service-centric mini IDEs, steal catalog/template/auth/plugin concepts from Backstage, steal remote-development patterns from Gitpod/Che/Coder/Tilt, and build your own Kubernetes-native application model instead of inheriting someone else's workspace or portal model.
-We did not choose to fork VS Code because of Freelunch's long-term center of gravity is a distributed-systems runtime workbench (services, agents, deployments, observability, debugging, topology graphs) rather than a code editor, and a VS Code fork would increasingly force the product to conform to editor-centric assumptions instead of allowing the runtime model to become the primary user experience.
-- Primary Programming Language: We chose Golang as our primary language because of: (1) its cloud-native popularity and use in similar projects, (2) its good performance; (3) experience in our team + small learning curve compared to other languages like Rust for example. However, Typescript will be used for the Theia Frontend.
-- Why Venture Studio and not PaaS Business Model? Because PaaS inherently has significant lock-in for the customers and doesn’t tend to become unicorn-level businesses. Though we acknowledge that starting a venture studio is inherently more complex, because 2 things need to work to prove its worth: the freelunch platform and one portfolio company.
-- Why have the platofrm logic as a cicd compiler and not a k8s controller? Controllers are usually good at managing a domain with complex operational semantics involving multiple pods (e.g., vllm, spark, ray, postgres). An IDP's job is usually not to own those semantics, but to compose them into a coherent developer experience. So freelunch ide should use the approriate controllers under the hood, but its job is not to make them.
+**FreeLunch IDE / Developer Platform**
 
 ### Demo-specific Decisions & FAQ
 
@@ -125,3 +90,449 @@ We did not choose to fork VS Code because of Freelunch's long-term center of gra
 - Stateless only vs Stateless & Statefull: we chose to support stateless workload only because it will make the Demo much simpler and will be sufficient to show the core idea of the IDE. But of course, it won't be very useful for scaleups yet, only after we implement support for stateful workloads.
 - Monorepo vs Polyrepo for the User's gitops: the goal is to support both, but for the Demo we want to keep it as simple as possible. Therefore, supporting just monorepo makes more sense since it’s a simpler option that is also being highly adopted by platform engineering/devops teams around the world.
 - Why k3d (k3s in Docker) instead of ProxMox & Talos Linux for local infra? We originally chose ProxMox + Talos so that provisioning the local cluster would need real IaC, on the theory that this would transfer to real cloud deployment later. That reasoning did not survive contact with the team's machines. ProxMox is a bare-metal hypervisor and cannot run on a developer laptop; Talos on QEMU works on Apple Silicon but its load-balancer IPs are unreachable from a macOS host, because Apple's vmnet-shared networking drops the gratuitous ARP that MetalLB depends on (siderolabs/talos#12834, still open); and the Terraform libvirt provider cannot provision VMs on macOS at all, since libvirtd is not a native macOS daemon. The result was a Demo environment that at most one of three developers could actually run. We now use k3d: the cluster runs as Docker containers, works identically on macOS, Linux and WSL2, and ships its own load balancer, which removes the host-networking problem entirely. We accept that this gives up the IaC-transfers-to-cloud argument. Real cloud deployment is post-Demo, and the cloud IaC will be written against a real cloud when we get there — writing it now against an emulated local VPC was speculative anyway.
+
+A Kubernetes-native, GitOps-based development environment for building, deploying, observing, and operating distributed applications.
+
+The IDE and Dev Portal are the **same product surface**. The CLI provides setup and inspection capabilities.
+
+## 2.2 Initial Product Goal
+
+The first goal is to prove that FreeLunch can make scaling a stateless application significantly easier than using the underlying Kubernetes/cloud-native tooling directly.
+
+The Demo must demonstrate:
+
+1. Modeling and building multiple services.
+2. Deploying them through GitOps.
+3. Automatically scaling them under increased traffic.
+4. Observing application behavior, deployments, and costs.
+5. Diagnosing a failure using platform context and an AI coding agent.
+6. Rolling back safely.
+
+The Demo is a validation artifact, **not yet the MVP**.
+
+---
+
+# 3. Demo Product Experience
+
+## 3.1 Build
+
+A developer can create a stateless application consisting of:
+
+* A Service built from source.
+* A Service imported from an existing container image.
+* Connections between Services.
+* A virtual Service representing an externally managed dependency.
+
+Source-based Services use **Cloud Native Buildpacks**, avoiding the need to manually create Dockerfiles.
+
+The developer interacts primarily with FreeLunch abstractions rather than Kubernetes manifests.
+
+## 3.2 Deploy
+
+The normal deployment flow is:
+
+```text
+Developer change
+    ↓
+Git
+    ↓
+CI
+    ↓
+Generate deployment artifacts
+    ↓
+Git commit
+    ↓
+ArgoCD
+    ↓
+Kubernetes
+```
+
+FreeLunch does not normally mutate the cluster directly.
+
+## 3.3 Scale
+
+The developer can generate increasing traffic against the sample application.
+
+Kubernetes automatically scales workloads according to their configured policies.
+
+The Demo focuses on workload autoscaling rather than cloud-node autoscaling.
+
+## 3.4 Observe
+
+The developer can inspect:
+
+* Application logs, metrics, and traces.
+* Workload health.
+* Deployment and rollout state.
+* CI/CD status.
+* Resource usage.
+* Estimated workload costs.
+
+Observability is provided through **OpenTelemetry + SigNoz**, while **OpenCost** provides cost allocation.
+
+## 3.5 Diagnose
+
+A coding agent can use the FreeLunch platform context to investigate failures.
+
+The agent receives:
+
+* Workload state.
+* Deployment state.
+* CI/test results.
+* Recent errors.
+* Observability data.
+* Cost information.
+* Platform documentation.
+
+The agent can modify the repository using its normal Git/GitHub workflow, but the FreeLunch Agent API itself is **read-only**.
+
+## 3.6 Roll Back
+
+Deployments use **Argo Rollouts** for blue-green delivery.
+
+The previous revision remains available for rollback.
+
+Rollback follows the GitOps model rather than allowing the CLI or agent to directly mutate the cluster.
+
+---
+
+# 4. Architecture
+
+## 4.1 Layered Application Model
+
+FreeLunch provides two conceptual layers.
+
+### Layer 1 — Developer Abstraction
+
+The developer declares application intent using FreeLunch's platform model.
+
+The model is represented using **CUE**.
+
+CUE is used for:
+
+* schema validation,
+* constraints and defaults,
+* deterministic evaluation,
+* compilation of the higher-level application model.
+
+CUE is **not the deployment artifact** and should not be treated as a second Kubernetes manifest format.
+
+### Layer 2 — Deployment Artifacts
+
+The platform model is compiled into customer-visible Kubernetes/Helm deployment artifacts.
+
+```text
+FreeLunch Application Model
+        ↓
+       CUE
+        ↓
+  L2 Kubernetes/Helm
+        ↓
+       Git
+        ↓
+     ArgoCD
+        ↓
+   Kubernetes
+```
+
+L2 remains inspectable and directly operable by platform engineers.
+
+The generated artifacts are versioned in Git, allowing developers and platform engineers to see exactly what will be deployed.
+
+## 4.2 GitOps
+
+Git is the central mutation mechanism.
+
+The platform should avoid direct imperative deployment operations wherever possible.
+
+```text
+IDE / CLI / Agent
+       ↓
+     Git
+       ↓
+      CI
+       ↓
+  Generated L2
+       ↓
+    ArgoCD
+       ↓
+ Kubernetes
+```
+
+## 4.3 Platform Logic
+
+FreeLunch primarily acts as a **build-time/compiler layer**, not a Kubernetes controller.
+
+Existing Kubernetes controllers should own domain-specific operational behavior:
+
+* ArgoCD → GitOps reconciliation.
+* Argo Rollouts → progressive delivery.
+* HPA → workload scaling.
+* External Secrets → secret synchronization.
+* Other specialized controllers → their respective domains.
+
+FreeLunch composes these capabilities into a coherent developer experience.
+
+---
+
+# 5. Personas
+
+### Platform Admin
+
+Owns the platform, organization configuration, identity, and emergency permissions.
+
+### Platform Engineer
+
+Defines platform capabilities, policies, infrastructure, and deployment configuration.
+
+### Developer
+
+Builds, deploys, observes, and operates applications through the platform.
+
+### Tech Lead
+
+A developer with additional responsibility for reviewing and merging changes.
+
+---
+
+# 6. Demo Scope
+
+## 5.1 Required
+
+### Developer Experience
+
+* FreeLunch IDE built on Eclipse Theia.
+* VS Code-compatible extension ecosystem through Open VSX.
+* Visual application composition.
+* Minimal CLI.
+* Git-native workflows.
+* Platform documentation.
+* Local development/experimentation environment.
+
+### Application Platform
+
+* Stateless Services.
+* Source-to-image builds with Cloud Native Buildpacks.
+* Container-image Services.
+* Virtual Services.
+* Kubernetes deployment.
+* Helm/L2 artifacts.
+* Workload autoscaling.
+
+### CI/CD
+
+* GitHub Actions.
+* Act for local CI emulation.
+* Dagger for reusable CI execution.
+* Pre-commit hooks.
+* Unit, integration, functional, and load testing.
+* Security scanning.
+
+### Deployment
+
+* ArgoCD.
+* Argo Rollouts.
+* Blue-green deployments.
+* Rollback.
+* Ephemeral staging environments.
+* GitHub and Kubernetes permissions.
+
+### Operations
+
+* OpenTelemetry.
+* SigNoz.
+* OpenCost.
+* Workload health.
+* Deployment state.
+* CI/CD state.
+* Logs, metrics, and traces.
+* Cost visibility.
+
+### AI Integration
+
+* Read-only Coding Agent API.
+* OpenAPI contract.
+* First-party FreeLunch skill.
+* Documentation-backed agent workflows.
+
+---
+
+# 7. Explicitly Out of Demo Scope
+
+The Demo does **not** attempt to solve the entire platform vision.
+
+### Application capabilities
+
+* Stateful services.
+* Database/queue lifecycle management.
+* DAG workflows.
+* GPU workloads.
+* Frontend application management.
+* Data engineering.
+* Full MLOps.
+* Confidential computing.
+* Distributed programming framework.
+
+### Infrastructure
+
+* Public-cloud deployment.
+* Multi-cloud.
+* On-premise clusters.
+* Embedded devices.
+* Remote Kubernetes development environments.
+* Full multi-cluster management.
+
+### Platform
+
+* Arbitrary new L1 abstraction types.
+* Fully tool-agnostic IaC.
+* Public/private reusable-block marketplace.
+* Automated detach/eject.
+* Agent-triggered platform mutations.
+* Project management.
+* Agent management.
+* IDE action logging.
+* DORA/IDE analytics.
+* Budget enforcement and deployment cost gates.
+
+### Advanced product capabilities
+
+* A/B testing.
+* Time-travel/slow-motion trace replay.
+* System-wide experiment tracking.
+* DataOps promotion workflows.
+* Full OpenLineage integration.
+* Monitoring actions directly from IDE widgets.
+
+---
+
+# 8. Demo vs MVP
+
+The Demo proves the **core developer experience**.
+
+The MVP requires the platform to become useful to a real scaleup.
+
+Major additions include:
+
+* Stateful workloads.
+* Real cloud deployment.
+* Proper authentication.
+* Proper security.
+* A/B testing.
+* Validation with a real scaleup. Nrth star metric: DORA metrics modulated by the startup's growth rate (DORA metrics are harder the faster a company is is changing its product and adapating to more users).
+
+The most important validation is not feature completeness: it is demonstrating that a real scaleup can operate and grow applications with significantly less platform complexity and headcount.
+
+---
+
+# 9. Key Technical Decisions
+
+## Theia instead of a VS Code fork
+
+FreeLunch is ultimately a distributed-systems workbench rather than a code editor.
+
+Theia provides a replaceable IDE shell while allowing FreeLunch to make services, deployments, topology, observability, and runtime state first-class concepts.
+
+Monaco, xterm, LSP, and DAP can provide code-centric experiences where needed.
+
+## Go + TypeScript
+
+Go is the primary backend/CLI language because of its cloud-native ecosystem, performance, and team familiarity.
+
+TypeScript is used for the IDE frontend.
+
+## CUE-based compilation
+
+CUE provides the declarative modeling, validation, constraints, and deterministic evaluation required for the higher-level application model.
+
+FreeLunch compiles that model into standard deployment artifacts rather than implementing a custom Kubernetes runtime controller.
+
+## GitOps over direct deployment
+
+Git provides auditability, review, reproducibility, rollback, and portability.
+
+ArgoCD is responsible for reconciling approved desired state into Kubernetes.
+
+## Kubernetes-native rather than Kubernetes replacement
+
+FreeLunch should make Kubernetes easier to use rather than hide it permanently.
+
+Platform engineers retain access to the underlying Kubernetes and generated artifacts.
+
+## Local-first Demo
+
+The Demo uses a fully local Kubernetes environment to reduce iteration time and infrastructure cost.
+
+The target local environment is:
+
+* Proxmox
+* Talos Linux
+* Kubernetes
+* Terraform
+
+The local environment is intended to exercise a realistic infrastructure path rather than merely emulate Kubernetes.
+
+---
+
+# 10. Demo Validation
+
+The Demo should be compared against:
+
+* Kubernetes + ecosystem tooling directly.
+* Open-source developer platforms such as Kubero and Kubefirst.
+* PaaS products such as Heroku, Railway, and Render.
+
+Comparison criteria:
+
+| Dimension            | Question                                                           |
+| -------------------- | ------------------------------------------------------------------ |
+| Developer Experience | How quickly can a developer build and operate the application?     |
+| Capabilities         | Can the platform support realistic scaleup requirements?           |
+| Complexity           | How much Kubernetes/cloud-native knowledge is required?            |
+| Portability          | Can the customer operate the underlying artifacts independently?   |
+
+---
+
+# 11. Development Environment
+
+FreeLunch's own development environment should be reproducible and lightweight:
+
+* Linux / WSL2.
+* Pixi.
+* Git + GitHub.
+* Girus for Kubernetes experimentation where useful.
+
+The development repository should provide:
+
+* Reproducible development environment.
+* Linting and formatting.
+* Automated tests.
+* Build tasks.
+* Release/publishing workflows.
+* IDE binary publishing.
+* Go CLI/module publishing.
+* Documentation website generation.
+
+---
+
+# 12. Initial Commercial Strategy
+
+Before the venture-studio/accelerator model is fully operational, FreeLunch can generate revenue through **platform engineering consulting**.
+
+The initial service is effectively an outsourced platform engineering team for scaleups that need:
+
+* Internal developer platforms.
+* Kubernetes/cloud infrastructure.
+* CI/CD.
+* Observability.
+* Platform automation.
+
+Custom implementations should be used selectively because company-specific requirements do not always generalize into the core FreeLunch product.
+
+---
+
+# 13. Product North Star
+
+FreeLunch succeeds when a small engineering team can build, scale, and operate a sophisticated distributed application **without needing to become experts in every cloud-native tool and how they should work together.**
+
+The platform should make low-level access available, but without making the complexity mandatory.

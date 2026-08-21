@@ -26,6 +26,8 @@ This covers the tooling used to build, test, document, and ship the FreeLunch pa
 - Versioned monorepo template publishing for the FreeLunch CLI bootstrap flow → **GitHub Releases** / **GitHub repository template**
 - Documentation site for the repo and product narrative → **MkDocs** — **undecided:** unlike Cilium in section 2, MkDocs *is* on conda-forge (1.6.1, noarch, checked 2026-08-19), so pinning it is available to us whenever we want it. It has simply never been added to `pixi.toml`, so an earlier "locked version in pixi" note here was aspirational rather than a fact. `roadmap.md:46` does require docs-site publishing, so this stays an open gap.
 - Architecture Diagrams: **Mermaid**
+- Documentation site for the repo and product narrative → **MkDocs** (locked version in pixi)
+
 
 ## 2. Stack for the product (the devops platform demo)
 
