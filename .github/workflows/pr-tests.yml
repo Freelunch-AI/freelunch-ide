@@ -1,0 +1,123 @@
+# Test + coverage report for every pull request.
+#
+# On each PR (open and every subsequent push) this workflow:
+#   1. provisions the exact toolchain pinned in pixi.toml (same as a workstation),
+#   2. runs the Go tests with -race and a coverage profile (Taskfile test:cover),
+#   3. runs the TypeScript tests under vitest with V8 coverage,
+#   4. posts one sticky comment on the PR with the results and coverage totals
+#      (edited in place on later pushes, so the PR gets exactly one comment),
+#      mirrors it into the run's job summary, and uploads the HTML coverage
+#      reports as an artifact.
+#
+# The comment step needs `pull-requests: write`. GITHUB_TOKEN only has that for
+# branches of this repository — a PR opened from a fork would run the tests but
+# fail to comment. All current PRs come from same-repo branches.
+name: PR Tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# A new push to the PR cancels the still-running report for the old commit.
+concurrency:
+  group: pr-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Installs pixi and `pixi install`s the environment, cached on pixi.lock.
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: true
+
+      # Only the module/package dependencies — deliberately not `task setup`,
+      # which would also download k3d/kubectl the unit tests never touch.
+      - name: Install Go and Node dependencies
+        run: pixi run task setup:go setup:ts
+
+      - name: Go tests with coverage
+        id: go
+        run: |
+          set -o pipefail
+          pixi run task test:cover 2>&1 | tee go-test.log
+
+      # `if: always()` from here on: a red Go suite must not stop the TS suite
+      # from running, nor stop the report from being posted.
+      - name: TypeScript tests with coverage
+        id: ts
+        if: always()
+        run: |
+          set -o pipefail
+          pixi run bash -c 'cd src/ide_src && npm test -- \
+            --coverage \
+            --coverage.reporter=text \
+            --coverage.reporter=text-summary \
+            --coverage.reporter=html' 2>&1 | tee ts-test.log
+
+      - name: Assemble report
+        if: always()
+        env:
+          GO_OUTCOME: ${{ steps.go.outcome }}
+          TS_OUTCOME: ${{ steps.ts.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          badge() { [ "$1" = success ] && echo "✅ pass" || echo "❌ fail"; }
+
+          GO_TOTAL=$(pixi run bash -c 'cd src/cli && go tool cover -func=coverage.out' 2>/dev/null \
+            | awk '/^total:/ {print $NF}')
+          TS_TOTAL=$(sed -n 's/^Statements[[:space:]]*:[[:space:]]*\([0-9.]*%\).*/\1/p' ts-test.log | tail -1)
+
+          {
+            echo "## 🧪 Test report"
+            echo
+            echo "| Suite | Result | Coverage (statements) |"
+            echo "| --- | --- | --- |"
+            echo "| Go (\`go test -race\`) | $(badge "$GO_OUTCOME") | ${GO_TOTAL:-n/a} |"
+            echo "| TypeScript (vitest) | $(badge "$TS_OUTCOME") | ${TS_TOTAL:-n/a} |"
+            echo
+            echo "<details><summary>Go — per-package results</summary>"
+            echo
+            echo '```'
+            grep -E '^(ok|FAIL|---)' go-test.log || echo "no test output captured"
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            echo "<details><summary>TypeScript — results and coverage summary</summary>"
+            echo
+            echo '```'
+            grep -E 'Test Files|Tests  |Statements|Branches|Functions|Lines' ts-test.log \
+              || echo "no test output captured"
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            echo "Full HTML coverage reports: \`coverage-reports\` artifact on [this run]($RUN_URL)."
+          } > report.md
+
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per PR, edited in place on every push (keyed by `header`).
+      - name: Post report on the PR
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pr-tests
+          path: report.md
+
+      - name: Upload HTML coverage reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-reports
+          path: |
+            src/cli/coverage.html
+            src/ide_src/coverage/
+          if-no-files-found: ignore

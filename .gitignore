@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Personal scratch notes
 notes.txt
 
@@ -16,6 +15,7 @@ lib/
 *.tsbuildinfo
 .eslintcache
 npm-debug.log*
+coverage/
 
 # Pixi
 .pixi/
