@@ -134,6 +134,15 @@ monorepo/
 * The platform version is declared in `platform/freelunch.yaml`.
 * The FreeLunch IDE/CLI repository itself is a TypeScript + Go project with dev tooling & its own CI/CD setup with: virtual environment/package management, formatting, testing, building, test coverage, detection & correction of stale documentation (optional), packaging, publishing versioned binaries/user monorepo template and docs-site publishing.
 
+
+> **Story:** As a Platform Admin, I run `freelunch install` on a fresh machine with Docker installed and a local development environment appears with a Kubernetes cluster running locally in containers. All FreeLunch components deploy into it without touching the internet.
+
+- **Kubernetes** — primary runtime target for the Demo
+- **k3d** (k3s in Docker) — the local cluster runs as Docker containers, not as VMs
+- **Provisioning** — the cluster is defined declaratively by a committed k3d configuration file, so every developer gets the same cluster from the same command
+- **Cross-platform by requirement** — the team develops on macOS, Linux and WSL2, and the Demo environment must be reproducible on all of them. Docker is the only common denominator; anything requiring a hypervisor is not.
+- **Fresh start only** — `freelunch start` creates the environment from scratch for the Demo
+
 ## 1.2 Local Dev/Experimentation Environment
 
 The fully local runtime environment for the Demo.
