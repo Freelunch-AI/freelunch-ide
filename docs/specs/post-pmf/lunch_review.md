@@ -12,11 +12,22 @@ This means the product isn't simply a GitHub bot that comments on pull requests.
 
 We use an agetn swarm to perform the review with a problem candidate generation phase and a problem filtering phase.
 
-### The key difference: we train the swarm
+### The key difference: we train the swarm that was initialized as a set of indepedently-built generators and verififers
 
-We leverage swarm-aware multi-model optimization infrastructure such as AgentJet (Multi-agent RL) for inner loop model optimizaiton and DSPY (LLM-based program optimization) for outer loop system optmization to train the agents toward the outcome of the entire review process. The optimization target isn't "did the model write a convincing review?" It is **"did the swarm discover a real defect?"**
+Each initial verifier and generator is built independelty by our sub-teams without any knowledge of the other teams, with the sole objective of hill climbing a benchmark.
 
-This allows us to optimize the entire system: which agents participate, which models they use, what tools they invoke, how deeply they investigate, how they debate, how they verify findings, when they escalate to humans, how results are combined, and how findings are filtered. The models are components. **The swarm is the thing being optimized.**
+We leverage swarm-aware multi-model optimization infrastructure such as AgentJet (Multi-agent RL) for inner loop model optimizaiton and DSPY (LLM-based program optimization) for outer loop system optmization to train the agents toward the outcome of the entire review process. The optimization target isn't "did the model write a convincing review?" It is **"did the swarm discover a real defect?"**. Wieghts, prompts and hyperarameters can be optimized.
+
+This allows us to optimize the entire system:
+- how each cr doubles down on its specific strenghts
+- how findings are filtered
+- how each verififers opnion is taken into account at final decision
+- which generators/verifier participate and when
+- which models they use
+- what tools they invoke
+- how deeply they investigate
+
+**The swarm is the thing being optimized.**
 
 ### Another major key difference: calibrated & fine-grained confidence-backed reviews
 
@@ -140,7 +151,7 @@ This changes the role of the engineer from **reviewer of every change** to **inv
 5. distill the traces of the big system and finetune the best open course coding model on it.
 6. Result: A single model/Single Agent for cidate generation + A single model/Single Agent for candidate verification
 
-## Why Review Must Go Beyond Final Diff Review
+## Futuere Development Towards Developing of our own Coding Agent: Why Review Must Go Beyond Final Diff Review for the purpose of SFTing a Coding Agent (alongside RL)
 
 A final diff is only the **end state** of a coding agent's work. For training coding agents, reviewing only the final diff loses the most valuable information: **how the agent arrived there**.
 
@@ -192,15 +203,7 @@ This allows the reviewer to provide **process-level supervision**:
 
 This is particularly important because coding-agent RL has sparse objective feedback: a trajectory that receives `0 tests passed` could represent either a completely misguided attempt or a nearly-correct solution that failed on one final detail.
 
-### Design Principle
-
-The Review Foundation Model should therefore support **both final-state and process review**:
-
-> **Diff review determines whether the implementation satisfies the specification. Trajectory review determines whether the agent's path toward that implementation was sound.**
-
-This makes the model useful not only as a PR reviewer, but as a **process-supervision model for training coding agents**.
-
 
 ## First Users
 
-The product will win fastest in more mature repos with strong existing unit-test coverage, clear module boundaries, and high business risk (e.g., financial logic, smart contracts, core API services) where compute costs are easily justified by defect prevention.
+The product will win fastest in more mature repos with strong existing unit-test coverage, clear module boundaries, high AI-coding usage, and high business risk (e.g., financial logic, smart contracts, core API services) where compute costs are easily justified by defect prevention.
