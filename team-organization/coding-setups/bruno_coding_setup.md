@@ -276,15 +276,17 @@ D: Security Review, Documentation & PR
         1. **/end-to-end-testing:** Should test end-to-end to make shure the issue was completely handled. If code involved GUI, should have GUI tester to test its usability and how good it looks, emulating real user behaviours. Also should check if end-to-end tests actually reflect the issue's prd requirements. Also verify is the issue spec is still consistent with global spec.
         2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
-19. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
-
  ----<<separate terminal block (reset context) >>----
 
-20. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
+19. **/grillme Understand the codebase, then grill User with questions to see if he really understands the changes since last grillme, user review code and asks questions until he has full understanding** [AI Approval Gate]
 
 ----<</separate terminal block >>----
 
-21. **/pr (1) Check the pre-pr-checklist.md to see if everthing was done/updated. (2) Push & Open PR with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.**
+20. **/write-pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Write the PR to ./.agent/current-pr/pr.md
+
+21. **/document Document**: (A) Contributor Documentation (how to understand the codebase, in the form of step by step tutorial from high-level to low-level going through pieces of files). (B) Final User Documentation only if its already usable (how to install & use the product) [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
+
+22. **/send-pr (1) Pushes and Opens Draft PR using ./.agent/current-pr/pr.md
 
 ---- New Session (reset context) ----
 
@@ -312,9 +314,11 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
     ----<</separate terminal block >>----
 
-    6. **/document Document**: Final User Documentation if its already usable (how to install & use the product) & Controbutor Documentation (how to understand the codebase), both in the form of step by step tutorial. [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
-    
-    7. **/pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Push to already open PR (need to check if PR is already opened) with Summary of Changes, PR has to link the Issue it solves. Never merge automatically.****
+    6. **/write-pr (1) Check the .agent/persistent/pre-pr-checklist.md to see if everthing was done/updated. (2) Write the PR to ./.agent/current-pr/pr.md
+
+    7. **/document Document**: (A) Contributor Documentation (how to understand the codebase, in the form of step by step tutorial from high-level to low-level going through pieces of files). (B) Final User Documentation only if its already usable (how to install & use the product) [User Approval Gate with Independent AI Reviewer Approval Suggestionse]
+
+    8. **/send-pr (1) Pushes and Opens Draft PR using ./.agent/current-pr/pr.md
 
 > This is the end of the .agent/persistent/pre-pr-checklist.md file
 
@@ -323,7 +327,7 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
 
 - Agent-native Editor/Terminal: Superset (only when tackling multiple issues in parallel)
-- Terminal Agent Harnesses: OpenCode & open-code-review
+- Terminal Harnesses: OpenCode, open-code-review and openwiki
 - IDE (for better introspection + manual editing): VSCode
 - LLM Provider Subscription: **OpenCode Go
 - Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, scaffold and Tests: Kimi K3 with high reasoning; (2) Core coding: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec Review: Claude Opus 4.8 with high reasoning; (4) Plan Review: Kimi K3 with high reasoning; (5) Security Review: Claude Opus 4.8 with high reasoning; (6) end-to-end testing: Kimi K3 with high reasoning; (7) sub-agents model: Claude Opus 4.8; (8) Code Review: Opus4.6 (Model A) & Qwen3.7-Max (Model B) as cadidate generators and open-code-review using Qwen3.8-Max (Model C).
@@ -344,7 +348,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - understand-external-codebase (1. Build a doc eplxianng in detail the characteristics and internals of an external github codebase; 2. Add to this doc an explanation of where and why this codebase can be helpfull as a reference for ideias/patterns for the current project being built)
         - update-fixed-context (1. Infers new usefull knowledge from ./.agent/persistant/knowledge/mistakes.jsonl and ./.agent/persistant/completed_issue_flows; 2. Add this new usefull knowledge to AGENTS.md if its not already there)
         - make-core-implementation-tasks-plan (transforms the spec into a graph of tasks, where: (1) each task can depend on other tasks being already done or not depend on any; (2) the tasks should not be of the form "one task implements each component that will be needed in this feature, e.g., oen task for the backend, another for databas,e another for gateway and another for frontend", the tasks should be done in the form of "one task implments a slice (governed by on or more integration/end-to-end tests) of multiple components, e.g., this task implements a funcitonality slice of frontend, backend, gateway and frontend that together brings us one step closer to our end goal and guarantee rich cross-component feedback along development". The core implementation tasks plan needs to be stored in .agent/persistent/current-issue/flow/core-implementation-tasks-plan.md. The core-implementation-tasks-plan.md. file should have the graph structure of the plan, where each node is a task. For each node there is also a pending/in-progress/done checkbox. Do not confuse with plan.md which is a per-step ephmeral small plan for step execution.)
-        - document (should first staleness and incompleteness of existing documentation (if any) and then update/create: (1) Contributor Documentation: visualization o repositoty strcture explaining succintly each directory and file, (1.2) Step by step contributor tutorial to help a newcomer understand the codebase; (2) User Documentation (only do after first version 0.1.0 is released): (2.1) User API Reference. (2.2) User step by step tutorial starting from sratch; (2.3) User guides to do common stuff; (2.4) FAQ. 
+        - document using openwiki and with the following guidelines in ./.openwiki/INSTRUCITONS.md: should first check incosistency (global spec is king), staleness and incompleteness of existing documentation (if any) and then update/create: (1) Contributor Documentation: visualization o repositoty strcture explaining succintly each directory and file, (1.2) Step by step contributor tutorial to help a newcomer understand the codebase; (2) User Documentation (only do after first version 0.1.0 is released): (2.1) User API Reference. (2.2) User step by step tutorial starting from sratch; (2.3) User guides to do common stuff; (2.4) FAQ. 
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
     - Use existing skills: skill-creator, i-have-adhd, mutation-testing, chrome-devtools-cli, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistent/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was grilled in the last grill and user-codebase-questions.jsonl file), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
@@ -396,6 +400,7 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 |               └── prd.md
 |               └── architecture.md
 |               └── tech_stack.md
+|   └── current-pr/pr.md
 │   └── completed-issues/
 |       └── completed_issue_flows/
 │       |   └── issue_flow_[i].md where i is the issue number
@@ -443,6 +448,8 @@ Contains durable project knowledge and historical state that should survive acro
     * `prd.md` — product requirements and expected behavior.
     * `architecture.md` — architectural design and implementation boundaries.
     * `tech_stack.md` — technologies, dependencies, and relevant technical choices.
+
+* `current-pr/` — contains current pr made to solve the current issue.
 
 * `completed-issues/` — archives durable artifacts from issues that have been completed.
 
@@ -495,23 +502,24 @@ Within `persistent/`, `current-issue/` is the active issue's durable workspace, 
 
 ## Custom PR Skill
 
-Mandatory Pre-PR checklist (ready to push and open PR):
+Mandatory pre-pr checklist (ready to push and open PR):
 
 - global spec, issue-specific spec and tests all consistent with each other
 - all core (at least 90% total code coverage) logic covered by tests, with test coverage report evidence for it
 - unit, integration and end-to-end (if possible) tests present and passing
 - no big changes were made after the last independent code review was run
 - no significant changes were made after the last security review
-- documentation is up to date with the code
+- spec, documentation and code are consistent + contrbutor docs cover all the code + user docs cover all Aexternal functionality exposed
 - user understands the PR that will be made at the function interface/class interface/file/directory level
 
 Making PRs:
 
+- write PR to .agent/current-pr/pr.md (if there is already a file there, it should be deeleted first)
 - ensure the Mandatory Pre-PR checklist is checked before making a PR
 - follow the project's PR template
 - in the pr you write:
-        - highlight key decisions, problems encoutered, solutions and tradeoffs chosen
-        - highlight what you tested and provide link to evidence that shows your test (log file, screenshot, etc)
+        - highlight key decisions that might be questioned by a reviewer (e.g., why wasnt another distributed pattern chosen? why created a helper function instead of using a dependency? etc), problems encoutered, solutions and tradeoffs chosen
+        - highlight what was tested and link to evidence that shows your test: (1) if standard test: terminal output first shows the current commit hash and then runs the test suite and shows all tests are green, together with above 90% coverage; (2) if UI test: need screenshot or videocapture (which one makes more sense for that specific test) to show it was indeed tested.
         - make a risk assesment of the PR (Low, Medium, High) based on how many changes it makes, the type of changes it makes, test coverage, etc
 
 Handling PR Comments and Reviews:
