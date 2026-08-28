@@ -2,6 +2,47 @@
 
 ## Project Rules (AGENTS.md)
 
+### Things you should NEVER do
+
+- never acess directories above the project's root directory, which should contain .git folder
+- never read sensitive files (e.g., .env)
+- never run destructive commands without my permission. Always present me a dry run before if possible.
+- never try to extract extreme performance (speed, throughput) at the expense of making code complexity significantly higher, unnles specifically prompted for extreme performance optimization
+
+### Things you should always do
+
+- Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
+- Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
+- log all mistakes you made in ./.agent/persistent/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
+    - What counts as mistakes?
+        - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
+        - Anything the I (aka your user) had to intervene to change something you already did becomes it had serious problems. I might say explicitely that you did something wrong (e.g., "change di code you wrote because its not readable", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained end-to-end steps, where you start by") or just ask you if you are shure something is correct. Note: before counting it as a mistake and changing it, you must confirm the problem by talking to me with arguments. 
+    - Whats doesnt count as mistakes? (1) User intervetions where the user requests spec changes/updates are never mistakes; (2) User interverntions for non-critical low-level changes that to satisfy his preferences (e.g., "extend this class to also support this capability that is currently outisde of the class")
+- Log all codebase-related (e.g., how does this function work?) questions I ask to you in a ./.agent/persistent/user-codebase-questions.jsonl, each entry in the form "question": "placeholder", "answer": "placeholder"}
+- Log all assumptions you make to ./.agent/session-persistant-candidate/non_obvious_conjectures.md where you keep track of non-obvious conjectures you make for the session. Each conjecture has the following data: (1) description of the conjecture, current evidence of the conjecture, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky conjecture you dont have much evidence.
+- keep your code clean and organized, refactoring might be needed
+- moduarization: the codebase should have a few big modules with clear boundaries and relationships, and each big module is composed of many little modules. Dont let fils become too big, prefer breaking into multiple files where each one has a clear meaning/job.
+- if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
+- always make a plan before doing stuff
+- before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
+- when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
+- If something unrelated looks wrong, record it as a todo in ./.agent/session/todos.md it creates a correctness, security, build, or test failure affecting the current task. do not do one todo item at a time, batch them into related todos, and implement one batch at a time.
+- If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach, call sub-agent to help or even reset to the latest commit as your last resource.
+- Always write code filled with iormative debug logs to help you debug if needed. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
+- Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
+- Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
+- if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
+- always when you get stuck in a problem, revise ./.agent/persistent/current-issue/flow/core-implementation-tasks-plan.md or plan.md to see if plan changes need to be mande. Remember that core-implementation-tasks-plan.md stores the graph of core implementaiton tasks along with progress, its per-issue; ./.agent/session/plan.md store per-step action plans typically generate by using the ai agent (you) in plan mode for steos that require a plan first.
+- if you want to explore (a planned big-refactoring doesnt count as exploration and should be done just on a big-refactoring branch with the same agent) some idea/hypothesis without clothering the issue handling, create a separate git worktree (worktrees should be created in .agent/worktrees/). In the new gitworktree checkout to an exploration branch and spawn another opencode instance to explore. The pencode instance should end either when he considers the exploration finished or you (the main agent) should end the opencode instance if he consumed more than 1 dollar worth in tokens spent. The epxloratory opencode instance should always store findings in a findings.md file at the root of the exploration branch. When the exploration ends, you should move the findings to ./.agent/session-persistant-candidate/knowledge/exploration_findings/name-of-the-exploration-placeholder.md in the issue handling, where the findings file should have these metadata in the header (exploration context, exploration description, opencode instance used, tokens consumed, dollards spent, why it ended) and the findings and conclusion in the body of the file. To enforce this process you should run a pre-built launch_exploration_subagent.sh bash script that takes care if enforcing the token limit, launching opencode in autopilot mode in a new terminal and moving the findings and terminating the exploration.
+- Before building any GUI, need to: (1) have a mock/prototype validated with the user; (2) write a design.md to standardize GUI components and patterns.
+- If I give you you a mock.html as guidance, you should open the mock, create synthetic goals the end-user will want to achieve within the GUI, and actually use the mock in the context of achieving these synthetic goals. In the end, write your improved understanding of the mock, i.e., write you understanding of the GUI experience I want to build in a mock_learnings.md at the same directory as mock.html. The you ask for my approval to use this mock as the implementation guide.
+- all core code of a project needs to be inside ./src directory at repo root
+- for grilling me, always look at Use .agent/persistent/user-codebase-questions.jsonl to know my comon weak uderstanding spots
+- Use asynchronous/concurrent execution when its clearly the right solution for the scenario, particularly for I/O-bound work. Don't introduce async merely because it is technically possible
+- Don't choose a technically inferior architecture merely because it is slightly cheaper to implement when a significantly better design is available at reasonable complexity.
+
+### Project Directories and Terminology
+
 - Explanation of the /.agent directory structure is in ./agent/directory_structure.md. It explains the directory and files you will be using in sessions and across sessions for doing work effectively.
 - Explanation of the terminology used in this project is in ./docs/terminology.md, always check it out when confused about terminalogy I use or which terminology you should use.
 
@@ -127,57 +168,13 @@ Similarly:
 - Escape shell arguments
 - use the principle of least privilege
 
-### Things you should always do
-
-- Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
-- Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
-- log all mistakes you made in ./.agent/persistent/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
-    - What counts as mistakes?
-        - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
-        - Anything the I (aka your user) had to intervene to change something you already did becomes it had serious problems. I might say explicitely that you did something wrong (e.g., "change di code you wrote because its not readable", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained end-to-end steps, where you start by") or just ask you if you are shure something is correct. Note: before counting it as a mistake and changing it, you must confirm the problem by talking to me with arguments. 
-    - Whats doesnt count as mistakes? (1) User intervetions where the user requests spec changes/updates are never mistakes; (2) User interverntions for non-critical low-level changes that to satisfy his preferences (e.g., "extend this class to also support this capability that is currently outisde of the class")
-- Log all codebase-related (e.g., how does this function work?) questions I ask to you in a ./.agent/persistent/user-codebase-questions.jsonl, each entry in the form "question": "placeholder", "answer": "placeholder"}
-- Log all assumptions you make to ./.agent/session-persistant-candidate/non_obvious_conjectures.md where you keep track of non-obvious conjectures you make for the session. Each conjecture has the following data: (1) description of the conjecture, current evidence of the conjecture, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky conjecture you dont have much evidence.
-- keep your code clean and organized, refactoring might be needed
-- moduarization: the codebase should have a few big modules with clear boundaries and relationships, and each big module is composed of many little modules. Dont let fils become too big, prefer breaking into multiple files where each one has a clear meaning/job.
-- if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
-- always make a plan before doing stuff
-- before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
-- when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
-- If something unrelated looks wrong, record it as a todo in ./.agent/session/todos.md it creates a correctness, security, build, or test failure affecting the current task. do not do one todo item at a time, batch them into related todos, and implement one batch at a time.
-- If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach, call sub-agent to help or even reset to the latest commit as your last resource.
-- Always write code filled with iormative debug logs to help you debug if needed. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
-- Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
-- Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
-- if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
-- always when you get stuck in a problem, revise ./.agent/persistent/current-issue/flow/core-implementation-tasks-plan.md or plan.md to see if plan changes need to be mande. Remember that core-implementation-tasks-plan.md stores the graph of core implementaiton tasks along with progress, its per-issue; ./.agent/session/plan.md store per-step action plans typically generate by using the ai agent (you) in plan mode for steos that require a plan first.
-- if you want to explore (a planned big-refactoring doesnt count as exploration and should be done just on a big-refactoring branch with the same agent) some idea/hypothesis without clothering the issue handling, create a separate git worktree (worktrees should be created in .agent/worktrees/). In the new gitworktree checkout to an exploration branch and spawn another opencode instance to explore. The pencode instance should end either when he considers the exploration finished or you (the main agent) should end the opencode instance if he consumed more than 1 dollar worth in tokens spent. The epxloratory opencode instance should always store findings in a findings.md file at the root of the exploration branch. When the exploration ends, you should move the findings to ./.agent/session-persistant-candidate/knowledge/exploration_findings/name-of-the-exploration-placeholder.md in the issue handling, where the findings file should have these metadata in the header (exploration context, exploration description, opencode instance used, tokens consumed, dollards spent, why it ended) and the findings and conclusion in the body of the file. To enforce this process you should run a pre-built launch_exploration_subagent.sh bash script that takes care if enforcing the token limit, launching opencode in autopilot mode in a new terminal and moving the findings and terminating the exploration.
-- Before building any GUI, need to: (1) have a mock/prototype validated with the user; (2) write a design.md to standardize GUI components and patterns.
-- If I give you you a mock.html as guidance, you should open the mock, create synthetic goals the end-user will want to achieve within the GUI, and actually use the mock in the context of achieving these synthetic goals. In the end, write your improved understanding of the mock, i.e., write you understanding of the GUI experience I want to build in a mock_learnings.md at the same directory as mock.html. The you ask for my approval to use this mock as the implementation guide.
-- all core code of a project needs to be inside ./src directory at repo root
-- for grilling me, always look at Use .agent/persistent/user-codebase-questions.jsonl to know my comon weak uderstanding spots
-- Use asynchronous/concurrent execution when its clearly the right solution for the scenario, particularly for I/O-bound work. Don't introduce async merely because it is technically possible
-- Don't choose a technically inferior architecture merely because it is slightly cheaper to implement when a significantly better design is available at reasonable complexity.
-
-### Things you should NEVER do
-
-- never acess directories outside of the project's directory
-- never read sensitive files (e.g., .env)
-- never run destructive commands without my permission. Always try to dry run them before if possible.
-- never try to extract the last bit of performance at the expense of making code complexity higher, unnles specifically prompted for extreme performance optimization
-
 ### Testing Order
 
 - Implent first (Always Required): Unit tests 
 - Implement second (Always Required): Integration tests 
-- Implement third (only if code already has an external API or GUI): End-to-end tests
+- Implement third (only required if the project already provides an external API or GUI): End-to-end tests
 
 Skipping any required level = Not Complete
-
-### When Doing Code Review 
-
-- not only review code for bugs, vulnerabilities, quality and other properties but also need to review tests adherence to spec. Code and Tests should be compliant with Spec (global and issue-specific) and Design System (if doing GUI work). should catch catching inconsistencies with spec/design system if any. Also should catch important things not specified in spec/design system (if doing GUI work) if any, and problems in spec/design system (if doing GUI work) if any.
-- dont worry about performance of the code, unless its a major issue thats causing something in the order of 10x more resource conumption than necessary (remeber that were are working towards a demo, and we will make performance enhancing issues later)
 
 > This is the end of the AGENTS.md file
 
