@@ -392,6 +392,7 @@ A list of things that won't be in the Demo:
 * DataOps promotion workflows.
 * Full OpenLineage integration.
 * Monitoring actions directly from IDE widgets.
+* DAST & Pentesting support.
 
 ---
 
