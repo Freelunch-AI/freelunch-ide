@@ -417,8 +417,8 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 |   └── todos.md
 │
 ├── session-persistence-candidate/
-│   ├── assumptions.md
 │   └── knowledge/
+│       └── non_obvious_conjectures.md
 │       └── exploration_findings/
 │           └── <name-of-exploration>.md
 │
@@ -428,7 +428,7 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 
 Contains durable project knowledge and historical state that should survive across sessions and remain useful to future agents.
 
-* `knowledge/non_obvious_conjectures_and_facts.md` — durable, non-obvious facts, conclusions, and insights about the codebase that are useful to future agents.
+* `knowledge/non_obvious_conjectures_and_facts.md` — durable, non-obvious facts or evidence-backed insights about the codebase that are useful to future agents.
 
 * `mistakes.jsonl` — records mistakes made by the agent that required user intervention. Each entry records what was done, what was wrong, why it was wrong, and how it was corrected.
 
@@ -462,8 +462,8 @@ Persistent knowledge should contain only information that is expected to remain 
 
 Contains temporary state for the current agent session.
 
-* `plan.md` — the ephemeral step-by-step plan for the current slash-command execution.
-* `todos.md` — the temporary task list used to track work during the current session.
+* `plan.md` — the ephemeral step-by-step plan for the current slash-command execution. Plan progress needs to be tracked.
+* `todos.md` — the ephemeral todo list used to store next things that need to be done. Need to check if an item is already done before actually doing it.
 
 Everything in `session/` is disposable. At the beginning of a new session, the contents of `.agent/session/` are cleared. These files must not be treated as historical records of the project or issue. Durable workflow state belongs in `persistent/current-issue/`.
 
@@ -471,10 +471,10 @@ Everything in `session/` is disposable. At the beginning of a new session, the c
 
 Contains information discovered during the current session that may be useful beyond the session but has not yet been promoted to persistent knowledge.
 
-* `assumptions.md` — assumptions made during the current session, including their evidence, whether they have been verified, and their risk if wrong.
+* `non_obvious_conjectures.md` — inferences or assumptions made during the current session, including their evidence, and their risk if wrong.
 * `knowledge/exploration_findings/` — findings produced by exploratory sub-agents. Each exploration should produce a findings file containing the exploration context, description, model/agent used, token/cost information, reason it ended, findings, and conclusion.
 
-At the beginning of a new session, useful information from this directory is reviewed and promoted into `.agent/persistent/knowledge/` when appropriate. After promotion, the candidate directory is cleared.
+At the beginning of a new session, useful information from this directory is reviewed and promoted into `.agent/persistent/knowledge/non_obvious_conjectures_and_facts.md` when appropriate. After promotion, the candidate directory is cleared.
 
 ### `directory_structure.md`
 
