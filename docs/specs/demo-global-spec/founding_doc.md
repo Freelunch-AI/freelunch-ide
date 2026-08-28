@@ -386,7 +386,7 @@ A list of things that won't be in the Demo:
 * DORA/IDE analytics.
 * Budget enforcement and deployment cost gates.
 * A/B testing.
-* Feature Flags & Canary Deployments.
+* Alpha/Beta/Canary Deployments and Feature Flags
 * Time-travel/slow-motion trace replay.
 * System-wide experiment tracking.
 * DataOps promotion workflows.
