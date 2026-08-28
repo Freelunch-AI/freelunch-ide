@@ -197,14 +197,15 @@ Notes for implementation:
 - At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message.
 - If stuck in a loop, developers should try changing the implementer model from the default to other 
 - Ensure language-specific (in our case here: go and typescript) linters and formatters are running continuosly on every file edit, using opencode hooks
+- have a git pre-commit hook that: builds, runs tests, test coverage and standard security scan (e.g., searches for secrets in code)
 
 ### Issue Flow (note: bug, refactoring or performance issue handling allow skipping multiple steps that are required for a new feature, skip when you deem the step unnecessary):
 
 A: Issue-specific Spec & Core Implementaion Tasks Plan
 
 0. **/grillme Understand the codebase, then grill me with questions to see if he really understands the codebase.** Make high-level (e.g., decisions chosen, project strcture, tradeofs, architecture) questions and low-level ones as well (e.g., what a specific file/function/class is for) [AI Approval Gate]
-1. (only if issue of type bug) **/reproducebug** Reproduce the reported bug in the issue
-2. **/start Start Issue Handling**: point to github issue, agent will read the issue and create satelite branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
+1. **/start Start Issue Handling**: point to github issue, agent will read the issue and create satelite branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
+2. {only if issue of type == bug} **/reproducebug** Reproduce the reported bug in the issue by writing and running a failing test, and confirm it fails for the expected reason described in the bug issue description.
 3. Loop until 2 and 3 are succesfull [User Approval Gate with AI Security Reviewer Suggestions]
     1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under .agent/issue-spec folder**
 
