@@ -131,16 +131,20 @@ Similarly:
 
 - Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
 - Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
-- log all mistakes you made in which i had to help you with in ./.agent/persistent/knowledge/mistakes.jsonl files, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. What counts as mistakes? Mistakes are anything the user had to intervene to change something you already did becomes it had problems, the user might say explicitely that you did something wrong (e.g., "change di code you wrote because its not clean", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained steps, where four start by doing this"). What doesnt count as mistakes? User intervetion where the user requests new spec changes are never mistakes; User interverntions for low-level implementation details can be a mistake or not (mistake e.g., "I told you already to not write these types of logs, fix them in all the functions"; non-mistake e.g., "extend this class to also support this capability that is currently outisde of the class")
+- log all mistakes you made in ./.agent/persistent/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
+    - What counts as mistakes?
+        - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
+        - Anything the I (aka your user) had to intervene to change something you already did becomes it had serious problems. I might say explicitely that you did something wrong (e.g., "change di code you wrote because its not readable", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained end-to-end steps, where you start by") or just ask you if you are shure something is correct. Note: before counting it as a mistake and changing it, you must confirm the problem by talking to me with arguments. 
+    - Whats doesnt count as mistakes? (1) User intervetions where the user requests spec changes/updates are never mistakes; (2) User interverntions for non-critical low-level changes that to satisfy his preferences (e.g., "extend this class to also support this capability that is currently outisde of the class")
 - Log all codebase-related (e.g., how does this function work?) questions I ask to you in a ./.agent/persistent/user-codebase-questions.jsonl, each entry in the form "question": "placeholder", "answer": "placeholder"}
-- Log all assumptions you make to ./.agent/session-persistant-candidate/assumptions.md where you keep track of asssumptions you make for the session. Each assumtpions has the following data: (1) description of the assumption, current evidence of the assumption, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky assumption you dont have much evidence.
+- Log all assumptions you make to ./.agent/session-persistant-candidate/non_obvious_conjectures.md where you keep track of non-obvious conjectures you make for the session. Each conjecture has the following data: (1) description of the conjecture, current evidence of the conjecture, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky conjecture you dont have much evidence.
 - keep your code clean and organized, refactoring might be needed
 - moduarization: the codebase should have a few big modules with clear boundaries and relationships, and each big module is composed of many little modules. Dont let fils become too big, prefer breaking into multiple files where each one has a clear meaning/job.
 - if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
 - always make a plan before doing stuff
 - before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
 - when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
-- If something unrelated looks wrong, record it as a todo in .agent/session/todos.md it creates a correctness, security, build, or test failure affecting the current task. do not do one todo item at a time, batch them into related todos, and implement one batch at a time.
+- If something unrelated looks wrong, record it as a todo in ./.agent/session/todos.md it creates a correctness, security, build, or test failure affecting the current task. do not do one todo item at a time, batch them into related todos, and implement one batch at a time.
 - If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach, call sub-agent to help or even reset to the latest commit as your last resource.
 - Always write code filled with iormative debug logs to help you debug if needed. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
 - Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
@@ -211,8 +215,8 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
 
     ----<<separate terminal block (reset context) >>----
     
-    2. **/reviewspec** Review Spec with Indepedente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in global spec and problems in global spec. Incosistencies between both specs should be flagged to the user with recommendations. If you detect a problem in global, spec first modify global spec, then update issue-specific spec. [User Approval Gate]
-    3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings. Stores final sec review in .agent/session/code_reviews/final_specsec_review.md
+    2. **/reviewspec** Review Spec with Indepedente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in global spec and problems in global spec. Incosistencies between both specs should be flagged to the user with recommendations. If you detect a problem in global, spec first modify global spec, then update issue-specific spec. Stores final spec review in .agent/session/reviews/final_sec_review_[timestamp].md [User Approval Gate]
+    3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings. Stores final sec spec review in .agent/session/reviews/final_specsec_review_[timestamp].md
 
     ----<</separate terminal block >>----
 
@@ -263,15 +267,15 @@ B2: Tests & Logic
 C: Code Review
 
 16. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/code_reviews/final_code_review file
-    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session/code_reviews/final_code_review.md [User Approval Gate with AI Reviewer Suggestions]
+    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/reviews/final_code_review_[timestamp].md file
+    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session/reviews/final_code_review_[timestamp].md [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
 
 D: Security Review, Documentation & PR
 
 17. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Reviewer Suggestions]
-    1. **/secreview Specialized Security Review** flagging critical problems & warnings
+    1. **/secreview Specialized Security Review** flagging critical problems & warnings. Stores review in .agent/session/reviews/final_code_sec_review_[timestamp].md file
     2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary ccode/test/docs changes, build & test** & Review against Issue-specific & Global Spec [User Approval Gate with AI Reviewer Suggestions]
 
 18. Loop until 1 is sucesfull
@@ -297,13 +301,13 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 22. Loop until 1 is sucessfull or go back to a previous step 
     1. (On PR Review or CI failure Notification manually checked by user) **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
     2. Loop until 1 is succesfull
-        1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/code_reviews/final_code_review file
+        1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/reviews/final_code_review_[timestamp].md file
         2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test/docs changes** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
     ---- New Session (reset context) ----
 
     3. Loop until 1 is succesfull
-        1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings. Stores final sec review in .agent/session/code_reviews/final_sec_review.md
+        1. **/secreview Specialized Independent Security Review** flagging critical problems & warnings. Stores final sec review in .agent/session/reviews/final_code_sec_review_[timestamp].md
         2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
     4. Loop until 1 is sucesfull
@@ -357,9 +361,9 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 ## How Code Review is Done
 
-1. Start a new session with opencode: do code review with Model A and store the review in .agent/session/code_reviews/code_review_[A].md, where A is a placeholder for the actual mode name 
-2. Start a new session with opencode: do code review with Model B and store the review in .agent/session/code_reviews/code_review_[B].md, where B is a placeholder for the actual mode name
-3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session/code-reviews/ folder and store the resulting code review inside .agent/session/code_reviews/final_code_review.md
+1. Start a new session with opencode: do code review with Model A and store the review in .agent/session/reviews/[A]_code_review_[timestamp].md, where A is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
+2. Start a new session with opencode: do code review with Model B and store the review in .agent/session/reviews/[B]_code_review_[timestamp].md, where B is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
+3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session/reviews/ folder and store the resulting code review inside .agent/session/reviews/final_code_review_[timestamp].md
 
 ## Token Efficency Laws
 
@@ -417,12 +421,17 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 ├── session/
 │   └── plan.md
 |   └── todos.md
+|   └── reviews/
+|       └── final_spec_review_[timestamp].md
+|       └── final_spec_sec_review_[timestamp].md
+|       └── final_code_review_[timestamp].md
+|       └── final_code_spec_review_[timestamp].md
 │
 ├── session-persistence-candidate/
 │   └── knowledge/
 │       └── non_obvious_conjectures.md
 │       └── exploration_findings/
-│           └── <name-of-exploration>.md
+│           └── <name-of-exploration>_[timestamp].md
 │
 ```
 
@@ -432,7 +441,7 @@ Contains durable project knowledge and historical state that should survive acro
 
 * `knowledge/non_obvious_conjectures_and_facts.md` — durable, non-obvious facts or evidence-backed insights about the codebase that are useful to future agents.
 
-* `mistakes.jsonl` — records mistakes made by the agent that required user intervention. Each entry records what was done, what was wrong, why it was wrong, and how it was corrected.
+* `mistakes.jsonl` — records mistakes made by the agent that required user intervention (e.g. of user intervention: user asks "are you shure about this implementation, seems it can risk eposing credentials)". Each entry records what was done, what was wrong, why it was wrong, and how it was corrected.
 
 * `user-understanding/user-codebase-questions.jsonl` — records codebase-related questions asked by the user and the corresponding answers. This helps identify areas where the user may need additional explanation during future `/grillme` sessions.
 
