@@ -196,6 +196,7 @@ Notes for implementation:
 - When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/session-persistant-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistant/knowledge/non_obvious_conjectures_and_facts.md, then finally empty all files inside .agent/session-persistant-candidate
 - At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message.
 - If stuck in a loop, developers should try changing the implementer model from the default to other 
+- Ensure language-specific (in our case here: go and typescript) linters and formatters are running continuosly on every file edit, using opencode hooks
 
 ### Issue Flow (note: bug, refactoring or performance issue handling allow skipping multiple steps that are required for a new feature, skip when you deem the step unnecessary):
 
@@ -328,7 +329,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 - Agent-native Editor/Terminal: Superset (only when tackling multiple issues in parallel)
 - Terminal Harnesses: OpenCode, open-code-review and openwiki
-- IDE (for better introspection + manual editing): VSCode
+- IDE (for better introspection + manual editing): VSCode (with language-specific linters and formatters plugins running continuosly on every file edit)
 - LLM Provider Subscription: **OpenCode Go
 - Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, scaffold and Tests: Kimi K3 with high reasoning; (2) Core coding: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec Review: Claude Opus 4.8 with high reasoning; (4) Plan Review: Kimi K3 with high reasoning; (5) Security Review: Claude Opus 4.8 with high reasoning; (6) end-to-end testing: Kimi K3 with high reasoning; (7) sub-agents model: Claude Opus 4.8; (8) Code Review: Opus4.6 (Model A) & Qwen3.7-Max (Model B) as cadidate generators and open-code-review using Qwen3.8-Max (Model C).
 - Grillme Model: DeepSeek V4 Flash
