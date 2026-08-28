@@ -131,6 +131,7 @@ Protocol:
 
 - reproduce the bug in an E2E (as much as possible) setting as closely aligned to the end use to make shure you are solving the actual usage problem
 - After bug reproduction, use the smallest relevant tests for diagnosis and iteration.
+- Find the Root Cause of the Bug. Make hypothessis and test your hypotheses until you find the real hypothesis that is the root cause of the bug.
 - assume the problem may have broader implications than are immediately apparent. Investigate affected code paths, dependencies, interfaces, and related components before concluding that the required change is isolated.
 - understand why something broke before changing it. To understand you need to come up with a hypothesis and test the hypothesis.
 - use debugger if possible
@@ -418,6 +419,7 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 ├── session/
 │   └── plan.md
 |   └── todos.md
+|   └── debug-logs/
 |   └── reviews/
 |       └── final_spec_review_[timestamp].md
 |       └── final_spec_sec_review_[timestamp].md
