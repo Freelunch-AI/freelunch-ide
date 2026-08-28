@@ -201,7 +201,7 @@ Notes for implementation:
 - At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message.
 - If stuck in a loop, developers should try changing the implementer model from the default to other 
 - Ensure language-specific (in our case here: go and typescript) linters and formatters are running continuosly on every file edit, using opencode hooks
-- have a git pre-commit hook that: builds, runs tests, test coverage and standard security scan (e.g., searches for secrets in code)
+- have a git pre-commit hook that: builds (must be sucessfull without warnings), runs tests (all must pass) and test coverage (> 90% required).
 
 ### Issue Flow (note: bug, refactoring or performance issue handling allow skipping multiple steps that are required for a new feature, skip when you deem the step unnecessary):
 
