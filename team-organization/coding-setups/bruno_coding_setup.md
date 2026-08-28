@@ -205,7 +205,7 @@ Notes for implementation:
 A: Issue-specific Spec & Core Implementaion Tasks Plan
 
 0. **/grillme Understand the codebase, then grill me with questions to see if he really understands the codebase.** Make high-level (e.g., decisions chosen, project strcture, tradeofs, architecture) questions and low-level ones as well (e.g., what a specific file/function/class is for) [AI Approval Gate]
-1. **/start Start Issue Handling**: point to github issue, agent will read the issue and create satelite branch with appropriate name according to the branching strategy file. Will then study the repo, do web search if necessary and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
+1. **/start Start Issue Handling**: point to github issue, agent will read the issue and create satelite branch with appropriate name according to the branching strategy file. Will then study the repo and ask user clarifying questions about probem and solution. This step ends when a common problem & solution understanding is reached with the user.
 2. {only if issue of type == bug} **/reproducebug** Reproduce the reported bug in the issue by writing and running a failing test, and confirm it fails for the expected reason described in the bug issue description.
 3. Loop until 2 and 3 are succesfull [User Approval Gate with AI Security Reviewer Suggestions]
     1. **/spec Build issue-specific Spec (prd.md + architecture.md + tech_stack.md under .agent/issue-spec folder**
