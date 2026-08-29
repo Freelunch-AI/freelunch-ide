@@ -207,6 +207,12 @@ This is particularly important because coding-agent RL has sparse objective feed
 
 SFT happens alongside RL which rewards states where more tests pass and penalizes a bit avery step.
 
+All the training should ahppen under the lens of Curriculum Learning:
+
+```text
+SFT & RL for very simples coding tasks -> SFT & RL for a bit harder coding tasks -> SFT & RL for a bit harder coding tasks ....
+```
+
 ## First Users
 
 The product will win fastest in more mature repos with strong existing unit-test coverage, clear module boundaries, high AI-coding usage, and high business risk (e.g., financial logic, smart contracts, core API services) where compute costs are easily justified by defect prevention.
