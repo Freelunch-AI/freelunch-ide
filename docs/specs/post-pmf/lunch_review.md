@@ -151,7 +151,7 @@ This changes the role of the engineer from **reviewer of every change** to **inv
 5. distill the traces of the big system and finetune the best open course coding model on it.
 6. Result: A single model/Single Agent for cidate generation + A single model/Single Agent for candidate verification
 
-## Futuere Development Towards Developing of our own Coding Agent: Why Review Must Go Beyond Final Diff Review for the purpose of SFTing a Coding Agent (alongside RL)
+## Future Development Towards Developing of our own Coding Agent: Why Review Must Go Beyond Final Diff Review for the purpose of SFTing a Coding Agent (alongside RL)
 
 A final diff is only the **end state** of a coding agent's work. For training coding agents, reviewing only the final diff loses the most valuable information: **how the agent arrived there**.
 
@@ -201,8 +201,11 @@ This allows the reviewer to provide **process-level supervision**:
 * recommend the next corrective action,
 * assess whether the trajectory is converging.
 
-This is particularly important because coding-agent RL has sparse objective feedback: a trajectory that receives `0 tests passed` could represent either a completely misguided attempt or a nearly-correct solution that failed on one final detail.
+This generates a batch of new training data to SFT the model on.
 
+This is particularly important because coding-agent RL has sparse objective feedback: a trajectory that receives `0 new tests passed` could represent either a completely misguided attempt or a nearly-correct solution that failed on one final detail.
+
+SFT happens alongside RL which rewards states where more tests pass and penalizes a bit avery step.
 
 ## First Users
 
