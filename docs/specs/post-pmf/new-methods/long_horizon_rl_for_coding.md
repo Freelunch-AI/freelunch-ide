@@ -2,126 +2,167 @@
 
 ## Abstract
 
-We propose a training framework for long-horizon coding agents based on agent-controlled branch-and-verify search, recursive counterfactual trajectory expansion, adaptive search allocation, and hierarchical recovery learning.
+We propose a training framework for long-horizon coding agents based on four complementary ideas:
+
+1. **Task-conditioned branch-and-verify search**
+2. **Recursive counterfactual trajectory expansion**
+3. **Task-conditioned value-guided search allocation**
+4. **Hierarchical recovery learning**
 
 Long-horizon software engineering is difficult for reinforcement learning because a task may require hundreds or thousands of heterogeneous actions before its final correctness can be evaluated. Terminal rewards therefore create severe exploration and credit-assignment problems, while the space of possible code-edit trajectories is effectively intractable.
 
-Our central idea is to transform long-horizon coding into structured search over semantic state transitions. A **Planner** decomposes a PRD into semantic subtasks, while an **Implementor** executes them. During training, the agent explores alternative implementations in isolated repository branches. Only verified successful branches are merged into the canonical repository history, producing clean happy-path trajectories that exclude failed experiments and rollback behavior.
+Our central idea is to transform long-horizon coding into structured search over **repository states** conditioned on a specific task or PRD specification $T$.
 
-These happy trajectories are recursively expanded at selected states. Rather than uniformly exploring the enormous trajectory space, the system preferentially samples states with high uncertainty, semantic subtask boundaries, high downstream impact, or low previous sampling frequency. Expensive LLM-powered search is used selectively, with its state-selection decisions potentially distilled into cheaper search heuristics.
+A **Planner** decomposes $T$ into semantic subtasks and determines the overall strategy. An **Implementor** executes those subtasks. During training, the system explores alternative implementations in isolated repository branches. Candidate branches are externally verified, and only successful branches are promoted into canonical happy-path trajectories.
 
-The resulting search tree provides multiple independently verified continuations from the same state. This creates counterfactual supervision that allows policies to learn not only which actions succeed, but which successful decisions are preferable under task-quality and compute constraints.
+These trajectories are then recursively expanded at selected states. Instead of uniformly exploring the enormous trajectory space, search is concentrated on states where additional exploration is expected to be valuable. A learned task-conditioned value function estimates whether a repository state is promising for the specific task $T$, while an adaptive search controller considers uncertainty, novelty, semantic boundaries, downstream impact, and compute budget.
 
-Search alone, however, creates a deployment mismatch: during search, failed branches can simply be discarded, whereas a deployed coding agent must often recover from mistakes in its current repository state. We therefore introduce hierarchical recovery learning with different objectives for the Planner and Implementor:
+Because multiple rollouts can originate from the same state-task pair, the resulting data provides **counterfactual supervision**: the learner can compare alternative decisions taken from the same state for the same task rather than simply learning from isolated successful trajectories. These comparisons are used to improve both Planner and Implementor policies through grouped policy optimization.
 
-* **Implementor recovery is local:** From a broken state, the Implementor learns to diagnose and repair the current semantic subtask and terminates when that subtask is complete.
-* **Planner recovery is global:** When evidence reveals that the overall decomposition, ordering, or architecture is poor, the Planner learns to revise the remaining task plan and receives credit according to the eventual task outcome.
+Search, however, creates an important deployment mismatch. During training, a failed branch can simply be discarded, whereas a deployed agent must often recover from mistakes in its current repository state. We therefore train two distinct recovery capabilities:
 
-Planner and Implementor are trained jointly through alternating optimization, repeatedly freezing one policy while improving the other. Intermediate Planner-defined verification goals provide dense signals to the Implementor only when they represent genuine semantic milestones. The Planner itself is optimized against the fixed final evaluation objective, preventing it from gaming its reward by creating trivial intermediate tests.
+* **Local Implementor recovery:** recover the current semantic subtask from a broken implementation state.
+* **Global Planner recovery:** recognize that the overall strategy is flawed and revise the remaining plan.
 
-Finally, after Planner and Implementor training, both policies are frozen and a separate **Test Maker** policy is trained to transform a PRD into an executable final test suite. The Test Maker never observes coding trajectories. Its objective is to produce tests that faithfully encode the specification and efficiently discriminate correct implementations from flawed ones, using mutation testing as an automatic anchor and human judgment as the ultimate specification-fidelity evaluation.
+The two recovery objectives operate at different temporal scales. Implementor recovery terminates when the current subtask is repaired. Planner recovery receives credit according to the eventual outcome of the revised global trajectory.
 
-> **Central Hypothesis:**
-> *Long-horizon coding policies can be learned more effectively by selectively searching and verifying alternative semantic trajectories, while separately learning local implementation recovery and global planning recovery, than by relying on single-path imitation or uniformly explored long-horizon reinforcement learning.*
+Planner and Implementor are trained through alternating optimization. The Planner defines intermediate semantic milestones, which provide dense supervision to the Implementor. However, the Planner itself is ultimately evaluated only against the fixed final task objective, preventing it from gaming training by inventing trivial intermediate goals.
+
+After Planner and Implementor training, both policies are frozen. A separate **Test Maker** is then trained to transform the task specification $T$ into an executable final test suite. The Test Maker does not observe coding trajectories, preventing it from overfitting to the particular behavior of the coding agent. Mutation testing provides an automatic training signal, while specification fidelity is treated as the ultimate criterion.
+
+> **Central Hypothesis**
+>
+> Long-horizon coding policies can be learned more effectively by selectively searching and verifying alternative semantic trajectories for a task, using task-conditioned value estimation to allocate search and separate recovery objectives to handle local implementation failures and global planning failures, than by relying on single-path imitation or uniformly explored long-horizon reinforcement learning.
 
 ---
 
-## 1. The Core Problem
+# 1. The Core Problem
 
-A realistic coding task can require a complex sequence of dependencies:
+A realistic coding task $T$ can require a long sequence of interdependent decisions:
 
-```
-PRD 
- ↓ 
-Understand repository 
- ↓ 
-Architectural decision 
- ↓ 
-Decompose task 
- ↓ 
-Modify interfaces 
- ↓ 
-Implement feature 
- ↓ 
-Update callers 
- ↓ 
-Debug compilation 
- ↓ 
-Run tests 
- ↓ 
-Discover architectural problem 
- ↓ 
-Replan 
- ↓ 
-Refactor 
- ↓ 
-Integration testing 
- ↓ 
-Performance validation 
- ↓ 
+```text
+PRD (T)
+  ↓
+Understand repository
+  ↓
+Architectural decision
+  ↓
+Decompose task
+  ↓
+Modify interfaces
+  ↓
+Implement feature
+  ↓
+Update callers
+  ↓
+Debug compilation
+  ↓
+Run tests
+  ↓
+Discover architectural problem
+  ↓
+Replan
+  ↓
+Refactor
+  ↓
+Integration testing
+  ↓
+Performance validation
+  ↓
 E2E success
-
 ```
 
-The final reward might be:
+The final reward is determined by whether the repository satisfies the task specification.
 
-$$R = \begin{cases} 1 & \text{if the task satisfies the specification} \\ 0 & \text{otherwise} \end{cases}$$
+```math
+R(T) =
+\begin{cases}
+1 & \text{if the repository satisfies } T \\
+0 & \text{otherwise}
+\end{cases}
+```
 
 This creates four fundamental problems:
 
-1. **Sparse reward:** Correctness may only become observable hundreds of actions later.
+1. **Sparse reward:** Correctness with respect to $T$ may only become observable hundreds of actions later.
 2. **Huge action space:** There are enormous numbers of possible code modifications and tool interactions.
 3. **Long-range dependencies:** An architectural decision early in the task can determine whether a later subtask is easy or impossible.
-4. **Expensive exploration:** Exhaustive search over possible coding trajectories is computationally infeasible.
+4. **Expensive exploration:** Exhaustive search over coding trajectories is computationally infeasible.
 
-The proposed framework treats this as a hierarchical search-and-learning problem, rather than attempting to directly solve the entire trajectory space with conventional RL.
+The proposed framework treats coding as a **task-conditioned hierarchical search problem**, rather than as one undifferentiated sequence of low-level actions.
 
 ---
 
-## 2. Hierarchical Agent Structure
+# 2. Hierarchical Agent Structure
 
 The coding agent consists primarily of two interacting policies.
 
-### Planner
+## Planner
 
-Responsible for:
+The Planner is responsible for the global strategy for task $T$.
 
-* Understanding the PRD
-* Decomposing the task into semantic subtasks
-* Ordering those subtasks
-* Deciding when the current plan is no longer appropriate
-* Replanning remaining work
-* Defining meaningful intermediate verification goals
+Its policy can be written as:
 
-### Implementor
+```math
+\pi_P(a_P \mid s,T)
+```
 
-Responsible for:
+The Planner is responsible for:
 
-* Executing the current semantic objective
+* Understanding the PRD specification $T$
+* Decomposing $T$ into semantic subtasks
+* Ordering subtasks
+* Making architectural decisions
+* Defining meaningful intermediate verification milestones
+* Detecting when the current plan is no longer appropriate
+* Replanning the remaining task
+
+## Implementor
+
+The Implementor is responsible for executing the current semantic goal.
+
+Its policy can be written as:
+
+```math
+\pi_I(a_I \mid s,T,g)
+```
+
+where $g$ is the current semantic subtask.
+
+The Implementor is responsible for:
+
+* Executing the current subtask
 * Modifying the repository
 * Using development tools
 * Running relevant checks
 * Diagnosing implementation failures
-* Completing the current subtask
+* Completing the current semantic goal
 
 The distinction is fundamental:
 
-> **Planner** decides *what* should happen.
-> **Implementor** decides *how* to execute it.
+> **Planner:** decides *what should happen* to satisfy $T$.
+>
+> **Implementor:** decides *how to execute it* given task $T$ and goal $g$.
 
 ---
 
-## 3. Semantic State Transitions
+# 3. Semantic State Transitions
 
-The framework does not treat every token or tool call as an equally meaningful decision. Instead, it organizes trajectories around semantic transitions:
+The framework does not treat every token or tool call as an equally meaningful decision.
 
-$$S_t \xrightarrow{\text{subtask}} S_{t+1}$$
+Instead, trajectories are organized around **semantic repository states**.
+
+A semantic transition can be represented as:
+
+```math
+S_t \xrightarrow{\mathrm{subtask}} S_{t+1}
+```
 
 where $S_{t+1}$ represents a repository state in which the current semantic objective has been completed.
 
 For example:
 
-```
+```text
 S0
  │
  ├── Implement authentication abstraction
@@ -135,502 +176,1213 @@ S2
  ├── Migrate API callers
  ▼
 S3
-
 ```
 
-This provides natural points for verification, branching, counterfactual exploration, recovery, and credit assignment.
+This provides natural points for:
+
+* Verification
+* Branching
+* Counterfactual exploration
+* Recovery
+* Task-conditioned credit assignment
+
+The key abstraction is therefore not the individual token or shell command, but the **semantic transition produced by a sequence of low-level actions**.
 
 ---
 
-## 4. Agent-Controlled Happy-Path Search
+# 4. Agent-Controlled Happy-Path Search
 
-During training, the agent can explore multiple candidate implementations using isolated repository branches.
+During training on task $T$, the agent explores multiple candidate implementations using isolated repository branches.
 
+```text
+                  State S
+                    │
+          ┌─────────┼─────────┐
+          │         │         │
+       Branch A  Branch B  Branch C
+          │         │         │
+         FAIL    SUCCESS     FAIL
+          │         │         │
+       discard    merge     discard
+                    │
+                    ▼
+                   S'
 ```
-                  S
-          ┌───────┼───────┐
-          │       │       │
-       Branch A Branch B Branch C
-          │       │       │
-        FAIL   SUCCESS   FAIL
-          │       │       │
-       discard  MERGE   discard
-                  │
-                  ▼
-                 S'
 
+The canonical trajectory is constructed by promoting only externally verified successful branches.
+
+```math
+S_0 \rightarrow S_1 \rightarrow S_2 \rightarrow S_3 \rightarrow \mathrm{SUCCESS}(T)
 ```
 
-> **Critical Property:** The agent itself constructs the canonical trajectory by promoting only verified successful branches.
+This has an important consequence:
 
-Thus the canonical history contains clean progressions ($S_0 \rightarrow S_1 \rightarrow S_2 \rightarrow S_3 \rightarrow \text{SUCCESS}$) rather than sequences cluttered by bad attempts, rollbacks, and retries.
+The canonical history contains **clean successful progress**, rather than a mixture of:
 
-The failed branches are still valuable training material for recovery learning, but they are not represented as part of the canonical happy path. This produces a clean distinction between **solution trajectories** and **recovery trajectories**.
+* failed experiments
+* rollbacks
+* retries
+* abandoned approaches
+
+Failed branches are not discarded completely. They remain valuable as **recovery training data**.
+
+This creates a clean distinction between:
+
+* **Solution trajectories**
+* **Recovery trajectories**
 
 ---
 
-## 5. Verification Is External to the Policy
+# 5. Verification Is External to the Policy
 
-The environment determines whether proposed candidate repository states are correct:
+The environment determines whether a candidate repository state satisfies task requirements.
 
-$$\text{agent action} \rightarrow \text{repository state} \rightarrow \text{tests / checkers / static analysis} \rightarrow \text{objective result} \rightarrow \text{reward}$$
+```text
+Agent action
+     ↓
+Repository state
+     ↓
+Tests / checkers / static analysis
+     ↓
+Objective result
+     ↓
+Reward for task T
+```
 
-* The **agent** controls which candidate to promote.
-* The **environment** controls whether that candidate is actually successful.
+The separation is deliberate:
+
+* The **agent** controls which candidates to explore and promote.
+* The **environment** determines whether the candidate actually satisfies $T$.
 
 This prevents the search procedure from becoming self-confirming.
 
+The policy cannot simply declare a branch successful. Success is determined by an external evaluation process.
+
 ---
 
-## 6. Recursive Counterfactual Expansion
+# 6. Recursive Counterfactual Expansion
 
-A single successful trajectory is not necessarily optimal. Suppose the system discovers $S_0 \rightarrow S_1 \rightarrow S_2 \rightarrow S_3$. It can revisit $S_1$ and independently explore alternative continuations:
+A single successful trajectory is not necessarily the best trajectory.
 
+Suppose search finds:
+
+```math
+S_0 \rightarrow S_1 \rightarrow S_2 \rightarrow S_3
 ```
+
+The system can return to $S_1$ and independently explore alternative continuations.
+
+```text
                   S1
-          ┌───────┼───────┐
-          │       │       │
-          A       B       C
-          │       │       │
-        FAIL   SUCCESS SUCCESS
+           ┌──────┼──────┐
+           │      │      │
+           A      B      C
+           │      │      │
+          FAIL SUCCESS SUCCESS
                   │       │
-                 .72     .94
-
+                0.72     0.94
 ```
 
-The successful alternatives become additional training examples. This process is recursive:
+The important property is that the alternatives originate from the **same state under the same task**.
 
-$$\text{happy trajectory} \rightarrow \text{select valuable state} \rightarrow \text{branch} \rightarrow \text{verify} \rightarrow \text{retain successful continuations} \rightarrow \text{repeat}$$
+The search procedure therefore recursively performs:
 
-The result is a tree of independently verified solution trajectories.
+```math
+\mathrm{HappyTrajectory}(T)
+\rightarrow
+\mathrm{SelectState}(s,T)
+\rightarrow
+\mathrm{Branch}
+\rightarrow
+\mathrm{Verify}
+\rightarrow
+\mathrm{RetainSuccessfulBranches}
+\rightarrow
+\mathrm{Repeat}
+```
 
----
-
-## 7. Counterfactual Supervision
-
-At a state $s$, we can observe:
-
-$$D_s = \{(a_1, R_1), (a_2, R_2), \dots, (a_n, R_n)\}$$
-
-rather than merely observing one action. This allows the learner to distinguish:
-
-* *"This action eventually worked."*
-
-from:
-
-* *"From this exact state, this alternative produced a better solution than the other explored alternatives."*
-
-| Action | Approach | Outcome | Resource Cost |
-| --- | --- | --- | --- |
-| **Action A** | Extend existing interface | Works | 500k tokens |
-| **Action B** | Introduce dedicated abstraction | Works | **200k tokens** |
-| **Action C** | Rewrite authentication layer | Works | 1M tokens |
-
-With an explicit compute-aware objective, **Action B** becomes the preferred decision even though all three satisfy functional correctness.
+The result is a search tree containing multiple independently verified continuations.
 
 ---
 
-## 8. Compute-Aware Search
+# 7. Counterfactual Supervision
 
-Search computation is itself part of the optimization problem. The conceptual objective is:
+At a state $s$ for task $T$, the system can observe multiple candidate actions and their downstream returns.
 
-$$R(\tau) = R_{\text{task}} - \lambda C(\tau)$$
+```math
+D_{s,T}
+=
+\left\{
+(a_1,R_1),
+(a_2,R_2),
+\ldots,
+(a_K,R_K)
+\right\}
+```
+
+This provides a fundamentally richer signal than a single successful trajectory.
+
+Without counterfactual search, the learner sees:
+
+> "Action A worked."
+
+With counterfactual search, the learner can observe:
+
+> "From this exact state for this exact task, Action A worked better than Actions B and C."
+
+For example:
+
+| **Action** | **Approach for Task $T$**       | **Outcome** | **Resource Cost** |
+| ---------- | ------------------------------- | ----------- | ----------------: |
+| **A**      | Extend existing interface       | Works       |       500k tokens |
+| **B**      | Introduce dedicated abstraction | Works       |   **200k tokens** |
+| **C**      | Rewrite authentication layer    | Works       |         1M tokens |
+
+If the training objective includes compute efficiency, Action B is preferable even though all three solutions satisfy functional correctness.
+
+This turns search into a source of **relative decision supervision**.
+
+---
+
+# 8. Search-to-Policy Reinforcement Learning
+
+Counterfactual search produces multiple rollouts from the same state-task pair.
+
+The search tree therefore provides samples of the form:
+
+```math
+(s,T,a,R)
+```
 
 where:
 
-$$C = C_{\text{tokens}} + C_{\text{model calls}} + C_{\text{branches}} + C_{\text{tests}} + C_{\text{execution}}$$
+* $s$ is the semantic repository state.
+* $T$ is the task specification.
+* $a$ is the Planner or Implementor action.
+* $R$ is the discounted return of the resulting rollout.
 
-The goal is not to search as much as possible, but to **spend additional computation when its expected value exceeds its cost**. Routine states should be solved directly, while ambiguous or high-impact states receive additional search.
+For example:
 
----
+```text
+State S, Task T
 
-## 9. Adaptive Search Controller
-
-Exhaustively expanding every state is infeasible. The system learns to prioritize states for expensive search based on key signals:
-
-```
-                    state
-                      │
-                      ▼
-                 cheap scorer
-                      │
-          ┌───────────┴───────────┐
-          │                       │
-      low value               high value
-          │                       │
-     single pass           expensive search
-                                  │
-                                  ▼
-                          branch-and-verify
-
+├── Action A → Return 0.92
+├── Action B → Return 0.81
+├── Action C → Return 0.37
+└── Action D → Return 0.95
 ```
 
-* **Signals used:** Model uncertainty, candidate disagreement, semantic subtask boundaries, expected downstream impact, novelty, previous sampling frequency, historical search value, and remaining compute budget.
+This naturally produces a **relative-ranking problem** conditioned on the exact state and task.
+
+## Task-Grouped GRPO Over Shared-State Rollouts
+
+For a batch of $K$ rollouts from the same state $s$ under the same task $T$:
+
+```math
+\mathcal{B}(s,T)
+=
+\left\{
+(a_i,R_i)
+\right\}_{i=1}^{K}
+```
+
+The group mean return is:
+
+```math
+\bar{R}(s,T)
+=
+\frac{1}{K}
+\sum_{i=1}^{K}
+R_i
+```
+
+The advantage for each rollout is:
+
+```math
+A_i
+=
+R_i-\bar{R}(s,T)
+```
+
+The policy objective is:
+
+```math
+\mathcal{L}_{\mathrm{GRPO}}
+=
+-\frac{1}{K}
+\sum_{i=1}^{K}
+\min
+\left(
+r_i A_i,
+\mathrm{clip}(r_i,1-\epsilon,1+\epsilon)A_i
+\right)
+```
+
+where the policy ratio is:
+
+```math
+r_i
+=
+\frac{
+\pi_\theta(a_i \mid s,T)
+}{
+\pi_{\theta_{\mathrm{old}}}(a_i \mid s,T)
+}
+```
+
+The important point is not merely that GRPO is used, but **where the groups come from**.
+
+The groups are deliberately constructed so that multiple actions originate from the same:
+
+```text
+state s
+task T
+```
+
+This gives the optimization a direct counterfactual comparison at the decision point being learned.
+
+## Why Task-Grouped GRPO Fits Search
+
+| **Conventional RL**                                            | **Task-Grouped Search GRPO**                                      |
+| -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Trajectories start from different states and tasks.            | Multiple trajectories intentionally start from the same $(s,T)$.  |
+| Advantage depends on a global or learned baseline.             | Advantage is computed directly from sibling rollouts.             |
+| Exploration is primarily generated by the policy.              | Exploration is generated by branch-and-verify search.             |
+| Alternative decisions are rarely controlled at the same state. | Alternative decisions are explicitly generated at the same state. |
+
+Because search explicitly constructs counterfactual alternatives, policy optimization receives the comparisons that matter for local decision making.
+
+## Discounted Returns Over Semantic Decisions
+
+Returns are computed over semantic transitions rather than individual tool calls.
+
+```math
+R_t
+=
+\sum_{k=t}^{T_{\max}}
+\gamma^{k-t}
+r_k(T)
+```
+
+The reward terms can include:
+
+* Final correctness for task $T$
+* Intermediate semantic verification
+* Compute penalties
+* Quality bonuses
+* Performance bonuses
+
+## Planner Updates
+
+Planner training uses tuples of the form:
+
+```math
+(s,T,a_P,R)
+```
+
+where $a_P$ represents a planning decision such as:
+
+* Subtask decomposition
+* Subtask ordering
+* Architectural choice
+* Replanning
+
+## Implementor Updates
+
+Implementor training uses tuples of the form:
+
+```math
+(s,T,g,a_I,R)
+```
+
+where $a_I$ represents:
+
+* Code edits
+* Tool usage
+* Debugging actions
+* Implementation choices
+
+## Search Distills Into the Policy
+
+The resulting learning pipeline is:
+
+```text
+Branch-and-Verify Search
+          │
+          ▼
+Multiple rollouts from the same (s,T)
+          │
+          ▼
+Counterfactual training tuples
+          │
+          ▼
+Task-grouped policy optimization
+          │
+          ▼
+Planner and Implementor internalize search decisions
+```
+
+Expensive search is therefore used primarily during training.
+
+The long-term goal is for the learned policies to reproduce good search decisions directly during inference.
 
 ---
 
-## 10. LLM-Powered Search
+# 9. Learning a Task-Conditioned Value Function
 
-An LLM can occasionally act as a search controller by evaluating state uncertainty and potential downstream consequences. It provides expensive guidance only when useful, which can subsequently be distilled into a cheaper state-prioritization model:
+Search-generated trajectories provide supervision not only for the policy, but also for a **task-conditioned value function**.
 
-$$f_\theta(S) \rightarrow P(\text{search is valuable})$$
+The value function is:
 
-This turns the LLM into a teacher for a learned, light-weight search heuristic.
+```math
+V_\psi(s,T)
+```
+
+It estimates the expected future return from repository state $s$ for task $T$.
+
+```math
+V_\psi(s,T)
+=
+\mathbb{E}_\pi
+\left[
+R_t
+\mid
+S_t=s,\mathrm{Task}=T
+\right]
+```
+
+The policy answers:
+
+> "What action should I take next?"
+
+The value function answers:
+
+> "How promising is this state for this task?"
+
+This distinction is important because a repository state cannot be evaluated independently of the task it is supposed to satisfy.
+
+For example, the same state could have:
+
+```math
+V_\psi(s,T_{\mathrm{REST}}) \approx 0.95
+```
+
+and:
+
+```math
+V_\psi(s,T_{\mathrm{GraphQL}}) \approx 0.05
+```
+
+The value is therefore explicitly **task-conditioned**.
 
 ---
 
-## 11. Non-Uniform State Sampling
+# 10. Value-Guided Search Allocation
 
-The system deliberately oversamples:
+The learned value function has two primary uses.
 
-* **High-uncertainty states:** States where multiple actions appear plausible.
-* **Semantic subtask boundaries:** States where a major semantic decision begins or ends.
-* **Undersampled states:** States that have received relatively little exploration.
-* **High-impact states:** States where an early decision can substantially affect downstream complexity.
+## Early Dead-End Detection
 
-The resulting sampling distribution is approximately:
+Instead of rolling every branch out to complete task success, search can stop branches whose predicted value is sufficiently low.
 
-$$p(s) \propto f(U(s), B(s), I(s), N(s), C(s))$$
+```text
+               State S, Task T
+                      │
+       ┌──────────────┼──────────────┐
+       │              │              │
+    Branch A       Branch B       Branch C
+       │              │              │
+     0.92            0.84           0.07
+   continue        continue          prune
+```
 
-where $U$ is uncertainty, $B$ is subtask boundaries, $I$ is expected impact, $N$ is novelty/sampling deficiency, and $C$ represents computational considerations.
+Conceptually:
+
+```math
+V_\psi(s,T) \leq \tau
+```
+
+indicates that the state is sufficiently unlikely to be worth further exploration.
+
+Branches above the threshold continue to receive search.
+
+This allows search to avoid expensive full rollouts for states that already appear to be dead ends.
+
+## Search Prioritization
+
+The value function can also determine where to spend additional search budget.
+
+High-value states can receive:
+
+* More rollouts
+* More candidate actions
+* Deeper counterfactual expansion
+
+Low-value states can receive less computation.
+
+```text
+                 Root State
+                /     |     \
+             0.88    0.31    0.79
+               │       │       │
+             expand   prune   expand
+```
+
+This turns the value model into a **search allocation mechanism**, not merely a predictor used after search has already happened.
 
 ---
 
-## 12. The Critical Search/Deployment Mismatch
+# 11. AlphaZero Analogy
 
-Happy-path search has an inherent flaw:
+The interaction between policy, value, and search is conceptually similar to AlphaZero.
 
-* **During training:** $\text{bad branch} \rightarrow \text{discard} \rightarrow \text{continue from clean state}$
-* **At deployment:** $\text{bad implementation} \rightarrow \text{agent must recover}$
+| **AlphaZero**                          | **Long-Horizon Coding**                                 |
+| -------------------------------------- | ------------------------------------------------------- |
+| Policy proposes moves.                 | Planner and Implementor propose semantic actions.       |
+| Value estimates future game outcome.   | Value estimates future task return.                     |
+| MCTS expands promising states.         | Branch-and-verify expands promising repository states.  |
+| Search generates training information. | Verified search generates policy and value supervision. |
 
-The deployed agent cannot always rewind the repository to the last known-good state. Therefore, successful-path search alone may produce a policy that is brittle when reality deviates. This motivates explicit recovery learning.
+The analogy is conceptual rather than literal.
+
+The proposed coding system is not simply MCTS applied to repositories. Its search operates over semantic repository transitions, uses external software verification, and includes hierarchical Planner/Implementor recovery.
 
 ---
 
-## 13. Hierarchical Recovery
+# 12. Training the Value Function
 
-Planner and Implementor recover at different scales:
+Every verified rollout produces a target return for the states it visited.
+
+For example:
+
+```text
+S0 → S1 → S2 → S3 → SUCCESS(T)
+```
+
+Each state receives a discounted future return.
+
+The value model can be trained with:
+
+```math
+\mathcal{L}_{\mathrm{value}}
+=
+\frac{1}{N}
+\sum_{i=1}^{N}
+\left(
+V_\psi(S_i,T_i)-R_i
+\right)^2
+```
+
+The value model therefore learns from the same verified search data that trains the policies.
+
+This creates a feedback loop:
+
+```text
+Search
+  ↓
+Verified trajectories
+  ↓
+Policy learning + value learning
+  ↓
+Better actions + better search allocation
+  ↓
+Improved search
+```
+
+---
+
+# 13. Adaptive Search Controller
+
+The full search budget should not be spent uniformly.
+
+A cheap search controller can determine whether a state deserves expensive branch-and-verify search.
+
+```text
+              State S, Task T
+                     │
+                     ▼
+             Cheap Search Scorer
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+       low value             high value
+          │                     │
+      single pass          expensive search
+                                │
+                                ▼
+                        branch-and-verify
+```
+
+The controller can combine several signals:
+
+* Task-conditioned uncertainty
+* Candidate disagreement
+* Semantic subtask boundaries
+* Expected downstream impact
+* Novelty
+* Previous sampling frequency
+* Task-conditioned value
+* Remaining compute budget
+
+The goal is not merely to search less.
+
+The goal is to **search selectively where search is most informative**.
+
+---
+
+# 14. LLM-Powered Search Control
+
+An LLM can act as an expensive search controller during training.
+
+Its role is to estimate whether exploring a state is likely to produce valuable information for task $T$.
+
+Conceptually:
+
+```math
+f_\theta(S,T)
+\rightarrow
+P(\mathrm{search\ is\ valuable})
+```
+
+The expensive controller can then be distilled into a cheaper model or heuristic.
+
+The resulting sampling distribution can depend on:
+
+```math
+p(s\mid T)
+\propto
+f
+\left(
+U(s,T),
+B(s),
+I(s,T),
+N(s),
+C(s)
+\right)
+```
+
+where:
+
+* $U(s,T)$ is task-conditioned uncertainty.
+* $B(s)$ indicates semantic boundaries.
+* $I(s,T)$ estimates downstream impact.
+* $N(s)$ captures novelty or under-sampling.
+* $C(s)$ represents computational cost.
+
+The learned value function can be incorporated as another signal into this allocation mechanism.
+
+---
+
+# 15. The Critical Search/Deployment Mismatch
+
+Happy-path search creates a fundamental mismatch between training and deployment.
+
+During training:
+
+```text
+bad branch
+   ↓
+discard
+   ↓
+continue from clean state
+```
+
+At deployment:
+
+```text
+bad implementation
+   ↓
+agent must recover
+   ↓
+continue from current repository state
+```
+
+A deployed coding agent cannot always rewind to the last known-good state.
+
+Therefore, learning only successful forward trajectories is insufficient.
+
+The agent must also learn **how to recover when its current state is already wrong**.
+
+---
+
+# 16. Hierarchical Recovery
+
+We therefore introduce two different recovery objectives.
 
 ### Local Implementor Recovery
 
-The Implementor is responsible for recovering from an incorrect implementation of the current semantic subtask:
-
-$$G_I: S_{\text{bad}} \rightarrow S_{\text{subtask-complete}}$$
-
-The recovery episode terminates as soon as the current subtask is successfully completed.
+Recover the current semantic subtask from an incorrect implementation.
 
 ### Global Planner Recovery
 
-The Planner is responsible for recognizing when the overall plan is flawed:
+Recognize that the overall strategy is flawed and revise the remainder of the task.
 
-$$G_P: (S_t, P_{\text{remaining}}) \rightarrow P'_{\text{remaining}}$$
+These are fundamentally different problems.
 
-The Planner can revise remaining subtasks, subtask ordering, architecture, interfaces, decomposition, or implementation strategy across the rest of the task.
+The first is **local corrective control**.
 
----
-
-## 14. Local Implementor Recovery
-
-A failed implementation creates a dead-end state ($S_0 \rightarrow S_1 \rightarrow S_{\text{dead}}$). Recovery training begins directly at $S_{\text{dead}}$:
-
-$$S_{\text{dead}} \rightarrow \text{inspect failure} \rightarrow \text{diagnose root cause} \rightarrow \text{modify implementation} \rightarrow \text{run checks} \rightarrow \text{subtask complete}$$
-
-The episode ends as soon as the subtask is complete, eliminating the need to execute all remaining downstream subtasks and making recovery data inexpensive to generate.
+The second is **global strategic recovery**.
 
 ---
 
-## 15. Generating Implementor Recovery Data
+# 17. Local Implementor Recovery
 
-Recovery starting states are constructed using multiple sources:
+Suppose the agent reaches a broken state:
 
-* Real failed search branches
-* Synthetic AST/code mutations
-* Incorrect intermediate implementations
-* Dependency/interface corruption
-* Deliberately injected logical bugs
+```text
+S0 → S1 → S_dead
+```
+
+The Implementor is trained to recover the current subtask directly from $S_{\mathrm{dead}}$.
+
+Conceptually:
+
+```math
+G_I(S_{\mathrm{dead}},T,g)
+\rightarrow
+S_{\mathrm{subtask\ complete}}
+```
+
+The recovery episode looks like:
+
+```text
+Broken state
+    ↓
+Inspect failure
+    ↓
+Diagnose
+    ↓
+Modify code
+    ↓
+Run checks
+    ↓
+Subtask complete
+```
+
+The crucial property is the termination condition:
+
+> **Implementor recovery stops when the current subtask is repaired.**
+
+There is no need to execute all remaining subtasks.
+
+This makes recovery data much cheaper to generate than full-task recovery trajectories.
+
+---
+
+# 18. Generating Implementor Recovery Data
+
+Recovery states can come from:
+
+* Failed search branches
 * Intermediate verification failures
+* Incorrect intermediate implementations
+* Synthetic AST or code mutations
+* Dependency corruption
+* Interface corruption
+* Injected logical bugs
 
-One happy trajectory can yield many local recovery training episodes:
+A single successful trajectory can therefore generate many recovery episodes.
 
-$$\text{known-good state} \rightarrow \text{inject subtle bug} \rightarrow \text{broken state} \rightarrow \text{Implementor recovery} \rightarrow \text{subtask complete}$$
-
----
-
-## 16. Global Planner Recovery
-
-When an underlying plan makes downstream work unnecessarily difficult, a strong Planner must recognize that the approach itself is flawed rather than forcing the Implementor to patch a bad design.
-
-* **Original Plan:** $\text{A: Refactor DB} \rightarrow \text{B: Add Caching} \rightarrow \text{C: Migrate API} \rightarrow \text{D: Observability}$
-* **Revised Plan:** $\text{A': Introduce Repository Abstraction} \rightarrow \text{C: Migrate API} \rightarrow \text{B: Add Caching} \rightarrow \text{D: Observability}$
-
-The Planner is explicitly empowered to alter the remaining future trajectory.
-
----
-
-## 17. Why Planner Recovery Needs Global Credit
-
-A planning decision at step 10 might only reveal its consequences at step 80.
-
-$$\text{Step 10: Choose Arch A} \rightarrow \text{Step 30: Feature} \rightarrow \text{Step 60: Callers} \rightarrow \text{Step 80: Incompatibility} \rightarrow \text{Step 85: Replan} \rightarrow \text{Step 120: Success}$$
-
-The value of the Planner's recovery decision cannot be measured at a single subtask boundary. Therefore, Planner recovery receives credit based on the **eventual outcome of the revised global trajectory**.
-
----
-
-## 18. Two Recovery Operators
-
-The system explicitly learns two distinct forms of recovery:
-
-* **Local Corrective Control:**
-
-$$G_I: \text{bad implementation} \rightarrow \text{current subtask complete}$$
-
-
-* **Global Strategic Recovery:**
-
-$$G_P: \text{bad global plan} \rightarrow \text{better remaining plan}$$
-
-
-
-This mirrors real software engineering: *"The code is wrong"* versus *"The code is fine, but the approach was wrong."*
-
----
-
-## 19. Planner/Implementor Alternating Optimization
-
-Planner and Implementor are coupled policies trained through alternating optimization:
-
-$$\left(P_0, I_0\right) \xrightarrow{\text{Train } P} \left(P_1, I_0\right) \xrightarrow{\text{Train } I} \left(P_1, I_1\right) \xrightarrow{\text{Train } P} \left(P_2, I_1\right) \xrightarrow{\text{Train } I} \left(P_2, I_2\right) \dots$$
-
-Each iteration leverages happy-path search data, counterfactual trajectories, Implementor recovery episodes, and Planner global-replanning episodes.
-
----
-
-## 20. Intermediate Verification
-
-The Planner defines intermediate verification milestones for subtasks. These checks provide dense learning signals to the Implementor.
-
-To prevent reward-hacking by the Planner:
-
-* **Implementor:** Evaluated against Planner-defined intermediate verification.
-* **Planner:** Evaluated strictly against the fixed final evaluation suite, task success, solution quality, and compute efficiency.
-
----
-
-## 21. Fixed Final Evaluation
-
-Training uses a fixed final evaluation objective ($T_0$) consisting of unit tests, integration tests, end-to-end tests, static analysis, and performance checks:
-
-$$R_{\text{final}} = f(\text{correctness}, \text{performance}, \text{quality}, \text{compute})$$
-
-This maintains an uncorrupted, stable ground truth while the Planner and Implementor co-adapt.
-
----
-
-## 22. Test Maker as a Separate Final Stage
-
-Once Planner and Implementor training is complete, both policies are frozen:
-
-$$(P, I) \rightarrow \text{FREEZE}$$
-
-A separate **Test Maker** is then trained on the objective: $\text{PRD} \rightarrow \text{final executable test suite}$.
-
-The Test Maker **never observes coding trajectories** (happy paths, failed branches, or recovery actions). It only receives the specification and repository context, preventing it from over-fitting to the specific coding patterns of the agent.
-
----
-
-## 23. Test Maker Objective
-
-The Test Maker uses mutation testing as an automatic anchor:
-
-```
-                  PRD
-                   │
-                   ▼
-            Generated Tests
-                   │
-         ┌─────────┴─────────┐
-         ▼                   ▼
-Correct Implementation   Mutated Implementation
-         │                   │
-         ▼                   ▼
-       PASS                FAIL
-
+```text
+Known-good state
+      ↓
+Inject failure
+      ↓
+Broken state
+      ↓
+Implementor recovery
+      ↓
+Subtask complete
 ```
 
-The conceptual objective is:
-
-$$R_T = R_{\text{specification}} + \lambda R_{\text{mutation}} - \mu C_{\text{tests}}$$
-
-Direct specification fidelity (including human judgment) is evaluated alongside mutation scores to ensure comprehensive requirement coverage.
+The same trajectory becomes useful for both forward learning and recovery learning.
 
 ---
 
-## 24. Why the Test Maker Is Trained Last
+# 19. Global Planner Recovery
 
-The Test Maker learns to construct tests tailored to evaluate a mature, fixed coding system:
+Not every failure should be repaired locally.
 
-$$\text{PRD} \rightarrow \text{Planner + Implementor (Alternating Training)} \rightarrow \text{Mature Agent (Frozen)} \rightarrow \text{Train Test Maker} \rightarrow (\text{PRD} \rightarrow \text{Test Suite})$$
+Sometimes the underlying plan itself is the problem.
 
-Its core goal is to transform vague requirements into the most useful executable specification for evaluating code correctness.
+For example, the original strategy for task $T$ might be:
 
----
-
-## 25. Complete Training Loop
-
+```text
+A: Refactor DB
+→ B: Add Caching
+→ C: Migrate API
+→ D: Observability
 ```
-                              PRD
-                               │
-                               ▼
-                         ┌───────────┐
-                         │  PLANNER  │
-                         └─────┬─────┘
-                               │
-                        semantic subtask
-                               │
-                               ▼
-                        ┌──────────────┐
-                        │ IMPLEMENTOR  │
-                        └──────┬───────┘
-                               │
-                               ▼
-                        repository state
-                               │
-                               ▼
-                      adaptive search gate
-                               │
-                 ┌─────────────┴─────────────┐
-                 │                           │
-            single pass              branch-and-verify
-                 │                           │
-                 │                 verified alternatives
-                 │                           │
-                 └─────────────┬─────────────┘
-                               │
-                               ▼
-                        happy trajectory
-                               │
-                               ▼
-                    recursive counterfactual
-                           expansion
-                               │
-                               ▼
-                       policy improvement
 
+After downstream evidence reveals that the architecture is wrong, the Planner might instead choose:
 
-                    PARALLEL RECOVERY
+```text
+A': Introduce Abstraction
+→ C: Migrate API
+→ B: Add Caching
+→ D: Observability
+```
 
-                    happy trajectories
-                               │
-                 ┌─────────────┴─────────────┐
-                 │                           │
-      implementation dead ends         plan failures
-                 │                           │
-                 ▼                           ▼
-          local Implementor           global Planner
-             recovery                    recovery
-                 │                           │
-                 ▼                           ▼
-          subtask complete             revised plan
-                 │                           │
-                 └─────────────┬─────────────┘
-                               │
-                               ▼
-                      alternating training
-                               │
-                               ▼
-                            repeat
-                               │
-                               ▼
-                     Planner + Implementor
-                            FREEZE
-                               │
-                               ▼
-                          Test Maker
-                               │
-                               ▼
-                      PRD → final tests
+The key distinction is that the Planner changes the **future trajectory**, rather than merely repairing the current code.
 
+The global recovery operator can be represented as:
+
+```math
+G_P(S_t,T,P_{\mathrm{remaining}})
+\rightarrow
+P'_{\mathrm{remaining}}
 ```
 
 ---
 
-## 26. The Four Core Learning Mechanisms
+# 20. Why Planner Recovery Needs Global Credit
 
-1. **Verified Trajectory Search:** Discover successful implementations through isolated branch-and-verify exploration.
-2. **Counterfactual Expansion:** Explore multiple alternative successful continuations from high-value states.
-3. **Hierarchical Recovery:** Train local Implementor recovery and global Planner replanning.
-4. **Adaptive Computation:** Allocate expensive search exclusively to states with high expected value.
+Planning decisions can have consequences many semantic transitions later.
 
-$$\text{Search} \rightarrow \text{Verify} \rightarrow \text{Compare} \rightarrow \text{Learn} \rightarrow \text{Recover}$$
+For example:
+
+```text
+Step 10
+Choose Architecture A
+        ↓
+Step 30
+Implement Feature
+        ↓
+Step 60
+Update Callers
+        ↓
+Step 80
+Discover Incompatibility
+        ↓
+Step 85
+Replan
+        ↓
+Step 120
+SUCCESS(T)
+```
+
+A Planner recovery decision at step 85 cannot be evaluated solely by whether the immediate subtask succeeds.
+
+Its quality depends on whether the revised global trajectory eventually produces a better outcome for task $T$.
+
+Therefore, Planner recovery receives credit according to the **eventual global outcome** of the revised plan.
 
 ---
 
-## 27. What Makes This Different From Simply Doing RL
+# 21. Two Recovery Operators
 
-| Dimension | Conventional RL | Proposed Formulation |
-| --- | --- | --- |
-| **Trajectory View** | $s_0 \rightarrow a_0 \rightarrow a_1 \dots \rightarrow a_{1000} \rightarrow R$ | Branching tree over semantic states ($S_t \xrightarrow{\text{subtask}} S_{t+1}$) |
-| **Search & Verify** | Evaluates long, noisy, single-path trajectories | Isolates subtasks in repository branches; retains verified merges |
-| **Data Generation** | Relies on sparse terminal success/failure | Generates counterfactual state pairs and targeted recovery pairs |
-| **Recovery Learning** | Implicitly mixed into global trajectory | Separated into local (subtask) and global (plan) recovery operators |
+The framework explicitly learns two different operators.
+
+## Local Corrective Control
+
+```math
+G_I(S_{\mathrm{bad}},T,g)
+\rightarrow
+S_{\mathrm{subtask\ complete}}
+```
+
+The Implementor repairs the current subtask.
+
+## Global Strategic Recovery
+
+```math
+G_P(S_t,T,P_{\mathrm{remaining}})
+\rightarrow
+P'_{\mathrm{remaining}}
+```
+
+The Planner revises the remaining strategy.
+
+| **Failure Type**                   | **Recovery Mechanism** |
+| ---------------------------------- | ---------------------- |
+| Incorrect code or implementation   | Implementor recovery   |
+| Poor architecture or decomposition | Planner recovery       |
+| Local debugging failure            | Implementor recovery   |
+| Global strategy failure            | Planner recovery       |
 
 ---
 
-## 28. Experimental Hypotheses
+# 22. Planner/Implementor Alternating Optimization
 
-* **H1 (Counterfactual Search):** Multiple verified continuations from the same state provide better learning signals than isolated successful trajectories.
-* **H2 (Recursive Expansion):** Repeatedly expanding valuable states produces better policies than one-generation trajectory search.
-* **H3 (Adaptive Search):** Selective search achieves a better performance/compute tradeoff than uniform branching.
-* **H4 (Local Implementor Recovery):** Training on dead-end $\rightarrow$ subtask-completion trajectories substantially improves robustness to implementation failures.
-* **H5 (Global Planner Recovery):** Training the Planner to recognize and revise flawed plans improves performance as task horizon increases.
-* **H6 (Hierarchical Recovery):** Combining local Implementor recovery with global Planner recovery outperforms either mechanism alone.
-* **H7 (Search-to-Policy Transfer):** Search-discovered behaviors can be internalized into policy weights, reducing inference-time compute requirements.
+Planner and Implementor are coupled policies.
+
+Training both simultaneously can make the learning problem unstable because each policy continually changes the environment seen by the other.
+
+We therefore use alternating optimization.
+
+The training process is:
+
+```math
+(P_0,I_0)
+\rightarrow
+(P_1,I_0)
+\rightarrow
+(P_1,I_1)
+\rightarrow
+(P_2,I_1)
+\rightarrow
+\cdots
+```
+
+Conceptually:
+
+```text
+Train Planner with Implementor frozen
+                  ↓
+Train Implementor with Planner frozen
+                  ↓
+Train Planner with Implementor frozen
+                  ↓
+Train Implementor with Planner frozen
+                  ↓
+Repeat
+```
+
+Each iteration uses:
+
+* Happy-path search data
+* Counterfactual trajectories
+* Value-function targets
+* Implementor recovery episodes
+* Planner recovery episodes
+
+This lets each component improve against a relatively stable version of the other.
 
 ---
 
-## 29. Critical Ablations
+# 23. Intermediate Verification vs. Final Evaluation
 
-A comprehensive evaluation should compare the full system against isolated components and baselines:
+The Planner defines intermediate verification milestones.
+
+These milestones are useful because they provide dense feedback to the Implementor.
+
+For example:
+
+```text
+Goal g1 → Authentication abstraction complete
+Goal g2 → OAuth provider working
+Goal g3 → API callers migrated
+```
+
+However, allowing the Planner to define its own reward would create a reward-hacking problem.
+
+The solution is an asymmetric objective:
+
+* **Implementor:** evaluated against Planner-defined intermediate goals.
+* **Planner:** evaluated against the fixed final task objective.
+
+The final task reward can be written as:
+
+```math
+R_{\mathrm{final}}(T)
+=
+f
+\left(
+\mathrm{correctness}(T),
+\mathrm{performance}(T),
+\mathrm{quality}(T),
+\mathrm{compute}
+\right)
+```
+
+The Planner therefore cannot redefine what success means.
+
+The final evaluation remains externally specified by task $T$.
+
+---
+
+# 24. Test Maker as a Separate Final Stage
+
+After Planner and Implementor training, both policies are frozen.
+
+```math
+(P,I)
+\rightarrow
+\mathrm{FREEZE}
+```
+
+A separate **Test Maker** policy is then trained.
+
+Its objective is:
+
+```math
+\pi_M:
+T
+\rightarrow
+\mathcal{E}_T
+```
+
+where $\mathcal{E}_T$ is the executable final test suite for task $T$.
+
+The Test Maker does **not** observe coding trajectories.
+
+It does not see:
+
+* Happy paths
+* Failed branches
+* Recovery trajectories
+* Planner decisions
+* Implementor actions
+
+It receives the task specification and relevant repository context.
+
+This prevents the Test Maker from simply learning the coding style or failure patterns of the particular agent being trained.
+
+---
+
+# 25. Test Maker Objective
+
+Mutation testing provides an automatic anchor.
+
+```text
+                              PRD T
+                                │
+                                ▼
+                        Generated Tests E_T
+                                │
+                 ┌──────────────┴──────────────┐
+                 │                             │
+                 ▼                             ▼
+        Correct Implementation        Mutated Implementation
+                 │                             │
+                 ▼                             ▼
+               PASS                          FAIL
+```
+
+A conceptual test-generation reward is:
+
+```math
+R_T
+=
+R_{\mathrm{specification}}(\mathcal{E}_T,T)
++
+\lambda R_{\mathrm{mutation}}(\mathcal{E}_T,T)
+-
+\mu C_{\mathrm{tests}}(\mathcal{E}_T)
+```
+
+The objective balances:
+
+* Specification fidelity
+* Mutation score
+* Test quality
+* Test execution cost
+
+Mutation testing is useful because it provides an automatic signal for whether tests discriminate between correct and incorrect implementations.
+
+However, mutation score alone is insufficient.
+
+A test suite can achieve a high mutation score while still failing to encode important requirements in the PRD.
+
+Therefore, **specification fidelity remains the ultimate criterion**.
+
+---
+
+# 26. Complete Training Loop
+
+```text
+                               PRD (T)
+                                  │
+                                  ▼
+                            ┌───────────┐
+                            │  PLANNER  │
+                            └─────┬─────┘
+                                  │
+                          semantic subtask (g,T)
+                                  │
+                                  ▼
+                            ┌──────────────┐
+                            │ IMPLEMENTOR  │
+                            └──────┬───────┘
+                                   │
+                           repository state (s)
+                                   │
+                                   ▼
+                         adaptive search gate
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+               single pass                branch-and-verify
+                    │                             │
+                    │                    verified alternatives
+                    │                             │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                         happy trajectory for T
+                                   │
+                                   ▼
+                       counterfactual expansion
+                           at selected (s,T)
+                                   │
+                                   ▼
+                   policy update + value update
+                                   │
+                                   │
+                ───────── RECOVERY TRAINING ─────────
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+         implementation dead ends           plan failures
+                    │                             │
+                    ▼                             ▼
+             Implementor recovery           Planner recovery
+                    │                             │
+                    ▼                             ▼
+            subtask complete                revised plan
+                    │                             │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                         alternating training
+                                   │
+                                   ▼
+                                repeat
+                                   │
+                                   ▼
+                        Planner + Implementor
+                               FREEZE
+                                   │
+                                   ▼
+                              Test Maker
+                                   │
+                                   ▼
+                          PRD T → final tests
+```
+
+---
+
+# 27. The Four Core Learning Mechanisms
+
+The framework combines four core mechanisms.
+
+### 1. Task-Conditioned Verified Search
+
+Discover successful implementations through isolated branch-and-verify exploration for task $T$.
+
+### 2. Counterfactual Expansion
+
+Explore multiple alternative continuations from the same semantic state for the same task.
+
+### 3. Hierarchical Recovery
+
+Train:
+
+* Local Implementor recovery for implementation failures.
+* Global Planner recovery for strategic failures.
+
+### 4. Adaptive Task-Value Search
+
+Use a task-conditioned value function and search controller to allocate expensive exploration selectively.
+
+The overall learning process is:
+
+```math
+\mathrm{Search}(T)
+\rightarrow
+\mathrm{Verify}(T)
+\rightarrow
+\mathrm{Compare}(T)
+\rightarrow
+\mathrm{Learn}(T)
+\rightarrow
+\mathrm{Recover}(T)
+```
+
+---
+
+# 28. What Makes This Different From Simply Doing RL?
+
+| **Dimension**                 | **Conventional RL**              | **Proposed Formulation**                      |
+| ----------------------------- | -------------------------------- | --------------------------------------------- |
+| **Reward**                    | Often sparse terminal reward     | Final task reward plus local rewards for implementor when avaiable  |
+| **State conditioning**        | State-centric                    | State + task specification                    |
+| **Counterfactuals**           | Usually incidental               | Explicitly generated from the same $(s,T)$    |
+| **Value function**            | Task-agnostic $V(s)$             | Task-conditioned $V_\psi(s,T)$                |
+| **Search allocation**         | Uniform or policy-driven         | Value- and uncertainty-guided                 |
+| **Policy learning**           | Learns from sampled trajectories | Learns from sibling counterfactual rollouts   |
+| **Recovery**                  | Mixed into global trajectories   | Separate local and global recovery objectives |
+| **Planning**                  | Often entangled with execution   | Dedicated Planner policy                      |
+| **Implementation**            | Same policy handles everything   | Dedicated Implementor policy                  |
+| **Deployment mismatch**       | Often implicit                   | Explicitly trained recovery capability        |
+
+The central difference is therefore not simply the use of reinforcement learning.
+
+The proposed framework changes:
+
+* How trajectories are represented
+* How training data is generated
+* How alternatives are compared
+* How search computation is allocated
+* How planning and implementation are separated
+* How recovery is learned
+
+---
+
+# 29. Experimental Hypotheses
+
+### H1 — Task-Conditioned Value Function
+
+$V_\psi(s,T)$ predicts downstream task success more accurately than a task-agnostic value estimator $V(s)$.
+
+### H2 — Counterfactual Search
+
+Multiple verified continuations from the same $(s,T)$ provide better policy-learning signals than isolated successful trajectories.
+
+### H3 — Adaptive Search
+
+Value-guided selective search achieves a better performance-to-compute tradeoff than uniform branching.
+
+### H4 — Hierarchical Recovery
+
+Combining local Implementor recovery with global Planner recovery outperforms either recovery mechanism alone.
+
+### H5 — Search-to-Policy Transfer
+
+Search-discovered behavior can be internalized into policy parameters, reducing inference-time search requirements.
+
+---
+
+# 30. Critical Ablations
 
 1. SFT on successful trajectories
 2. Standard RL / RLVR
 3. RL with successful-trajectory replay
-4. Branch-and-verify
-5. Branch-and-verify + counterfactual expansion
-6. Counterfactual expansion + adaptive search
-7. Search + Implementor recovery
-8. Search + Planner recovery
-9. Search + both recovery mechanisms
-10. **Full proposed system**
+4. Branch-and-verify without task conditioning
+5. Task-conditioned branch-and-verify
+6. Task-conditioned branch-and-verify + counterfactual expansion
+7. Counterfactual expansion + value-guided search
+8. Search + Implementor recovery
+9. Search + Planner recovery
+10. Search + both recovery mechanisms
+11. **Full proposed system**
 
 ---
 
-## 30. Evaluation
+# 31. The Central Research Claim
 
-### Primary Axes
+Long-horizon coding should be treated as **structured, task-conditioned search over repository states**, rather than an undifferentiated sequence of thousands of low-level actions.
 
-* $\text{Success Rate} \quad\text{vs.}\quad \text{Task Horizon}$
-* $\text{Success Rate} \quad\text{vs.}\quad \text{Compute per Task}$
+The framework separates the problem into two major learning dimensions:
 
-### Key Metric Categories
+> **Forward Decisions:** Learned through verified task-conditioned counterfactual search.
+>
+> **Failure Recovery:** Learned through hierarchical recovery, with global strategy handled by the Planner and local implementation repair handled by the Implementor.
 
-* **Coding Performance:** Pass@1, task success, success vs. horizon, unseen repositories, solution quality.
-* **Search Efficiency:** Tokens/task, model calls/task, branches/task, test executions, wall-clock time, compute/successful task.
-* **Counterfactual Search Quality:** Improvement from additional branching, solution diversity, value of selected states, advantage over single-path training.
-* **Planner Recovery:** Plan-error detection rate, replanning success, downstream task improvement, architectural mistake recovery.
-* **Implementor Recovery:** Dead-end recovery rate, recovery tokens, recovery latency, performance by failure type.
-* **Test Maker:** Requirement coverage, mutation score, specification fidelity, false-positive/negative rates, test execution cost, human-rated PRD compliance.
+The complete learning process is:
 
----
+```math
+\mathrm{Search}(T)
+\rightarrow
+\mathrm{Verification}(T)
+\rightarrow
+\mathrm{Counterfactual\ Expansion}
+\rightarrow
+\mathrm{Policy\ and\ Value\ Learning}
+\rightarrow
+\mathrm{Recovery\ Learning}
+```
 
-## 31. The Central Research Claim
+The ultimate objective is:
 
-Long-horizon coding should be treated as structured search over semantic state transitions, rather than an undifferentiated sequence of thousands of low-level actions.
-
-> **Forward Decisions:** Learned through verified counterfactual search.
-> **Failure Recovery:** Learned through hierarchical recovery (global strategy via Planner, local code via Implementor).
-
-$$\underbrace{\text{Search}}_{\text{discover}} \rightarrow \underbrace{\text{Verification}}_{\text{evaluate}} \rightarrow \underbrace{\text{Counterfactual expansion}}_{\text{compare}} \rightarrow \underbrace{\text{Policy learning}}_{\text{internalize}} \rightarrow \underbrace{\text{Recovery learning}}_{\text{robustify}}$$
-
-**Ultimate Objective:** Use expensive search during training to teach the coding agent how to solve long-horizon tasks without requiring that search at inference time.
+> **Use expensive, task-conditioned, value-guided search during training to teach coding agents how to solve long-horizon software engineering tasks, so that inference requires substantially fewer rollouts and remains robust when execution deviates from the expected plan.**
