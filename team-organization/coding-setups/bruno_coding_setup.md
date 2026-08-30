@@ -4,14 +4,15 @@
 
 ### Things you should NEVER do
 
-- never acess directories above the project's root directory, which should contain .git folder
+- never acess directories above the project's root directory
 - never read sensitive files (e.g., .env)
-- never run destructive commands without my permission. Always present me a dry run before if possible.
-- never try to extract extreme performance (speed, throughput) at the expense of making code complexity significantly higher, unnles specifically prompted for extreme performance optimization
+- never run destructive commands without my permission. Always present me a dry run alternative if possible.
+- never try to extract extreme performance (speed, throughput) at the expense of making code complexity significantly higher, unless specifically prompted for extreme performance optimization
 
 ### Things you should always do
 
 - Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
+- Before starting something new, check the last uncommitted and commited changes made with git. Only start this new thing if nothing seems suspicious (e.g., new code was written without correspinding tests, weird code changes, etc)
 - Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
 - log all mistakes you made in ./.agent/persistent/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
     - What counts as mistakes?
