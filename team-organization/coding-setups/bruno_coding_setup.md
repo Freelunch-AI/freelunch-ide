@@ -14,6 +14,7 @@
 - Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
 - Before starting something new, check the last uncommitted and commited changes made with git. Only start this new thing if nothing seems suspicious (e.g., new code was written without correspinding tests, weird code changes, etc)
 - Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
+- every review document (in ./.agent/session/reviews/) created should contain in its initial metadata a reference to the exact version of what was reviewed which can be a file of specific commit (e.g., spec review and security spec review) or an entire commit (e.g., code review and security code review).
 - log all mistakes you made in ./.agent/persistent/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
     - What counts as mistakes?
         - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
@@ -28,9 +29,13 @@
 - before concluding a task, critically re-evaluate your reasoning, assumptions, and implementation. Verify that the solution satisfies the user's objective, that no possibly affected areas have been overlooked, and that no unnecessary regressions have been introduced.
 - when E2E tesitng a product: be picky about the UI you see and be obsessed with pixle perfection. 
 - If something unrelated looks wrong, record it as a todo in ./.agent/session/todos.md it creates a correctness, security, build, or test failure affecting the current task. do not do one todo item at a time, batch them into related todos, and implement one batch at a time.
-- If you realize that you are stuck in a loop where you did them same action multiple times, you need to change your approach, call sub-agent to help or even reset to the latest commit as your last resource.
-- Always write code filled with iormative debug logs to help you debug if needed. Dont worry, there is a scheduled step later that is dedicated for you to remove these excessive logs which arent good for production.
-- Only call sub-agents if you are having difficulty doing it on your own and need a fresh view point froma specialist (e.g., stuck in a feature bug -> call debugging specialist; stuck in some testing error -> call testing specialist, etc)
+- If you realize that you are stuck in a loop where you can't solve a specific problem, you need to change your approach. Save the problem description in ./.agent/session/problem_stuck.md (should have problem summary, how to verify solution of problem, things already tried and the output gotten in each attempt) and then try these in order:
+  1. Just reset the opencode context window and try again (the problem description will be at ./.agent/session/problem_stuck.md). 
+  2. Reset the opencode context window and Change the OpenCode Coding Model (e.g., change from Kimi K3 to Opus 4.8) and increase it's reasoning if possible
+  3. Reset the opencode context window and Take a fresh look at the problem. Try a different approach (if necessary you can update plan.md or core-implementaiton-tasks.md)
+  4. Spawn the most approppriate sub-agent to help
+  5. Reset to the latest commit as your last resource and then reset the OpenCode context window.
+- If you solve the problem you are stuck, delete ./.agent/session/problem_stuck.md immediatelly.
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
 - if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
 - always when you get stuck in a problem, revise ./.agent/persistent/current-issue/flow/core-implementation-tasks-plan.md or plan.md to see if plan changes need to be mande. Remember that core-implementation-tasks-plan.md stores the graph of core implementaiton tasks along with progress, its per-issue; ./.agent/session/plan.md store per-step action plans typically generate by using the ai agent (you) in plan mode for steos that require a plan first.
@@ -251,7 +256,7 @@ B2: Tests & Logic
 
 ----<</separate terminal block >>----
 
-13. [Make/Remake plan.md first & keep updating the plan as you progress] **/stripdebuglogs** Remove debug logs from the code, only leave essential logs [User Approval Gate with AI Reviewer Suggestions]
+13. [Make/Remake plan.md first & keep updating the plan as you progress] **/stripdebuglogs** Remove debug logs from the code if thre are any [User Approval Gate with AI Reviewer Suggestions]
 
 14. **/determine-if-core-implementation-task-is-done** should evaluate if the core implementaiotn tasks objectives were in fact achieved and if the core-implementaiotn-tasks.md still holds. If all the tests actually reflect the spec and all the tests pass, mark as done the the current core implementaiton tasks inside core-implementaiotn-tasks.md. Shouldnt rely on historic test passing outputs or reports, should run the entire test suite for the current core implementaiotn task and for previously completed core implementation tasks (to catch regressions if any).
 
@@ -331,7 +336,9 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
 
-- Agent-native Editor/Terminal: Superset (only when tackling multiple issues in parallel)
+- Agent-native Editor/Terminal: Orca ||||||||||
+|
+(only when tackling multiple issues in parallel)
 - Terminal Harnesses: OpenCode, open-code-review and openwiki
 - IDE (for better introspection + manual editing): VSCode (with language-specific linters and formatters plugins running continuosly on every file edit)
 - LLM Provider Subscription: **OpenCode Go
@@ -420,6 +427,7 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 ├── session/
 │   └── plan.md
 |   └── todos.md
+|   └── problem_stuck.md
 |   └── debug-logs/
 |   └── reviews/
 |       └── final_spec_review_[timestamp].md
