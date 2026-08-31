@@ -383,7 +383,8 @@ A list of things that won't be in the Demo:
 * Project management.
 * Agent management.
 * IDE action logging.
-* DORA/IDE analytics.
+* DORA analytics (for users) 
+* Platform Monitoring, Observability and Analytics (for us).
 * Budget enforcement and deployment cost gates.
 * A/B testing.
 * Alpha/Beta/Canary Deployments and Feature Flags
@@ -393,6 +394,7 @@ A list of things that won't be in the Demo:
 * Full OpenLineage integration.
 * Monitoring actions directly from IDE widgets.
 * DAST, Pentesting/Readteaming and Chaos Enigneering support.
+* Optimal Technical KPI Goal Definitions (automatically defined goals for latency, throughput, availability, precision, recall, etc to optimize business KPIs, optimize cost, while having a total dedication budget contraint that takes into account how hard is to improve each technical KPI)
 
 ---
 
