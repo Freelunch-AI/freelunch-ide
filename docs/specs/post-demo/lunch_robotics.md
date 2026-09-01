@@ -1,4 +1,4 @@
-# Lunch Robotics: Universal brain for any robot
+# Lunch Robotics: Universal Brain for Any Robot
 
 ## The Vision
 
@@ -16,7 +16,7 @@ The required inputs are:
 
 The engine automatically:
 
-```text id="j6xv5n"
+```text
                   USER INPUTS
                       │
           ┌───────────┼───────────┐
@@ -26,13 +26,11 @@ The engine automatically:
           │           │
           └───────────┼───────────┘
                       ▼
-              Real-to-Sim Agent
+             Real-to-Sim Agent
                       │
+                      │ builds + tests + identifies
                       ▼
-              Digital Twin
-                      │
-                      ▼
-             System Identification
+              Calibrated Digital Twin
                       │
                       ▼
              Simulation RL
@@ -77,9 +75,23 @@ $$
 
 The digital twin is constructed by an autonomous agent rather than a fixed reconstruction pipeline.
 
-The agent is a **purposefully RL-trained LLM agent** whose task is to convert real-world interaction data into a sensible executable simulation.
+The agent is a **purposefully RL-trained LLM agent** whose task is to convert real-world interaction data into a sensible, executable, and calibrated simulation.
 
-```text id="f5a5e0"
+The agent is equipped with a toolbox for:
+
+* video understanding
+* 3D reconstruction
+* simulator construction
+* physics simulation
+* trajectory extraction
+* system identification
+* parameter optimization
+* simulation evaluation
+* experiment design
+* world-model integration
+* code generation and execution
+
+```text
                     Video
                       │
                       ▼
@@ -88,49 +100,73 @@ The agent is a **purposefully RL-trained LLM agent** whose task is to convert re
              │      Agent      │
              └────────┬────────┘
                       │
-             ┌────────┼─────────┐
-             ▼        ▼         ▼
-         geometry   objects   agents
-             │        │         │
-             ▼        ▼         ▼
-          physics   materials  world model
-             │        │         │
-             └────────┼─────────┘
+          ┌───────────┼────────────┐
+          ▼           ▼            ▼
+      geometry     objects       agents
+          │           │            │
+          ▼           ▼            ▼
+       physics     materials   world model
+          │           │            │
+          └───────────┼────────────┘
                       ▼
-               Digital Twin
+               Initial Twin
+                      │
+                      ▼
+             System ID Tools
+                      │
+                      ▼
+              Calibrated Twin
+                      │
+                      ▼
+                 validation
+                      │
+                 ┌────┴────┐
+                 │         │
+              failure    success
+                 │         │
+                 ▼         ▼
+              revise    finalize
 ```
 
-The agent is responsible for **constructing a plausible simulator**, not necessarily for estimating every parameter perfectly.
+The agent is responsible for **constructing and validating the entire digital twin**.
 
 It can:
 
 * inspect the video
 * identify objects and agents
-* determine relevant geometry
-* select appropriate simulation primitives
-* decide which components require learned models
+* reconstruct relevant geometry
+* select simulation primitives
+* determine which components should use explicit physics
+* determine which components require learned world-model dynamics
 * incorporate environment hints
-* create simulation code/configuration
-* run simulations
-* inspect failures
-* revise the digital twin
-* determine what remains uncertain
+* create simulator code and configuration
+* identify uncertain parameters
+* invoke system-identification tools
+* run optimization and simulation experiments
+* compare simulated and real trajectories
+* diagnose mismatches
+* modify the simulator
+* repeat the process until the twin reaches the required fidelity
 
-The agent therefore acts as an **AI simulation engineer**.
+The agent therefore acts as an **AI simulation engineer and system-identification engineer**.
 
 ---
 
-# 2. System Identification
+# 2. Agentic System Identification
 
-The initial digital twin produced by the agent will inevitably be imperfect.
+The initial digital twin produced from video will inevitably be imperfect.
 
-Rather than requiring the LLM to estimate every physical parameter, the engine separates **semantic simulator construction** from **quantitative system identification**.
+The critical insight is that the Real-to-Sim Agent does not need to solve system identification directly.
 
-The agent might determine:
+Instead, it is equipped with **specialized system-identification tools** that allow it to measure and optimize the simulator against real-world observations.
+
+The agent may initially infer:
 
 > "This object is a wooden table."
 
-But the simulator still needs to determine parameters such as:
+and construct a corresponding simulation model.
+
+But many numerical parameters remain unknown:
 
 $$
 \theta =
@@ -146,7 +182,43 @@ $$
 
 where the parameters may include mass, friction, elasticity, stiffness, damping, and other dynamics.
 
-These parameters are estimated using optimization against observed real-world trajectories.
+The agent can invoke system-identification tools to estimate them.
+
+For example:
+
+```text
+             Real-world trajectories
+                       │
+                       ▼
+              Real-to-Sim Agent
+                       │
+                 "friction is
+                  uncertain"
+                       │
+                       ▼
+             System ID Tool
+                       │
+                       ▼
+             Parameter search
+                       │
+                       ▼
+              Simulator rollout
+                       │
+                       ▼
+            Compare with reality
+                       │
+                       ▼
+                  error
+                       │
+                       ▼
+              Agent diagnoses
+                    mismatch
+                       │
+                       ▼
+             modify / re-run
+```
+
+A generic optimization objective is:
 
 $$
 \theta^*
@@ -158,29 +230,33 @@ D\left(
 \right)
 $$
 
-The process therefore becomes:
+But optimization is not the responsibility of the agent itself.
 
-```text id="f4m2ha"
-        Real-world data
-               │
-               ▼
-        LLM constructs
-       plausible simulator
-               │
-               ▼
-          Digital Twin
-               │
-               ▼
-      optimization-based
-     system identification
-               │
-               ▼
-       calibrated twin
-```
+The agent **decides when and how to use the optimization tools**, what parameters to expose, which observations to compare, and whether the resulting simulator is sufficiently accurate.
 
-This division is deliberate:
+This creates an agentic system-identification loop:
 
-> **The LLM determines the structure of the simulator; optimization determines its numerical parameters.**
+$$
+\boxed{
+\text{Observe}
+\rightarrow
+\text{Hypothesize}
+\rightarrow
+\text{Simulate}
+\rightarrow
+\text{Measure Error}
+\rightarrow
+\text{Optimize}
+\rightarrow
+\text{Revise}
+}
+$$
+
+The division of labor is therefore:
+
+> **The LLM reasons about the structure and debugging of the simulator; specialized system-identification tools perform the numerical estimation.**
+
+This is analogous to giving a software engineer a compiler, profiler, debugger, and test suite rather than expecting the engineer to perform those operations manually.
 
 ---
 
@@ -205,11 +281,11 @@ S_{\leq t},E
 \right)
 $$
 
-The same general model can therefore simulate different types of autonomous entities.
+The same general world model can simulate different types of agentic entities.
 
 Its predictions implicitly combine behavioral decisions with unobserved low-level dynamics.
 
-The simulator becomes:
+The simulator therefore becomes:
 
 $$
 \boxed{
@@ -221,6 +297,8 @@ $$
 }
 $$
 
+The Real-to-Sim Agent determines how these components should be composed and can use observed interaction data to validate the resulting behavior.
+
 ---
 
 # 4. The Data Collection Protocol
@@ -231,7 +309,7 @@ The robot should be deliberately operated under the behavioral regimes it is exp
 
 For example:
 
-```text id="8hwxql"
+```text
               Robot interaction data
                        │
           ┌────────────┼────────────┐
@@ -281,9 +359,9 @@ where:
 * \(T\) is the task,
 * \(a_t\) is the robot action.
 
-The task is therefore an explicit conditioning variable.
+The task is an explicit conditioning variable.
 
-A single trained policy can potentially learn many tasks rather than requiring a separate policy for every task.
+A single trained policy can therefore learn to perform many tasks rather than requiring a separate policy for every task.
 
 Simulation provides massive amounts of experience:
 
@@ -319,7 +397,7 @@ The curriculum can vary:
 * presence of other agents
 * consequences of failure
 
-```text id="1ihh0p"
+```text
 Simple task
      │
      ▼
@@ -338,7 +416,7 @@ Dynamic environment
 Other agents
      │
      ▼
-Complex real-world task
+Complex task
 ```
 
 The curriculum can be automatically generated and adjusted based on the robot's performance.
@@ -355,7 +433,7 @@ This stage also uses curriculum learning.
 
 The robot begins with simple, low-risk tasks and progressively moves toward more complex tasks.
 
-```text id="6k6c8s"
+```text
               Simulation RL
                     │
                     ▼
@@ -386,7 +464,7 @@ It is to adapt the simulation-trained policy to:
 
 A VLM provides automated task generation and reward evaluation.
 
-```text id="e5ibk8"
+```text
                     VLM
                ┌──────┴──────┐
                ▼             ▼
@@ -402,15 +480,33 @@ A VLM provides automated task generation and reward evaluation.
         harder curriculum
 ```
 
-This eliminates the need for continuous human supervision during the final adaptation stage.
+The VLM can generate increasingly difficult tasks and evaluate the robot's behavior without requiring a human to manually label trajectories.
+
+This creates an automated loop:
+
+$$
+\text{Task Generation}
+\rightarrow
+\text{Real Interaction}
+\rightarrow
+\text{VLM Evaluation}
+\rightarrow
+\text{Reward}
+\rightarrow
+\text{RL}
+\rightarrow
+\text{Harder Task}
+$$
+
+The final real-world RL stage therefore serves as a **closed-loop adaptation phase between the calibrated digital twin and reality**.
 
 ---
 
 # 8. Task Interface
 
-The deployed robot should accept tasks through natural language.
+The deployed robot accepts tasks through natural language.
 
-```text id="7h4h8s"
+```text
 Human speech
      │
      ▼
@@ -438,9 +534,11 @@ For example:
 
 becomes a structured task representation consumed by the policy.
 
-This makes the task interface independent of the underlying control system.
-
 The SDK provides the bridge between the learned policy and the robot's physical action interface.
+
+This means the user does not need to understand the underlying policy, simulator, or RL infrastructure.
+
+They provide the robot with a task.
 
 ---
 
@@ -452,7 +550,7 @@ It remains available during deployment as a **counterfactual simulator**.
 
 Before executing an uncertain action, the robot can simulate alternatives:
 
-```text id="q2f1zq"
+```text
                  Current state
                       │
           ┌───────────┼───────────┐
@@ -473,13 +571,24 @@ The robot can therefore use the same digital twin for both:
 
 **learning what to do** and **reasoning about what to do next**.
 
+This creates a closed relationship between training and inference:
+
+$$
+\text{Digital Twin}
+\rightarrow
+\begin{cases}
+\text{Policy Training}\\
+\text{Counterfactual Search}
+\end{cases}
+$$
+
 ---
 
 # 10. End-to-End System
 
 The complete system can be viewed as four stages:
 
-```text id="s2w7q0"
+```text
 ┌────────────────────────────────────────────────────────────┐
 │                     1. OBSERVE                             │
 │                                                            │
@@ -489,9 +598,19 @@ The complete system can be viewed as four stages:
 ┌────────────────────────────────────────────────────────────┐
 │                     2. CONSTRUCT                           │
 │                                                            │
-│ RL-trained Real-to-Sim Agent → Digital Twin                │
+│ RL-trained Real-to-Sim Agent                               │
 │                                                            │
-│ Optimization → System Identification                       │
+│   Video understanding                                      │
+│        ↓                                                   │
+│   Simulator construction                                   │
+│        ↓                                                   │
+│   System identification tools                              │
+│        ↓                                                   │
+│   Simulation / measurement / optimization                  │
+│        ↓                                                   │
+│   Iterative validation                                     │
+│        ↓                                                   │
+│   Calibrated Digital Twin                                  │
 └───────────────────────────┬────────────────────────────────┘
                             ▼
 ┌────────────────────────────────────────────────────────────┐
@@ -515,7 +634,7 @@ The complete system can be viewed as four stages:
 
 The central hypothesis is:
 
-> **A previosly trained AI agent, equipped with system identification tools, can convert a small amount of real-world robot video data into an executable digital twin that is accurate enough to support large-scale policy learning and counterfactual planning at inference-time.**
+> **A purposefully RL-trained AI agent, equipped with specialized simulation and system-identification tools, can convert a relatively small amount of real-world robot interaction data into a calibrated executable digital twin that is accurate enough to support large-scale robot policy learning and counterfactual planning.**
 
 This changes the economics of robot learning.
 
@@ -533,7 +652,9 @@ $$
 \boxed{
 \text{Small real-world dataset}
 \rightarrow
-\text{Digital Twin}
+\text{AI-generated Digital Twin}
+\rightarrow
+\text{System Identification}
 \rightarrow
 \text{Millions of simulated interactions}
 \rightarrow
@@ -543,8 +664,14 @@ $$
 }
 $$
 
+The important architectural distinction is:
+
+> **The Real-to-Sim Agent is not itself the system-identification algorithm. It is an intelligent operator of system-identification tools.**
+
+It decides what needs to be identified, chooses appropriate experiments and tools, interprets the resulting errors, and iteratively improves the simulator.
+
 The ultimate product abstraction is therefore:
 
-> **Give us the robot, interaction video, and action interface. We build its digital twin, train its policy, adapt it to reality, and return a robot that can learn to perform tasks specified in natural language.**
+> **Give us the robot, interaction video, and action interface. An AI agent builds and calibrates its digital twin, trains its policy, adapts it to reality, and returns a robot capable of learning tasks specified in natural language.**
 
-This positions the system not merely as a world model or simulator, but as an **end-to-end robot learning engine powered by automatically generated digital twins**.
+This positions Lunch Robotics not merely as a world model or simulator, but as an **end-to-end robot learning engine powered by an autonomous Real-to-Sim agent**.
