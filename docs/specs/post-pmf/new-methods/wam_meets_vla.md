@@ -1,4 +1,4 @@
-# Hierarchical Physical Intelligence: Combining World Action Models with Closed-Loop VLAs
+# Hierarchical Physical Intelligence for Robotics: Combining VLM, WAMs and VLA
 
 ## 1. The Problem: General-Purpose Robotics Needs Both Physical Knowledge and Grounding
 
