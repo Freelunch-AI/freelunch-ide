@@ -94,10 +94,11 @@ flowchart TD
     L -->|"Success"| M["Finalize"]
 ```
 
-The agent is responsible for constructing and validating the entire digital twin. It can:
+The agent is responsible for constructing and validating the entire digital twin. Integrating concepts from generative simulation (e.g., RoboGen), the agent utilizes a self-guided propose-generate-learn cycle to automatically scale diverse task creation and scene generation. However, unlike pure LLM-based generators that lack physical accuracy, our agent grounds this generation in multimodal tactile data. It can:
 
 - Inspect the multi-view video and synchronized contact feedback.
-- Identify objects, geometry, and surface contact dynamics.
+- Autonomously propose new sub-tasks and populate pertinent assets to create diversified training environments.
+- Identify objects, geometry, and surface contact dynamics to anchor the generative simulation.
 - Select simulation primitives and contact models, such as rigid, soft-body, or elastoplastic models.
 - Determine which components require learned world-model dynamics.
 - Create simulator code and physical property configurations.
@@ -106,7 +107,7 @@ The agent is responsible for constructing and validating the entire digital twin
 - Compare simulated contact forces and kinematics with physical data.
 - Modify and tune the simulator until the twin reaches the required fidelity.
 
-The agent acts as an AI simulation engineer and system-identification engineer.
+The agent acts as an AI simulation engineer and system-identification engineer, yielding infinite, yet physically grounded, training data.
 
 ---
 
@@ -301,7 +302,7 @@ flowchart TD
 
 ## 7. Training the Robot Policy
 
-Whether the system is learning a pre-known task or learning to correct mistakes on-the-fly, policy optimization proceeds using a unified, large-scale RL approach.
+Whether the system is learning a pre-known task from initial demonstrations or fine-tuning to correct mistakes on-the-fly, policy optimization proceeds using a unified, large-scale RL approach.
 
 The robot policy is represented as:
 
@@ -326,7 +327,7 @@ The pipeline is as follows:
 
 1. **Imagined State Generation:** A 3D Vision-Language Model (VLM) diffusion model acts as an editing model. It processes the initial state and the task description (or language correction) to generate a target **embedded latent state** ($z_{\text{target}}$) representing the successful scenario, rather than rendering raw 3D pixels or voxels.
 2. **Latent Space Embedding:** During simulated rollouts, the current state $s_t$ is continuously embedded into the same latent space to produce $z_t$.
-3. **Latent Similarity Reward:** The system issues a reward based on the similarity between the current embedded state $z_t$ and the imagined target latent $z_{\text{target}}$, if and only if, this reward wasnt already given at a previous state of the trajectory. Penalties are also given if state resembles bad imagined state, in this case, hte panlty can be given multiple times in sequence if the state remains similar to bad.
+3. **Latent Similarity Reward:** The system issues a reward based on the similarity between the current embedded state $z_t$ and the imagined target latent $z_{\text{target}}$.
 4. **Temporal Maintenance (Delta Time):** For tasks requiring sustained action (e.g., holding or carrying), the reward requires the latent similarity to remain above a threshold for a specified time window $\Delta t$.
 5. **Destruction Penalty:** A VLM judge continuously observes the simulated rollouts to detect severe or destructive results—such as knocking a glass over or crushing a paper cup. If an unsafe event occurs, a massive penalty is applied to strictly forbid that behavior.
 
@@ -342,12 +343,6 @@ where:
 * $\text{sim}(\cdot, \cdot)$ is a similarity metric (such as cosine similarity) in the embedded latent space.
 * $\mathbb{I}_{\text{fail}}(s_t) \in \{0, 1\}$ is a Boolean indicator evaluated by the VLM for destructive/catastrophic failures.
 * $w_{\text{goal}}$ and $w_{\text{penalty}}$ are weighting constants.
-
-Before redeployment the robot is evaluated on the exact same setting the human video doing the task was recorded. This evaluation is 3-folded:
-    1. Eval present in training: How much reward it gets
-    2. What 3D VLM (finetuned for this) thinks
-    3. How close is robot trajectory to reference robot trajectory. Where reference robot trajectory is obtained via analytical conversion of the human trajectory extracted from the video.
-
 
 ---
 
@@ -405,9 +400,11 @@ The deployed policy maps high-level human speech to robot control through the SD
 
 Raw neural network policies often produce high-frequency, noisy, or abrupt action sequences. If sent directly to the hardware, these commands can cause jittery movement or damage the physical joints. To ensure safe execution, the Robot SDK acts as a protective translation layer incorporating a real-time Motion Smoother.
 
-Every deployed policy automatically benefits from motion smoothing.
+To ensure low-latency decision-making on resource-constrained physical hardware, the deployed diffusion policy undergoes **Consistency Distillation**. By enforcing self-consistency along the diffusion policy's learned trajectories, the system creates a *Consistency Policy* that can generate an action sequence in a single inference step. This speeds up action generation by an order of magnitude compared to standard iterative denoising.
 
-The smoother takes the intended action input ($a_t$) and context from the action history ($a_{<t}$) to perform online interpolation and jerk-limited trajectory generation.
+Furthermore, every deployed policy automatically benefits from motion smoothing.
+
+The smoother takes the high-speed intended action input ($a_t$) and context from the action history ($a_{<t}$) to perform online interpolation and jerk-limited trajectory generation.
 
 $$
 q_{t+1}, \dot{q}_{t+1}, \ddot{q}_{t+1} = f_{\text{smooth}}(a_t, a_{<t}, q_t, \dot{q}_t, \ddot{q}_t)
