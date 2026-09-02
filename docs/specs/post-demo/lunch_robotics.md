@@ -299,35 +299,9 @@ flowchart TD
 4. **VLM Evaluation**: A Vision-Language Model (VLM) evaluates simulated execution videos to verify that the robot successfully achieves the objective without triggering the identified failure mode.
 5. **Redeployment**: The updated policy parameters are hot-swapped onto the physical robot.
 
-### 6.1 Automated Reward Generation for Correction
-
-When a mistake is identified and a sub-task RL environment is built, the system must automatically formulate a reward function to guide the policy toward the correct behavior. This is achieved through analytical kinematic targeting combined with VLM-based safety guardrails.
-
-The pipeline is as follows:
-
-1. **Exact Scenario Estimation:** The system analyzes the video of the mistake to estimate the precise 3D spatial layout and object poses. This exact scene is used to initialize the RL environment ($s_0$), perfectly recreating the condition just before the failure.
-2. **Human Trajectory Extraction:** Computer vision models process a demonstration video of a human successfully doing the task (or demonstrating the correction) to extract explicit hand and arm waypoint trajectories in 3D space.
-3. **Analytic Kinematic Conversion:** Using the robot's hardware specifications provided by the SDK, the system analytically translates the human hand waypoints into an equivalent, kinematically valid reference trajectory ($q_{\text{ref}}$) for the specific robot joints.
-4. **Tracking Reward:** The environment issues a positive reward based on how closely the robot's generated joint actions ($q_t$) track the analytically converted reference trajectory.
-5. **Destruction Penalty:** A Vision-Language Model (VLM) observes the simulated rollouts to detect severe or destructive results—such as knocking a glass over or breaking a fragile cup. If an unsafe event occurs, a massive penalty is applied to strictly forbid that behavior.
-
-The step reward $r_t$ takes the mathematical form:
-
-```math
-r_t = w_{\text{track}} \exp\left(-\| q_t - q_{\text{ref}, t} \|^2_2\right) - w_{\text{penalty}} \mathbb{I}_{\text{fail}}(s_t)
-```
-
-where:
-* $q_t$ is the current robot joint configuration.
-* $q_{\text{ref}, t}$ is the analytically mapped human reference trajectory at time $t$.
-* $\mathbb{I}_{\text{fail}}(s_t) \in \{0, 1\}$ is a Boolean indicator evaluated by the VLM for destructive/catastrophic failures.
-* $w_{\text{track}}$ and $w_{\text{penalty}}$ are weighting constants, with $w_{\text{penalty}} \gg w_{\text{track}}$ to ensure the robot avoids destructive mistakes at all costs.
-
----
-
 ## 7. Training the Robot Policy
 
-With the calibrated twin and neural surrogate built from tactile interaction data, policy optimization proceeds at scale.
+Whether the system is learning a pre-known task or learning to correct mistakes on-the-fly, policy optimization proceeds using a unified, large-scale RL approach.
 
 The robot policy is represented as:
 
@@ -339,10 +313,41 @@ where:
 
 - $a_t$ is the action at time $t$
 - $o_t$ is the robot's observation
-- $T$ is the task specification
+- $T$ is the task specification (or natural language correction)
 - $\theta$ represents the policy parameters
 
 The surrogate handles massive rollout volume, while the calibrated digital twin verifies contact-heavy manipulation steps to ensure physical grounding.
+
+### 7.1 Unified Reward Generation via Imagined States
+
+Strict kinematic reference trajectories heavily overfit to specific initial scenario settings and are far too brittle for generalized learning. Instead, for robust learning across both new and pre-known tasks, the reward is formulated based on achieving specific **imagined states**—either instantaneously (e.g., *cup inside box*) or maintained for a delta amount of time $\Delta t$ (e.g., *holding a cup*). In this paradigm, "achieving" a state means reaching a high degree of similarity in an embedded latent space.
+
+The pipeline is as follows:
+
+1. **Imagined State Generation:** A 3D Vision-Language Model (VLM) diffusion model acts as an editing model. It processes the initial state and the task description (or language correction) to generate a target **embedded latent state** ($z_{\text{target}}$) representing the successful scenario, rather than rendering raw 3D pixels or voxels.
+2. **Latent Space Embedding:** During simulated rollouts, the current state $s_t$ is continuously embedded into the same latent space to produce $z_t$.
+3. **Latent Similarity Reward:** The system issues a reward based on the similarity between the current embedded state $z_t$ and the imagined target latent $z_{\text{target}}$, if and only if, this reward wasnt already given at a previous state of the trajectory. Penalties are also given if state resembles bad imagined state, in this case, hte panlty can be given multiple times in sequence if the state remains similar to bad.
+4. **Temporal Maintenance (Delta Time):** For tasks requiring sustained action (e.g., holding or carrying), the reward requires the latent similarity to remain above a threshold for a specified time window $\Delta t$.
+5. **Destruction Penalty:** A VLM judge continuously observes the simulated rollouts to detect severe or destructive results—such as knocking a glass over or crushing a paper cup. If an unsafe event occurs, a massive penalty is applied to strictly forbid that behavior.
+
+The step reward $r_t$ is formulated in the latent space as:
+
+$$
+r_t = w_{\text{goal}} \cdot \text{sim}(z_t, z_{\text{target}}) - w_{\text{penalty}} \mathbb{I}_{\text{fail}}(s_t)
+$$
+
+where:
+* $z_t = \text{Encoder}(s_t)$ is the latent embedding of the current simulator state.
+* $z_{\text{target}}$ is the target latent generated by the 3D VLM diffusion editing model.
+* $\text{sim}(\cdot, \cdot)$ is a similarity metric (such as cosine similarity) in the embedded latent space.
+* $\mathbb{I}_{\text{fail}}(s_t) \in \{0, 1\}$ is a Boolean indicator evaluated by the VLM for destructive/catastrophic failures.
+* $w_{\text{goal}}$ and $w_{\text{penalty}}$ are weighting constants.
+
+Before redeployment the robot is evaluated on the exact same setting the human video doing the task was recorded. This evaluation is 3-folded:
+    1. Eval present in training: How much reward it gets
+    2. What 3D VLM (finetuned for this) thinks
+    3. How close is robot trajectory to reference robot trajectory. Where reference robot trajectory is obtained via analytical conversion of the human trajectory extracted from the video.
+
 
 ---
 
@@ -497,10 +502,3 @@ $$
 Delivers zero-to-hero autonomy:
 
 > Provide the tactile probing data, task video, and robot SDK. The AI engine constructs the calibrated physics twin, trains the surrogate and policy, fine-tunes on hardware, and delivers a self-correcting autonomous robot.
-```
-
-Here's the raw Markdown file:
-
-**[Lunch_Robotics_Universal_Brain.md](file:///home/workdir/artifacts/Lunch_Robotics_Universal_Brain.md)**
-
-You can download it directly. It contains the complete unrendered Markdown source ready to copy or use in a GitHub repo.
