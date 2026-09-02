@@ -5,14 +5,17 @@
 We propose an end-to-end engine that turns a useless robot into a useful and self-improving robot, requiring only:
 
 - **Tactile Environment Probing Dataset**: Video and synchronized contact data from a human operating a handheld gripper to interact with, tap, deform, push, and manipulate environment objects and surfaces.
-- **Task Demonstration Dataset**: One video per task of a human performing the task.
-- **Robot Specifications**: The robot's SDK and hardware specification, including kinematics, joint limits, and end-effector dynamics.
+- **Task Demonstration & Tutorial Datasets**: Two distinct videos per task:
+  1. **Task Execution Video**: An uninterrupted recording of a human performing the task. This is not used for learning, it is used for evaluation.
+  2. **Task Tutorial Video**: A video and audio recording of a human explaining the task before and while performing it like a tutorial. These tutorial videos serve as modular **skills** that are dynamically loaded into the context of the action model when a task is invoked.
+- **Robot Specifications**: The robot's SDK and hardware specification (including kinematics, joint limits, and end-effector dynamics) which should be provided by the robot vendor and be a single line of code to provide it to the SDK.
 
 The user should not need to manually build a simulator, design an RL environment, engineer a training curriculum, or train the robot policy.
 
 ### Required Setup
 
-- Interactive Environment + Task Data collected via the tactile-sensing handheld gripper.
+- Interactive Environment Probing Data collected via the tactile-sensing handheld gripper.
+- Two Task Videos per task (Execution Video + Tutorial & Explanation Video).
 - Robot SDK installed on the robot.
 - Robot Hardware Specification exposed through the SDK.
 - Optional environment metadata and hints.
@@ -21,7 +24,7 @@ The engine automatically constructs the simulation environment, calibrates its p
 
 ```mermaid
 flowchart TD
-    A["Interactive Tactile Probing + Task Data"] --> D["Real-to-Sim Agent"]
+    A["Interactive Tactile Probing + 2 Task Videos (Execution + Tutorial)"] --> D["Real-to-Sim Agent"]
     B["Robot SDK + Specs"] --> D
     C["Environment Metadata"] --> D
 
@@ -38,14 +41,14 @@ At deployment time, the user simply gives the robot a task via natural language.
 **Example:**  
 *"Clean the table."*
 
-The task is captured through the robot's audio sensor, converted to text using speech recognition, and passed to the robot policy through the SDK.
+The task is captured through the robot's audio sensor, converted to text using speech recognition, matched with its corresponding task tutorial video skill, and passed alongside the skill context to the robot policy through the SDK.
 
 *(Note: To safeguard initial operations, homes are provided with non-breaking cups and dishes to use during the first month of robot usage.)*
 
 ### The Goal
 
 $$
-\text{Robot} + \text{Tactile Video/Contact Data} + \text{SDK} + \text{Task} \rightarrow \text{Autonomous Robot}
+\text{Robot} + \text{Tactile Video/Contact Data} + \text{2 Task Videos (Execution + Tutorial)} + \text{SDK} + \text{Task} \rightarrow \text{Autonomous Robot}
 $$
 
 ---
@@ -240,23 +243,25 @@ $$
 
 ## 5. Multimodal Data Collection Protocol
 
-To eliminate system-identification ambiguities while keeping setup overhead minimal, data collection uses a specialized, sensor-equipped handheld gripper.
+To eliminate system-identification ambiguities while keeping setup overhead minimal, data collection uses a specialized, sensor-equipped handheld gripper alongside a two-part video collection protocol per task.
 
-The human operator manually interacts with the environment to explicitly ground physical properties.
+The human operator manually interacts with the environment and records the two required task videos.
 
 ```mermaid
 flowchart TD
     A["Handheld Tactile Gripper"] --> B["Environment Interaction Data"]
-    A --> C["Task Demonstration Data"]
+    A --> C["Two Task Videos Per Task"]
 
     B --> D["Physical Surface Sweeps<br/>(Video + Contact/Force/Friction Data)"]
     B --> E["Object Dynamics Exploration<br/>(Pushes, Taps, Lifts, Deformations)"]
 
-    C --> F["Human Task Execution Video"]
+    C --> F1["1. Task Execution Video<br/>(Human just performing task)"]
+    C --> F2["2. Task Tutorial Video<br/>(Human explaining before/during task)"]
 
     D --> G["Real-to-Sim SysID Engine"]
     E --> G
-    F --> H["Goal & Reward Formulation"]
+    F1 --> H["Task Policy Training & Reward Formulation"]
+    F2 --> H["Modular Skill Library Context"]
 ```
 
 ### Data Streams Collected
@@ -284,16 +289,12 @@ Collected signals include:
 - End-effector pose
 - Interaction forces and torques
 
-#### 2. Task Demonstration Video
+#### 2. Two Task Videos Per Task
 
-A clean, uninterrupted recording of a human performing the goal task.
-
-Examples include:
-
-- Sorting objects
-- Wiping a counter
-- Picking up fragile items
-- Manipulating articulated objects
+For every task, the human records two distinct videos:
+1. **Task Execution Video**: An uninterrupted recording of the human performing the task.
+2. **Task Tutorial Video**: A video where the human explains the task before and while doing it, acting as a verbal and visual tutorial. 
+   - **Modular Skill Representation**: These tutorial videos are stored as modular skills and dynamically loaded into the context window of the robot's action model when the task is executed.
 
 This structured exploration grounds object mass, friction profiles, joint resistance, surface stiffness, and compliance directly from real-world contact events before policy training begins.
 
@@ -327,10 +328,10 @@ flowchart TD
 
 Whether the system is learning a pre-known task from initial demonstrations or fine-tuning to correct mistakes on-the-fly, policy optimization proceeds using a unified, large-scale RL approach.
 
-The robot policy is represented as:
+The robot policy is conditioned on observation, task specification, and the dynamically loaded task tutorial skill:
 
 $$
-\pi_{\theta}(a_t \mid o_t, T)
+\pi_{\theta}(a_t \mid o_t, T, S_{\text{tutorial}})
 $$
 
 where:
@@ -338,6 +339,7 @@ where:
 - $a_t$ is the action at time $t$
 - $o_t$ is the robot's observation
 - $T$ is the task specification (or natural language correction)
+- $S_{\text{tutorial}}$ is the retrieved task tutorial video skill loaded into context
 - $\theta$ represents the policy parameters
 
 The surrogate handles massive rollout volume, while the calibrated digital twin verifies contact-heavy manipulation steps to ensure physical grounding.
@@ -352,7 +354,7 @@ The pipeline is as follows:
 
 1. **Imagined Motion Generation:** A 3D Vision-Language Model (VLM) diffusion model acts as an editing model. It processes the initial state and the task description (or language correction) to output a target **embedded latent motion trajectory** ($z_{\text{target}(t:t+\delta)}$) representing the successful temporal sequence, leveraging off-the-shelf video generation model outputs.
 2. **Latent Space Embedding:** During simulated rollouts, the current state trajectory segment $s_{t:t+\delta}$ is continuously embedded into the same latent space to produce $z_{t:t+\delta}$.
-3. **Latent Similarity Reward:** The system issues a reward based on the similarity between the current embedded motion trajectory $z_{t:t+\delta}$ and the imagined target latent motion $z_{\text{target}(t:t+\delta)}$. The rawrd is only give, if and only if, that specifc reward was not given before for that trajectory.
+3. **Latent Similarity Reward:** The system issues a reward based on the similarity between the current embedded motion trajectory $z_{t:t+\delta}$ and the imagined target latent motion $z_{\text{target}(t:t+\delta)}$.
 4. **Temporal Maintenance (Delta Time):** For tasks requiring sustained action (e.g., holding or carrying), the reward requires the latent similarity to remain above a threshold across the window $\Delta t$.
 5. **Destruction Penalty:** A VLM judge continuously observes the simulated rollouts to detect severe or destructive results—such as knocking a glass over or crushing a paper cup. If an unsafe event occurs, a massive penalty is applied to strictly forbid that behavior.
 
@@ -407,7 +409,9 @@ flowchart TD
     C --> D["Fine-Tuned Hardware Policy"]
 ```
 
-Real-world RL adaptation to close the sim-to-real gap is executed **just once every 3 months**. During this periodic phase, the human asks the robot to perform a task and provides natural language feedback explaining what it did wrong, driving the adaptation loop:
+Real-world RL adaptation to close the sim-to-real gap is executed **just once every 3 months (or earlier if the user deems it necessary)**. 
+
+To perform this update, the user records a new tactile-aware video of themselves manipulating items in the house using the handheld tactile gripper. During this periodic or on-demand phase, the human asks the robot to perform a task and provides natural language feedback explaining what it did wrong, driving the adaptation loop:
 
 $$
 \text{Task Generation} \rightarrow \text{Real Interaction} \rightarrow \text{VLM Evaluation} \rightarrow \text{Reward} \rightarrow \text{RL Update}
@@ -505,13 +509,13 @@ Promising or high-risk trajectories can then be evaluated using the higher-fidel
 
 ```mermaid
 flowchart TD
-    A["1. MULTIMODAL PROBING<br/><br/>Handheld Gripper Tactile Video + Contact Data<br/>+ Task Video<br/>+ Robot Hardware Specs"]
+    A["1. MULTIMODAL PROBING<br/><br/>Handheld Gripper Tactile Video + Contact Data<br/>+ 2 Task Videos (Execution + Tutorial)<br/>+ Robot Hardware Specs"]
 
     A --> B["2. CONSTRUCT & CALIBRATE<br/><br/>Real-to-Sim Agent<br/>↓<br/>Multimodal SysID (Mass, Friction, Stiffness)<br/>↓<br/>Calibrated Digital Twin<br/>↓<br/>Learned Surrogate Simulator"]
 
-    B --> C["3. LEARN<br/><br/>Massive RL on Surrogate<br/>↓<br/>High-Fidelity Twin Validation<br/>↓<br/>Real-World RL Fine-Tuning (Every 3 Months)"]
+    B --> C["3. LEARN<br/><br/>Massive RL on Surrogate (Conditioned on Task Tutorial Skill Contexts)<br/>↓<br/>High-Fidelity Twin Validation<br/>↓<br/>Real-World RL Fine-Tuning (Every 3 Months / On-Demand via Re-Probing Video)"]
 
-    C --> D["4. DEPLOY & ADAPT<br/><br/>Audio Task Input → Planner LLM Guardrails → Policy → Robot SDK → Motion Smoother → Hardware Controller → Robot<br/>↓<br/>Inference-Time Counterfactual Search<br/>↓<br/>On-the-Fly Human Feedback Correction Loop (VLM Judged)"]
+    C --> D["4. DEPLOY & ADAPT<br/><br/>Audio Task Input → Task Tutorial Skill Retrieval → Planner LLM Guardrails → Policy → Robot SDK → Motion Smoother → Hardware Controller → Robot<br/>↓<br/>Inference-Time Counterfactual Search<br/>↓<br/>On-the-Fly Human Feedback Correction Loop (VLM Judged)"]
 ```
 
 The complete system therefore forms a continuous loop:
@@ -533,11 +537,11 @@ The central hypothesis is:
 Instead of relying on pure video estimation or uncalibrated physics:
 
 $$
-\text{Interactive Tactile/Video Data} \rightarrow \text{Agentic Multimodal SysID} \rightarrow \text{Calibrated Twin} \rightarrow 	ext{Fast Surrogate RL} \rightarrow \text{Real Adaptation} \rightarrow \text{VLM-Guided Self-Correction}
+\text{Interactive Tactile/Video Data} \rightarrow \text{Agentic Multimodal SysID} \rightarrow \text{Calibrated Twin} \rightarrow \text{Fast Surrogate RL} \rightarrow \text{Real Adaptation} \rightarrow \text{VLM-Guided Self-Correction}
 $$
 
 ### The Product Vision
 
 Delivers zero-to-hero autonomy:
 
-> Provide the tactile probing data, task video, and robot SDK. The AI engine constructs the calibrated physics twin, trains the surrogate and policy, fine-tunes on hardware, and delivers a self-correcting autonomous robot.
+> Provide the tactile probing data, the two task videos (execution and explanatory tutorial), and the robot SDK. The AI engine constructs the calibrated physics twin, trains the surrogate and policy using dynamic skill context, fine-tunes on hardware, and delivers a self-correcting autonomous robot.
