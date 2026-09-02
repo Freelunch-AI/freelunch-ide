@@ -299,6 +299,30 @@ flowchart TD
 4. **VLM Evaluation**: A Vision-Language Model (VLM) evaluates simulated execution videos to verify that the robot successfully achieves the objective without triggering the identified failure mode.
 5. **Redeployment**: The updated policy parameters are hot-swapped onto the physical robot.
 
+### 6.1 Automated Reward Generation for Correction
+
+When a mistake is identified and a sub-task RL environment is built, the system must automatically formulate a reward function to guide the policy toward the correct behavior. This is achieved through analytical kinematic targeting combined with VLM-based safety guardrails.
+
+The pipeline is as follows:
+
+1. **Exact Scenario Estimation:** The system analyzes the video of the mistake to estimate the precise 3D spatial layout and object poses. This exact scene is used to initialize the RL environment ($s_0$), perfectly recreating the condition just before the failure.
+2. **Human Trajectory Extraction:** Computer vision models process a demonstration video of a human successfully doing the task (or demonstrating the correction) to extract explicit hand and arm waypoint trajectories in 3D space.
+3. **Analytic Kinematic Conversion:** Using the robot's hardware specifications provided by the SDK, the system analytically translates the human hand waypoints into an equivalent, kinematically valid reference trajectory ($q_{\text{ref}}$) for the specific robot joints.
+4. **Tracking Reward:** The environment issues a positive reward based on how closely the robot's generated joint actions ($q_t$) track the analytically converted reference trajectory.
+5. **Destruction Penalty:** A Vision-Language Model (VLM) observes the simulated rollouts to detect severe or destructive results—such as knocking a glass over or breaking a fragile cup. If an unsafe event occurs, a massive penalty is applied to strictly forbid that behavior.
+
+The step reward $r_t$ takes the mathematical form:
+
+```math
+r_t = w_{\text{track}} \exp\left(-\| q_t - q_{\text{ref}, t} \|^2_2\right) - w_{\text{penalty}} \mathbb{I}_{\text{fail}}(s_t)
+```
+
+where:
+* $q_t$ is the current robot joint configuration.
+* $q_{\text{ref}, t}$ is the analytically mapped human reference trajectory at time $t$.
+* $\mathbb{I}_{\text{fail}}(s_t) \in \{0, 1\}$ is a Boolean indicator evaluated by the VLM for destructive/catastrophic failures.
+* $w_{\text{track}}$ and $w_{\text{penalty}}$ are weighting constants, with $w_{\text{penalty}} \gg w_{\text{track}}$ to ensure the robot avoids destructive mistakes at all costs.
+
 ---
 
 ## 7. Training the Robot Policy
