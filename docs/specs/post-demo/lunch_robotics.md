@@ -431,10 +431,10 @@ Before deployment, the system undergoes extensive safety Supervised Fine-Tuning 
 - **Penalty Optimization**: Similar to how it learns desirable behaviors, the policy receives massive penalties for hazardous actions. Its explicit optimization objective is to achieve zero penalties even when coaxed or instructed to execute risky routines.
 - **Resulting Behavioral Bounds**: This conditioning ensures the robot develops robust behavioral boundaries against executing hazardous or forbidden actions in real homes.
 
-### 10.2 Planner LLM Rejection of Risky Tasks
-Beyond low-level policy safeguards, high-level task execution relies on a central planner LLM:
-- **Intent Screening**: The high-level planner LLM responsible for parsing user intent and defining sub-tasks is explicitly trained and fine-tuned to recognize and **reject** dangerous or risky tasks.
-- **Safe Fallback**: When presented with a harmful or unsafe request (e.g., handling delicate items in unstable storage zones), the planner LLM refuses the instruction and prompts the user for clarification or a safe alternative, preventing the downstream policy from ever generating execution trajectories.
+### 10.2 Planner (3D VLM) Rejection of Risky Tasks
+Beyond low-level policy safeguards, high-level task execution relies on a central planner 3D VLM:
+- **Intent Screening**: The high-level planner 3D VLM responsible for parsing user intent and defining sub-tasks is explicitly trained and fine-tuned to recognize and **reject** dangerous or risky tasks.
+- **Safe Fallback**: When presented with a harmful or unsafe request (e.g., handling delicate items in unstable storage zones), the planner 3D VLM refuses the instruction and prompts the user for clarification or a safe alternative, preventing the downstream policy from ever generating execution trajectories.
 
 ---
 
@@ -515,7 +515,7 @@ flowchart TD
 
     B --> C["3. LEARN<br/><br/>Massive RL on Surrogate (Conditioned on Task Tutorial Skill Contexts)<br/>↓<br/>High-Fidelity Twin Validation<br/>↓<br/>Real-World RL Fine-Tuning (Every 3 Months / On-Demand via Re-Probing Video)"]
 
-    C --> D["4. DEPLOY & ADAPT<br/><br/>Audio Task Input → Task Tutorial Skill Retrieval → Planner LLM Guardrails → Policy → Robot SDK → Motion Smoother → Hardware Controller → Robot<br/>↓<br/>Inference-Time Counterfactual Search<br/>↓<br/>On-the-Fly Human Feedback Correction Loop (VLM Judged)"]
+    C --> D["4. DEPLOY & ADAPT<br/><br/>Audio Task Input → Task Tutorial Skill Retrieval → Planner 3d VLM Guardrails → Policy → Robot SDK → Motion Smoother → Hardware Controller → Robot<br/>↓<br/>Inference-Time Counterfactual Search<br/>↓<br/>On-the-Fly Human Feedback Correction Loop (VLM Judged)"]
 ```
 
 The complete system therefore forms a continuous loop:
