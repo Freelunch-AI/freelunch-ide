@@ -48,6 +48,27 @@ $$
 
 ---
 
+## 0. Foundation: Pre-Existing Base Models and General SFT Phase
+
+Before initiating any environment-specific procedures, calibration, or deployment workflows, the entire engine is built upon a robust foundational training phase. This phase establishes broad, cross-domain capabilities across diverse scenarios before any targeted adaptation takes place.
+
+### 0.1 Pre-Existing Base Models
+The architecture rests upon a suite of powerful pre-existing foundational models that provide core priors across modalities:
+- **Base Robot Action Model**: Supplies foundational motor primitives and generalized manipulation skills.
+- **Base 3D Editing Model**: Powers spatial reasoning, scene manipulation, and generative latent state modifications.
+- **Base 2D World Model**: Captures visual dynamics, temporal transitions, and environmental continuity.
+- **Base Agent Coding LLM**: Drives tool use, reasoning, simulation code generation, and error diagnosis.
+
+### 0.2 General SFT Phase
+On top of these pre-existing base models, the system undergoes an extensive **Supervised Fine-Tuning (SFT) training phase**. This phase exposes the models to vast collections of:
+- **General Environments**: Diverse synthetic and recorded spatial layouts, material types, and physics profiles.
+- **Task Variations**: A comprehensive spectrum of manipulation, locomotion, and interaction primitives.
+- **Scenario Variations**: Edge cases, dynamic obstacles, multi-agent interactions, and varying lighting or spatial geometries.
+
+This general SFT phase ensures that the models possess deep semantic understanding, robust tool-use proficiency, and broad spatial-temporal reasoning. Consequently, when a user provides specific tactile probing data and robot specifications for a deployment environment, the system does not learn from scratch; instead, it leverages these generalized priors to rapidly specialize into a high-fidelity digital twin and policy.
+
+---
+
 ## 1. The Real-to-Sim Agent
 
 The digital twin is constructed by an autonomous agent rather than a fixed reconstruction pipeline.
@@ -493,9 +514,3 @@ Instead of relying on pure video estimation or uncalibrated physics:
 $$
 \text{Interactive Tactile/Video Data} \rightarrow \text{Agentic Multimodal SysID} \rightarrow \text{Calibrated Twin} \rightarrow \text{Fast Surrogate RL} \rightarrow \text{Real Adaptation} \rightarrow \text{VLM-Guided Self-Correction}
 $$
-
-### The Product Vision
-
-Delivers zero-to-hero autonomy:
-
-> Provide the tactile probing data, task video, and robot SDK. The AI engine constructs the calibrated physics twin, trains the surrogate and policy, fine-tunes on hardware, and delivers a self-correcting autonomous robot.
