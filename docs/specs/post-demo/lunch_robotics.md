@@ -4,25 +4,25 @@
 
 We propose an end-to-end engine that turns a useless robot into a useful and self-improving robot, requiring only:
 
-* Video data of its environment
-* One video per task of a human performing the task
-* The robot's SDK and hardware specification
+* **Tactile Environment Probing Dataset:** Video and synchronized contact data from a human operating a handheld gripper to interact with, tap, deform, push, and manipulate environment objects and surfaces.
+* **Task Demonstration Dataset:** One video per task of a human performing the task.
+* **Robot Specifications:** The robot's SDK and hardware specification, including kinematics, joint limits, and end-effector dynamics.
 
 The user should not need to manually build a simulator, design an RL environment, engineer a training curriculum, or train the robot policy.
 
 The required setup is:
 
-1. **Environment + Task Data** collected in the target environment (straightforward video of the environment and a human doing the task)
-2. **Robot SDK** installed on the robot
-3. **Robot Hardware Specification** exposed through the SDK
-4. Optional environment metadata and hints
+1. **Interactive Environment + Task Data** collected via the tactile-sensing handheld gripper.
+2. **Robot SDK** installed on the robot.
+3. **Robot Hardware Specification** exposed through the SDK.
+4. Optional environment metadata and hints.
 
-The engine automatically:
+The engine automatically constructs the simulation environment, calibrates its physics, trains the robot policy, and adapts it to the physical hardware.
 
 ```mermaid
 flowchart TD
-    A["Environment + Task Video"] --> D["Real-to-Sim Agent"]
-    B["Robot SDK"] --> D
+    A["Interactive Tactile Probing + Task Data"] --> D["Real-to-Sim Agent"]
+    B["Robot SDK + Specs"] --> D
     C["Environment Metadata"] --> D
 
     D --> E["Calibrated Digital Twin"]
@@ -33,7 +33,7 @@ flowchart TD
     I --> J["Deployment"]
 ```
 
-At deployment time, the user simply gives the robot a task.
+At deployment time, the user simply gives the robot a task via natural language.
 
 For example:
 
@@ -44,25 +44,33 @@ The task is captured through the robot's audio sensor, converted to text using s
 The goal is:
 
 ```math
-\text{Robot} + \text{Video} + \text{SDK} + \text{Task}
+\text{Robot}
++
+\text{Tactile Video/Contact Data}
++
+\text{SDK}
++
+\text{Task}
 \rightarrow
 \text{Autonomous Robot}
 ```
+
+---
 
 # 1. The Real-to-Sim Agent
 
 The digital twin is constructed by an autonomous agent rather than a fixed reconstruction pipeline.
 
-The agent is a **purposefully RL-trained LLM agent** whose task is to convert real-world interaction data into a sensible, executable, and calibrated simulation.
+The agent is a **purposefully RL-trained LLM agent** whose task is to convert real-world multimodal interaction data into a sensible, executable, and calibrated simulation.
 
 The agent is equipped with a toolbox for:
 
-* Video understanding
-* 3D reconstruction
+* Multimodal video and tactile/contact signal parsing
+* 3D scene and object reconstruction
 * Simulator construction
-* Physics simulation
-* Trajectory extraction
-* System identification
+* Physics simulation and contact modeling
+* Trajectory and wrench/force extraction
+* System identification and material property estimation
 * Parameter optimization
 * Simulation evaluation
 * Experiment design
@@ -71,13 +79,13 @@ The agent is equipped with a toolbox for:
 
 ```mermaid
 flowchart TD
-    A["Video"] --> B["Real-to-Sim LLM Agent"]
+    A["Tactile Video + Contact Data"] --> B["Real-to-Sim LLM Agent"]
 
     B --> C["Geometry"]
     B --> D["Objects"]
     B --> E["Agents"]
-    B --> F["Physics"]
-    B --> G["Materials"]
+    B --> F["Physics & Contact Parameters"]
+    B --> G["Materials & Compliance"]
     B --> H["World Model"]
 
     C --> I["Initial Digital Twin"]
@@ -99,45 +107,38 @@ The agent is responsible for **constructing and validating the entire digital tw
 
 It can:
 
-* Inspect the video
-* Identify objects and agents
-* Reconstruct relevant geometry
-* Select simulation primitives
-* Determine which components should use explicit physics
-* Determine which components require learned world-model dynamics
-* Incorporate environment hints
-* Create simulator code and configuration
-* Identify uncertain parameters
-* Invoke system-identification tools
-* Run optimization and simulation experiments
-* Compare simulated and real trajectories
-* Diagnose mismatches
-* Modify the simulator
-* Repeat the process until the twin reaches the required fidelity
+* Inspect the multi-view video and synchronized contact feedback.
+* Identify objects, geometry, and surface contact dynamics.
+* Select simulation primitives and contact models, such as rigid, soft-body, or elastoplastic models.
+* Determine which components require learned world-model dynamics.
+* Create simulator code and physical property configurations.
+* Identify uncertain physical parameters, such as mass, friction, compliance, and damping.
+* Invoke specialized system-identification tools against contact trajectories.
+* Compare simulated contact forces and kinematics with physical data.
+* Modify and tune the simulator until the twin reaches the required fidelity.
 
-The agent therefore acts as an **AI simulation engineer and system-identification engineer**.
+The agent acts as an **AI simulation engineer and system-identification engineer**.
+
+---
 
 # 2. Agentic System Identification
 
-The initial digital twin produced from video will inevitably be imperfect.
+Passive video alone leaves physical properties fundamentally under-constrained. Synchronized tactile and force data collected during human exploration removes these ambiguities.
 
-The critical insight is that the Real-to-Sim Agent does not need to solve system identification directly.
+The Real-to-Sim Agent uses **specialized system-identification tools** to optimize the simulator against multimodal real-world trajectories.
 
-Instead, it is equipped with **specialized system-identification tools** that allow it to measure and optimize the simulator against real-world observations.
+The agent first infers approximate physical bounds:
 
-The agent may initially infer:
+> "This object appears to be a wooden block."
 
-> "This object is a wooden table."
-
-and construct a corresponding simulation model.
-
-But many numerical parameters remain unknown:
+It then estimates the numerical parameter vector:
 
 ```math
 \theta =
 \begin{bmatrix}
 m \\
-\mu \\
+\mu_s \\
+\mu_d \\
 e \\
 k \\
 c \\
@@ -145,82 +146,62 @@ c \\
 \end{bmatrix}
 ```
 
-where the parameters may include:
+where the parameters include:
 
 * $m$: mass
-* $\mu$: friction
-* $e$: elasticity or coefficient of restitution
-* $k$: stiffness
-* $c$: damping
-* Other dynamics parameters
-
-The agent can invoke system-identification tools to estimate them.
-
-For example:
+* $\mu_s$: static friction coefficient
+* $\mu_d$: dynamic friction coefficient
+* $e$: coefficient of restitution
+* $k$: contact stiffness / compliance
+* $c$: damping factor
 
 ```mermaid
 flowchart TD
-    A["Real-World Trajectories"] --> B["Real-to-Sim Agent"]
+    A["Real-World Contact Trajectories<br/>(Video + Force/Tactile Data)"] --> B["Real-to-Sim Agent"]
 
-    B --> C["Identify Uncertain Parameter"]
+    B --> C["Identify Uncertain Physics Parameter"]
     C --> D["System ID Tool"]
-    D --> E["Parameter Search"]
+    D --> E["Parameter Optimization"]
     E --> F["Simulator Rollout"]
-    F --> G["Compare With Reality"]
-    G --> H["Error"]
+    F --> G["Compare Kinematics + Contact Wrench"]
+    G --> H["Multimodal Loss/Error"]
     H --> I["Agent Diagnoses Mismatch"]
 
     I -->|"Revise"| B
     I -->|"Sufficient Fidelity"| J["Finalize"]
 ```
 
-A generic optimization objective is:
+The optimization objective minimizes both state kinematic trajectories $\tau$ and contact wrench trajectories $W$:
 
 ```math
 \theta^*
 =
 \arg\min_{\theta}
-D\left(
+\left(
+D_{\text{kin}}
+\left(
 \tau_{\mathrm{real}},
 \tau_{\mathrm{sim}}(\theta)
 \right)
++
+\lambda
+D_{\text{force}}
+\left(
+W_{\mathrm{real}},
+W_{\mathrm{sim}}(\theta)
+\right)
+\right)
 ```
 
-The agent does not need to perform this numerical optimization itself.
+The LLM agent reasons about physical discrepancies at a high level, selects parameters to unfreeze, and uses optimization tools to solve for physical parameters.
 
-Instead, it **decides when and how to use the optimization tools**, what parameters to expose, which observations to compare, and whether the resulting simulator is sufficiently accurate.
-
-This creates an agentic system-identification loop:
-
-```math
-\text{Observe}
-\rightarrow
-\text{Hypothesize}
-\rightarrow
-\text{Simulate}
-\rightarrow
-\text{Measure Error}
-\rightarrow
-\text{Optimize}
-\rightarrow
-\text{Revise}
-```
-
-The division of labor is therefore:
-
-> **The LLM reasons about the structure and debugging of the simulator; specialized system-identification tools perform the numerical estimation.**
-
-This is analogous to giving a software engineer a compiler, profiler, debugger, and test suite rather than expecting the engineer to perform those operations manually.
+---
 
 # 3. Agentic Entities Are Simulated by a General World Model
 
-Not every entity in the environment can be adequately represented by traditional physics.
+Entities that exhibit complex, non-scripted behaviors, such as humans, pets, or other dynamic agents, are simulated using a **general world model**.
 
-Humans, cars, pedestrians, animals, and other robots make decisions.
-
-The digital twin therefore uses a **general world model as the behavioral baseline for agentic entities**.
-
-Rather than requiring access to their internal actions, the model predicts their future states directly from observations.
+Rather than requiring internal state access, the model predicts future states directly from observation histories:
 
 ```math
 S^{\mathrm{agent}}_{t+1:t+H}
@@ -234,59 +215,29 @@ E
 \right)
 ```
 
-The same general world model can simulate different types of agentic entities.
-
-Its predictions implicitly combine behavioral decisions with unobserved low-level dynamics.
-
-The simulator therefore becomes:
+The simulator composes deterministic physics with learned behavioral dynamics:
 
 ```math
 \text{Digital Twin}
 =
-\text{Explicit Physics}
+\text{Explicit Physics (Calibrated via Tactile Data)}
 +
 \text{General World Model}
 ```
 
-The Real-to-Sim Agent determines how these components should be composed and can use observed interaction data to validate the resulting behavior.
+This allows the digital twin to combine highly calibrated physical interactions with learned dynamics for entities whose behavior cannot be efficiently described through explicit physics alone.
+
+---
 
 # 4. Surrogate Models Accelerate Simulation
 
-Once the digital twin has been calibrated, the engine can use it to generate large amounts of high-quality synthetic experience.
-
-However, high-fidelity physics simulation can itself become a computational bottleneck when reinforcement learning requires millions or billions of environment steps.
-
-The calibrated digital twin therefore becomes the **teacher for a learned surrogate simulator**.
-
-The engine generates trajectories from the calibrated simulator and trains a neural surrogate to approximate its state transitions:
+Once the digital twin has been calibrated using physical interaction data, it serves as the teacher for a learned neural surrogate simulator.
 
 ```math
 f_{\mathrm{sim}}(s_t, a_t)
 \approx
 f_{\mathrm{surrogate}}(s_t, a_t)
 ```
-
-The surrogate can learn to predict future states directly:
-
-```math
-s_{t+1}
-\approx
-\hat{f}_{\psi}(s_t, a_t)
-```
-
-or, for longer horizons:
-
-```math
-s_{t+1:t+H}
-\approx
-\hat{F}_{\psi}
-\left(
-s_t,
-a_{t:t+H-1}
-\right)
-```
-
-The training process is:
 
 ```mermaid
 flowchart TD
@@ -303,114 +254,120 @@ flowchart TD
     H -->|"Sufficient Accuracy"| I["Continue Training"]
 ```
 
-The surrogate is not intended to replace the digital twin as the source of truth.
+The surrogate is not intended to replace the high-fidelity simulator completely.
 
-The **calibrated digital twin remains the high-fidelity reference model**.
+Instead, it provides a much faster approximation that allows orders of magnitude more policy rollouts during RL.
 
-The surrogate is an acceleration layer that approximates the twin well enough for computationally intensive workloads such as massive-scale policy optimization and counterfactual exploration.
-
-This creates a hierarchy:
+The hierarchy operates as:
 
 ```math
-\text{Real World}
+\text{Real World (Tactile + Video)}
 \rightarrow
 \text{Calibrated Digital Twin}
 \rightarrow
 \text{Surrogate Model}
 \rightarrow
-\text{Fast Simulation}
-\rightarrow
-\text{Large-Scale RL}
+\text{Fast Simulation RL}
 ```
 
-The surrogate does not necessarily need to reproduce every physical detail of the digital twin.
+---
 
-Instead, it should accurately model the aspects of the dynamics that are relevant to the robot's current learning and planning problems.
+# 5. Multimodal Data Collection Protocol
 
-This can make simulation substantially cheaper because neural inference can be much faster than repeatedly solving complex physics interactions.
+To eliminate system-identification ambiguities while keeping setup overhead minimal, data collection uses a specialized, sensor-equipped handheld gripper.
 
-The calibrated digital twin remains available for validation and correction.
-
-When the surrogate encounters states where its predictions become unreliable, those states can be sent back to the high-fidelity simulator to generate additional training data.
-
-This produces an active refinement loop:
-
-```math
-\text{Surrogate Rollout}
-\rightarrow
-\text{Uncertainty / Error Detection}
-\rightarrow
-\text{High-Fidelity Simulation}
-\rightarrow
-\text{New Training Data}
-\rightarrow
-\text{Surrogate Update}
-```
-
-The result is a **multi-fidelity simulation system** in which:
-
-* The **real world** provides the initial observations.
-* The **calibrated digital twin** provides high-fidelity physics and behavioral simulation.
-* The **surrogate model** provides extremely fast approximate simulation.
-* **RL** exploits the cheap simulation to perform large-scale policy optimization.
-* The high-fidelity digital twin remains available for validation and correction.
-
-The key idea is:
-
-> **Use expensive simulation to learn the simulator's dynamics, then use the learned surrogate to make simulation cheap enough for massive-scale robot learning.**
-
-# 5. Data Collection Protocol
-
-To minimize deployment friction, data collection is kept as simple and non-intrusive as possible.
-
-The user or operator provides only straightforward, easy-to-capture video recordings:
-
-1. **Environment Video:** A simple video sweep showing the physical workspace, key objects, geometry, and lighting conditions.
-2. **Task Demonstration Video:** A video of a human naturally performing the target task in that environment (e.g., picking up a cup, organizing items, cleaning a surface).
+The human operator manually interacts with the environment to explicitly ground physical properties.
 
 ```mermaid
 flowchart TD
-    A["Simple Video Data"] --> B["Environment Video"]
-    A --> C["Human Task Demonstration"]
+    A["Handheld Tactile Gripper"] --> B["Environment Interaction Data"]
+    A --> C["Task Demonstration Data"]
 
-    B --> D["Geometry & Object Extraction"]
-    C --> E["Task Goals & Motion Baselines"]
+    B --> D["Physical Surface Sweeps<br/>(Video + Contact/Force/Friction Data)"]
+    B --> E["Object Dynamics Exploration<br/>(Pushes, Taps, Lifts, Deformations)"]
 
-    D --> F["Real-to-Sim Agent"]
-    E --> F
+    C --> F["Human Task Execution Video"]
+
+    D --> G["Real-to-Sim SysID Engine"]
+    E --> G
+    F --> H["Goal & Reward Formulation"]
 ```
 
-No specialized sensors, motion-capture suits, complex interaction trials, or complex robot behavior protocols are required. The Real-to-Sim Agent uses this video data to automatically deduce the environment's layout, target objects, and task objectives.
+### Data Streams Collected
+
+#### 1. Interactive Environment Probing
+
+A human holds a sensorized gripper and systematically "plays" with the target workspace.
+
+The operator:
+
+* Taps surfaces
+* Slides across tables
+* Lifts objects
+* Pushes objects
+* Squeezes objects
+* Deforms compliant materials
+* Manipulates objects under different contact conditions
+
+**Collected signals include:**
+
+* RGB-D video streams
+* High-frequency contact forces
+* Tactile pressure maps
+* Slipping indicators
+* End-effector pose
+* Interaction forces and torques
+
+#### 2. Task Demonstration Video
+
+A clean, uninterrupted recording of a human performing the goal task.
+
+Examples include:
+
+* Sorting objects
+* Wiping a counter
+* Picking up fragile items
+* Manipulating articulated objects
+
+This structured exploration grounds object mass, friction profiles, joint resistance, surface stiffness, and compliance directly from real-world contact events before policy training begins.
+
+---
 
 # 6. On-the-Fly Learning from Human Feedback
 
-Deployment is not a static end state; the robot continually learns and improves through live human feedback.
+Deployment is continuous and adaptive.
 
-When the robot makes a mistake or fails to complete a task as expected during execution, the human operator provides real-time feedback (via voice command, gesture, or interface input, such as "No, don't drop the cup like that, set it down gently").
+When the robot makes an error in the physical world, the human operator provides on-the-fly corrections via natural language, voice, or spatial gestures.
 
 ```mermaid
 flowchart TD
-    A["Human Feedback on Real-World Mistake"] --> B["Robot Brain Parses Feedback"]
-    B --> C["Generate Task-Specific RL Env in Digital Twin"]
-    C --> D["RL Policy Fine-Tuning in Simulation"]
-    D --> E["VLM Evaluates Rollout"]
-    E -->|"Mistake Still Present"| C
+    A["Human Feedback on Real-World Mistake"] --> B["Robot Brain Parses Failure Mode"]
+    B --> C["Instantiate Sub-Task RL Env in Calibrated Twin"]
+    C --> D["Targeted RL Policy Fine-Tuning"]
+    D --> E["VLM Judge Evaluates Rollout"]
+    E -->|"Mistake Unresolved"| C
     E -->|"Mistake Resolved"| F["Deploy Updated Policy"]
 ```
 
-### Self-Correction Loop via Digital Twin
+### Self-Correction Loop
 
-1. **Feedback Parsing:** The robot's central reasoning brain interprets the human's feedback to pinpoint the specific failure mode or sub-task error (e.g., wrong release height, improper force, incorrect placement trajectory).
-2. **Automated RL Sub-Environment Creation:** The brain prompts the calibrated digital twin to instantiate a specialized, highly targeted RL training environment that recreates the precise state, geometry, and conditions under which the mistake occurred.
-3. **Simulated Policy Refinement:** The policy undergoes focused reinforcement learning within this virtual environment to correct the error without requiring costly or risky physical trial-and-error.
-4. **VLM Validation:** Before re-deploying to the physical robot, a Vision-Language Model (VLM) inspects simulated video rollouts of the newly trained policy. The VLM acts as an automated judge to verify whether the policy indeed resolved the specific error pointed out by the human.
-5. **Redeployment:** Once the VLM confirms resolution, the updated policy parameters are deployed back to the physical robot.
+1. **Feedback Parsing:** The robot's central reasoning engine translates natural-language critique, such as *"You're squeezing the paper cup too hard and crushing it,"* into concrete physical parameter bounds and failure predicates.
+
+2. **Automated RL Sub-Environment Generation:** The digital twin instantiates a specialized micro-simulation environment replicating the precise spatial state, contact properties, and dynamic parameters where the failure occurred.
+
+3. **Simulated Policy Refinement:** The policy undergoes focused RL updates inside the sub-environment to learn corrected wrench and trajectory profiles.
+
+4. **VLM Evaluation:** A Vision-Language Model (VLM) evaluates simulated execution videos to verify that the robot successfully achieves the objective without triggering the identified failure mode.
+
+5. **Redeployment:** The updated policy parameters are hot-swapped onto the physical robot.
+
+---
 
 # 7. Training the Robot Policy
 
-Once the digital twin has been constructed and calibrated, and the surrogate model has been trained, the engine trains the robot's policy using fast simulation.
+With the calibrated twin and neural surrogate built from tactile interaction data, policy optimization proceeds at scale.
 
-The policy learns:
+The robot policy is represented as:
 
 ```math
 \pi_{\theta}(a_t \mid o_t, T)
@@ -418,116 +375,52 @@ The policy learns:
 
 where:
 
-* $o_t$ is the robot's observation
-* $T$ is the task
-* $a_t$ is the robot action
+* $a_t$ is the action at time $t$.
+* $o_t$ is the robot's observation.
+* $T$ is the task specification.
+* $\theta$ represents the policy parameters.
 
-The task is an explicit conditioning variable.
+The surrogate handles massive rollout volume, while the calibrated digital twin verifies contact-heavy manipulation steps to ensure physical grounding.
 
-A single trained policy can therefore learn to perform many tasks rather than requiring a separate policy for every task.
-
-The surrogate simulator provides massive amounts of experience:
-
-```math
-S_0
-\rightarrow
-A_0
-\rightarrow
-S_1
-\rightarrow
-A_1
-\rightarrow
-\cdots
-```
-
-allowing reinforcement learning to explore policies without consuming physical robot time.
-
-The high-fidelity calibrated digital twin remains available to validate policies and correct surrogate-model errors.
+---
 
 # 8. Curriculum Learning
 
-Training begins with simple tasks and progressively increases difficulty.
-
-The curriculum can vary:
-
-* Task length
-* Number of objects
-* Environmental clutter
-* Precision requirements
-* Number of interactions
-* Disturbances
-* Uncertainty
-* Presence of other agents
-* Consequences of failure
+Training scales from basic object manipulation to complex tasks across increasingly difficult environmental variables.
 
 ```mermaid
 flowchart TD
-    A["Simple Task"] --> B["More Objects"]
-    B --> C["More Complex Manipulation"]
-    C --> D["Longer Horizon"]
-    D --> E["Dynamic Environment"]
-    E --> F["Other Agents"]
-    F --> G["Complex Task"]
+    A["Simple Single-Object Contact"] --> B["Multi-Object Clutter"]
+    B --> C["Precise / Compliant Manipulation"]
+    C --> D["Long-Horizon Sequences"]
+    D --> E["Dynamic Environments"]
+    E --> F["Full Task Autonomy"]
 ```
 
-The curriculum can be automatically generated and adjusted based on the robot's performance.
+The curriculum progressively increases:
 
-The surrogate can provide the computational throughput required to explore large numbers of curriculum variations.
+* Number of interacting objects
+* Contact complexity
+* Precision requirements
+* Material variability
+* Environmental dynamics
+* Task horizon
+* Degree of uncertainty
 
-Policies or candidate behaviors can periodically be evaluated in the high-fidelity digital twin to ensure that optimization remains grounded in the calibrated simulation.
+---
 
 # 9. Real-World RL Closes the Sim-to-Real Gap
 
-Simulation is not expected to perfectly reproduce reality.
-
-Before deployment, the simulation-trained policy therefore undergoes a final stage of **real-world reinforcement learning**.
-
-This stage also uses curriculum learning.
-
-The robot begins with simple, low-risk tasks and progressively moves toward more complex tasks.
+A final adaptation stage grounds the policy directly on physical hardware.
 
 ```mermaid
 flowchart TD
-    A["Simulation RL"] --> B["Initial Policy"]
-    B --> C["Real-World RL"]
-
-    C --> D["Simple Tasks"]
-    C --> E["Complex Tasks"]
-
-    D --> F["Progressive Curriculum"]
-    E --> F
-
-    F --> G["Deployment"]
+    A["Surrogate / Twin RL Policy"] --> B["Real-World RL Adaptation"]
+    B --> C["VLM Automated Task Generation & Reward"]
+    C --> D["Fine-Tuned Hardware Policy"]
 ```
 
-The purpose is not to relearn the entire policy.
-
-It is to adapt the simulation-trained policy to:
-
-* Residual physics errors
-* Actuator imperfections
-* Perception errors
-* Unmodeled dynamics
-* Real-world agent behavior
-* Discrepancies between simulation and reality
-
-A VLM provides automated task generation and reward evaluation.
-
-```mermaid
-flowchart TD
-    A["VLM"] --> B["Task Generation"]
-    A --> C["Reward Evaluation"]
-
-    B --> D["Robot"]
-    D --> C
-
-    C --> E["RL Update"]
-    E --> B
-```
-
-The VLM can generate increasingly difficult tasks and evaluate the robot's behavior without requiring a human to manually label trajectories.
-
-This creates an automated loop:
+The adaptation loop is:
 
 ```math
 \text{Task Generation}
@@ -538,202 +431,106 @@ This creates an automated loop:
 \rightarrow
 \text{Reward}
 \rightarrow
-\text{RL}
-\rightarrow
-\text{Harder Task}
+\text{RL Update}
 ```
 
-The final real-world RL stage therefore serves as a **closed-loop adaptation phase between the calibrated digital twin and reality**.
+This stage addresses residual discrepancies between the calibrated simulation and the deployed hardware.
+
+---
 
 # 10. Task Interface
 
-The deployed robot accepts tasks through natural language.
+The deployed policy maps high-level human speech to robot control through the SDK.
 
 ```mermaid
 flowchart TD
     A["Human Speech"] --> B["Audio Sensor"]
     B --> C["Speech-to-Text"]
-    C --> D["Task"]
+    C --> D["Task Spec"]
     D --> E["Robot SDK"]
-    E --> F["Robot Policy"]
-    F --> G["Robot Action"]
+    E --> F["Tactile-Aware Policy"]
+    F --> G["Robot Hardware Action"]
 ```
 
-For example:
+The user therefore interacts with the robot at the level of **tasks rather than low-level robot commands**.
 
-> "Put all the cups in the dishwasher."
-
-becomes a structured task representation consumed by the policy.
-
-The SDK provides the bridge between the learned policy and the robot's physical action interface.
-
-This means the user does not need to understand the underlying policy, simulator, or RL infrastructure.
-
-They provide the robot with a task.
+---
 
 # 11. Inference-Time Search
 
-The digital twin is not discarded after training.
-
-It remains available during deployment as a **counterfactual simulator**.
-
-Before executing an uncertain action, the robot can simulate alternatives.
+The digital twin and surrogate remain active during runtime for counterfactual safety checks before executing high-uncertainty trajectories.
 
 ```mermaid
 flowchart TD
-    A["Current State"] --> B["Action 1"]
-    A --> C["Action 2"]
-    A --> D["Action 3"]
-
-    B --> E["Simulate"]
-    C --> F["Simulate"]
-    D --> G["Simulate"]
-
-    E --> H["Future 1"]
-    F --> I["Future 2"]
-    G --> J["Future 3"]
-
-    H --> K["Select Action"]
-    I --> K
-    J --> K
+    A["Current State"] --> B["Candidate Trajectories"]
+    B --> C["Fast Surrogate Rollouts"]
+    C --> D["Twin High-Fidelity Contact Check"]
+    D --> E["Select Optimal Action"]
 ```
 
-The robot can use the surrogate for fast exploration of candidate futures:
+The surrogate provides cheap evaluation of many candidate trajectories.
 
-```math
-\hat{S}_{t+1:t+H}
-=
-\hat{F}_{\psi}
-\left(
-S_t,
-A_{t:t+H-1}
-\right)
-```
+Promising or high-risk trajectories can then be evaluated using the higher-fidelity calibrated twin before execution on the physical robot.
 
-Candidate actions can then be evaluated quickly before being checked against the high-fidelity digital twin when necessary.
-
-The robot can therefore use the same simulation hierarchy for both:
-
-**learning what to do** and **reasoning about what to do next**.
-
-This creates a closed relationship between training and inference:
-
-```mermaid
-flowchart TD
-    A["Digital Twin"] --> B["Surrogate Model"]
-    B --> C["Policy Training"]
-    B --> D["Fast Counterfactual Search"]
-
-    A --> E["High-Fidelity Validation"]
-    E --> C
-    E --> D
-```
+---
 
 # 12. End-to-End System
 
-The complete system can be viewed as four key stages:
-
 ```mermaid
 flowchart TD
-    A["1. OBSERVE<br/><br/>Simple Video Data (Env + Task)<br/>+ robot specification<br/>+ metadata"]
+    A["1. MULTIMODAL PROBING<br/><br/>Handheld Gripper Tactile Video + Contact Data<br/>+ Task Video<br/>+ Robot Hardware Specs"]
 
-    A --> B["2. CONSTRUCT<br/><br/>RL-trained Real-to-Sim Agent<br/><br/>Video understanding<br/>↓<br/>Simulator construction<br/>↓<br/>System identification tools<br/>↓<br/>Simulation / measurement / optimization<br/>↓<br/>Iterative validation<br/>↓<br/>Calibrated Digital Twin<br/>↓<br/>Surrogate Model Learning"]
+    A --> B["2. CONSTRUCT & CALIBRATE<br/><br/>Real-to-Sim Agent<br/>↓<br/>Multimodal SysID (Mass, Friction, Stiffness)<br/>↓<br/>Calibrated Digital Twin<br/>↓<br/>Learned Surrogate Simulator"]
 
-    B --> C["3. LEARN<br/><br/>Fast Simulation via Surrogate<br/>↓<br/>Curriculum RL in Digital Twin<br/>↓<br/>Curriculum RL in Real Environment"]
+    B --> C["3. LEARN<br/><br/>Massive RL on Surrogate<br/>↓<br/>High-Fidelity Twin Validation<br/>↓<br/>Real-World RL Fine-Tuning"]
 
-    C --> D["4. DEPLOY & ADAPT<br/><br/>Audio → Speech-to-Text → Task → Robot Policy → Action<br/><br/>Digital Twin + Surrogate for Counterfactual Search<br/>+ On-the-Fly Human Feedback Correction Loop (VLM Judged)"]
+    C --> D["4. DEPLOY & ADAPT<br/><br/>Audio Task Input → Policy → Robot SDK<br/>↓<br/>Inference-Time Counterfactual Search<br/>↓<br/>On-the-Fly Human Feedback Correction Loop (VLM Judged)"]
 ```
 
-The resulting architecture is therefore:
+The complete system therefore forms a continuous loop:
 
 ```math
-\text{Real World}
+\text{Probe}
 \rightarrow
-\text{Video Data}
+\text{Construct}
 \rightarrow
-\text{Real-to-Sim Agent}
+\text{Calibrate}
 \rightarrow
-\text{Calibrated Digital Twin}
+\text{Learn}
 \rightarrow
-\text{Surrogate Model}
+\text{Deploy}
 \rightarrow
-\text{Large-Scale RL}
+\text{Observe}
 \rightarrow
-\text{Real-World RL}
+\text{Correct}
 \rightarrow
-\text{Robot Policy}
-\rightarrow
-\text{Deployment}
-\rightarrow
-\text{Human Feedback}
-\rightarrow
-\text{Targeted RL}
+\text{Learn Again}
 ```
 
-The digital twin and surrogate model remain available after training, enabling counterfactual search and targeted policy refinement during deployment.
+---
 
 # The Core Research Thesis
 
 The central hypothesis is:
 
-> **A purposefully RL-trained AI agent, equipped with specialized simulation and system-identification tools, can convert a relatively small amount of real-world video data into a calibrated executable digital twin that is accurate enough to support large-scale robot policy learning, on-the-fly feedback refinement, and counterfactual planning.**
+> **Providing a Real-to-Sim agent with synchronized video and contact data from human environment probing allows it to build fully calibrated, contact-accurate digital twins. These twins generate fast surrogate models that make large-scale RL, real-world adaptation, and live human-feedback self-correction practical.**
 
-The key computational insight is that the calibrated digital twin can itself become a source of training data for a learned surrogate model.
-
-This allows expensive high-fidelity simulation to be converted into a much cheaper approximation that can support massive-scale policy optimization and counterfactual exploration.
-
-This changes the economics of robot learning.
-
-Instead of:
+Instead of relying on pure video estimation or uncalibrated physics:
 
 ```math
-\text{Millions of Real-World Interactions}
+\text{Interactive Tactile/Video Data}
 \rightarrow
-\text{Robot Policy}
+\text{Agentic Multimodal SysID}
+\rightarrow
+\text{Calibrated Twin}
+\rightarrow
+\text{Fast Surrogate RL}
+\rightarrow
+\text{Real Adaptation}
+\rightarrow
+\text{VLM-Guided Self-Correction}
 ```
 
-the goal becomes:
+The product vision delivers **zero-to-hero autonomy**:
 
-```math
-\text{Small Real-World Dataset}
-\rightarrow
-\text{AI Digital Twin}
-\rightarrow
-\text{System Identification}
-\rightarrow
-\text{Surrogate Model}
-\rightarrow
-\text{Fast Simulated RL}
-\rightarrow
-\text{Real-World RL}
-\rightarrow
-\text{Robot Policy}
-\rightarrow
-\text{On-the-Fly RL Feedback Corrections}
-```
-
-The important architectural distinction is:
-
-> **The Real-to-Sim Agent is not itself the system-identification algorithm. It is an intelligent operator of system-identification tools.**
-
-It decides what needs to be identified, chooses appropriate experiments and tools, interprets the resulting errors, and iteratively improves the simulator.
-
-Likewise, the **surrogate model is not the digital twin itself**.
-
-The calibrated digital twin is the high-fidelity reference. The surrogate is learned from that twin to provide a much faster approximation for workloads where the computational cost of high-fidelity simulation would otherwise become prohibitive.
-
-The resulting architecture combines:
-
-* **Agentic simulation construction**
-* **Agentic system identification**
-* **General world-model dynamics for agentic entities**
-* **Calibrated high-fidelity digital twins**
-* **Learned surrogate simulators**
-* **Massive-scale simulated RL**
-* **Real-world RL adaptation**
-* **Inference-time counterfactual search**
-* **On-the-fly human-feedback correction**
-
-The ultimate product abstraction is therefore:
-
-> **Give us the robot, interaction video, and action interface. An AI agent builds and calibrates its digital twin, learns a fast surrogate simulator, trains its policy, adapts it to reality, continuously self-corrects from live human feedback, and returns a robot capable of learning tasks specified in natural language.**
+> **Provide the tactile probing data, task video, and robot SDK. The AI engine constructs the calibrated physics twin, trains the surrogate and policy, fine-tunes on hardware, and delivers a self-correcting autonomous robot.**
