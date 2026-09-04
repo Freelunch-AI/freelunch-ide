@@ -6,7 +6,9 @@ We are building a universal robot brain that can turn a general-purpose robot in
 
 The core idea is to separate **general robot intelligence** from **environment-specific adaptation**.
 
-General intelligence is learned once, offline, through a **Foundation Model Data Funnel** that progressively transforms massive amounts of human video into an increasingly robot-native World Model and VLA. Environment-specific intelligence is then acquired through an autonomous **Real-to-Sim Agent** that constructs and calibrates a digital twin of the deployment environment, allowing the robot brain to train against that environment at massive scale before touching the real world.
+General intelligence is learned once, offline, through a **Foundation Model Data Funnel** that progressively transforms massive amounts of human video into an increasingly robot-native World Model and VLA. Rather than treating these data sources as isolated sequential training stages, the funnel ultimately feeds a **single co-training process** in which every level of the data pyramid contributes training signal simultaneously. Massive low-cost data provides scale and broad coverage, while smaller high-fidelity datasets continuously anchor the model to manipulation, embodiment, and real robot control.
+
+Environment-specific intelligence is then acquired through an autonomous **Real-to-Sim Agent** that constructs and calibrates a digital twin of the deployment environment, allowing the robot brain to train against that environment at massive scale before touching the real world.
 
 The result is a system that does not require every new robot or environment to start collecting enormous amounts of robot demonstrations from scratch.
 
@@ -31,33 +33,74 @@ The entire system is composed of two layers.
 
 ### Layer 1 — Foundation Model Data Funnel
 
-A universal foundation brain is trained before deployment:
+A universal foundation brain is trained before deployment.
+
+The Foundation Model Data Funnel is not a sequence of isolated training stages. Instead, it is a **hierarchy of increasingly robot-relevant datasets that jointly participate in a common co-training objective**.
 
 ```math
 \text{Massive Human Video}
++
+\text{Human Action Supervision}
++
+\text{Robot-Relevant Manipulation Data}
++
+\text{Teleoperation Data}
 \rightarrow
-\text{World Model V1}
-\rightarrow
-\text{VLA V1}
-\rightarrow
-\text{VLA V2}
-\rightarrow
-\text{VLA V3}
+\text{Co-Trained World Model + VLA}
 ```
 
-The data becomes progressively:
+The datasets form a pyramid.
 
-* smaller,
-* more supervised,
-* more embodiment-specific,
-* and closer to the final robot-control distribution.
+The lower levels provide enormous scale and broad coverage but are further from the final robot-control distribution. The upper levels contain much less data but provide much stronger supervision and much greater embodiment relevance.
+
+The model is trained using **slices from all levels of the pyramid simultaneously** rather than completing one level and discarding it before moving to the next.
+
+```mermaid
+flowchart TB
+    A["SMALL<br/><br/>Teleoperation Data<br/>Actual Robot Embodiment<br/>Direct Robot Actions"]
+    B["MEDIUM<br/><br/>Human + Data-Collecting Gripper<br/>Robot-Relevant Manipulation"]
+    C["LARGE<br/><br/>Human Video + VLM Pose Waypoints<br/>Approximate Action Supervision"]
+    D["MASSIVE<br/><br/>Human Egocentric Video<br/>Self-Supervised World Learning"]
+
+    D --> C
+    C --> B
+    B --> A
+
+    A --> E["SINGLE CO-TRAINING PROCESS"]
+    B --> E
+    C --> E
+    D --> E
+
+    E --> F["World Model + VLA"]
+
+    style E stroke-width:4px
+    style F stroke-width:4px
+```
+
+The important idea is that **the pyramid describes the composition of the training distribution, not four independent optimization stages**.
+
+During early training, the model can consume a very large proportion of data from the bottom of the pyramid because those datasets are abundant and useful for learning general representations. As training progresses, the sampling distribution can become increasingly weighted toward the upper levels, while lower levels remain present to preserve broad coverage and prevent the model from over-specializing to a narrow robot dataset.
+
+Conceptually:
+
+```math
+P_{\mathrm{train}}(x)
+=
+\sum_{i=1}^{N}
+\alpha_i(t)
+P_i(x)
+```
+
+where each $P_i$ represents a different layer of the data pyramid and $\alpha_i(t)$ is its training weight, which can change throughout training.
+
+The result is a **single continuously co-trained foundation model** rather than a chain of models produced by sequential fine-tuning.
 
 ### Layer 2 — Environment-Specific Intelligence
 
 The resulting foundation models are specialized to the actual robot and environment:
 
 ```math
-\text{VLA V3 + World Model}
+\text{Co-Trained VLA + World Model}
 \rightarrow
 \text{Real-to-Sim Agent}
 \rightarrow
@@ -84,43 +127,214 @@ This separation is critical.
 
 The foundation models are trained through a deliberate **data funnel**.
 
-The principle is simple:
+The key principle is:
 
-> Use enormous amounts of cheap human data to learn general world structure, then progressively trade data volume for supervision quality and embodiment relevance.
+> Use enormous amounts of cheap, weakly supervised data to learn broad physical structure while simultaneously injecting smaller amounts of increasingly high-fidelity supervision so that the model is continuously anchored to manipulation, embodiment, and real robot control.
 
-At the beginning, the system has access to enormous amounts of human video but almost no explicit robot action labels.
+This is fundamentally different from a traditional:
 
-At the end, the system has relatively little data, but that data is extremely close to the final robot-control problem.
+```math
+\text{Simulation}
+\rightarrow
+\text{Teleoperation}
+\rightarrow
+\text{Real Fine-Tuning}
+```
+
+pipeline.
+
+The data sources do not need to be consumed in isolation.
+
+Instead, they form a hierarchy:
+
+```text
+                         ┌───────────────────────┐
+                         │   TELEOPERATION       │
+                         │   Smallest volume     │
+                         │   Highest fidelity    │
+                         └───────────┬───────────┘
+                                     │
+                         ┌───────────┴───────────┐
+                         │ HUMAN + GRIPPER DATA  │
+                         │ Manipulation-relevant │
+                         └───────────┬───────────┘
+                                     │
+                         ┌───────────┴───────────┐
+                         │ HUMAN VIDEO + ACTION  │
+                         │ Approximate actions    │
+                         └───────────┬───────────┘
+                                     │
+              ┌──────────────────────┴──────────────────────┐
+              │        MASSIVE HUMAN EGOCENTRIC VIDEO      │
+              │        Broadest world coverage              │
+              └─────────────────────────────────────────────┘
+
+                            ↓   ↓   ↓   ↓
+
+                  ONE SHARED CO-TRAINING OBJECTIVE
+
+                            ↓   ↓   ↓   ↓
+
+                    WORLD MODEL + VLA
+```
+
+The lower layers answer:
+
+> **What does the physical world look like and how does it evolve?**
+
+The middle layers answer:
+
+> **How do humans accomplish physical tasks?**
+
+The upper layers answer:
+
+> **How does useful manipulation translate into robot-relevant action?**
+
+Teleoperation then provides the strongest direct grounding in the final embodiment.
+
+These signals should ideally be learned **together**, because each provides information that the others cannot efficiently provide.
+
+Massive human video provides coverage but little direct action supervision.
+
+Human action-labelled data provides action structure but remains far from robot embodiment.
+
+Gripper-based manipulation introduces contact and end-effector relevance but remains cheaper and more general than collecting data for every robot.
+
+Teleoperation provides the highest-fidelity robot action distribution but is too expensive to provide the scale needed for general intelligence.
+
+The purpose of the funnel is therefore not to move from one dataset to another.
+
+It is to **combine datasets with different scale, supervision, and fidelity into one training distribution**.
+
+---
+
+## 2.1 The Data Pyramid
+
+The four layers of the pyramid are:
+
+| Layer | Data                                         | Scale   | Supervision                       | Robot Relevance |
+| ----- | -------------------------------------------- | ------- | --------------------------------- | --------------- |
+| **1** | Massive human egocentric video               | Massive | Self-supervised                   | Low             |
+| **2** | Human egocentric video + VLM pose waypoints  | Large   | Approximate action supervision    | Medium          |
+| **3** | Human manipulation + data-collecting gripper | Medium  | Robot-relevant action supervision | High            |
+| **4** | Teleoperation data                           | Small   | Direct robot action supervision   | Highest         |
+
+The critical architectural change is that **these layers are not independent training stages**.
+
+Instead:
 
 ```mermaid
 flowchart LR
-    A["STAGE 1<br/><br/>MASSIVE<br/>Human Egocentric Video<br/><br/>Self-Supervised"]
-    --> B["STAGE 2<br/><br/>BIG<br/>Human Egocentric Video<br/>+ VLM Pose Waypoints<br/><br/>Action-Supervised"]
+    A["Massive Human Video"]
+    B["Human Video + VLM Waypoints"]
+    C["Human + Data-Collecting Gripper"]
+    D["Teleoperation"]
 
-    B --> C["STAGE 3<br/><br/>MEDIUM<br/>Human + Data-Collecting Gripper<br/><br/>Robot-Relevant Supervision"]
+    A --> E["Shared World / Action Representations"]
+    B --> E
+    C --> E
+    D --> E
 
-    C --> D["STAGE 4<br/><br/>SMALL<br/>Teleoperation Data<br/><br/>Embodiment-Specific Supervision"]
+    E --> F["Single Co-Training Objective"]
 
-    A --> A1["World Model V1"]
-    B --> B1["VLA V1"]
-    C --> C1["VLA V2"]
-    D --> D1["VLA V3"]
+    F --> G["World Model"]
+    F --> H["VLA"]
 ```
 
-| Stage | Data                                                     | Supervision                                 | Base Model                                    | Result             |
-| ----- | -------------------------------------------------------- | ------------------------------------------- | --------------------------------------------- | ------------------ |
-| **1** | Massive human egocentric video                           | Self-supervised future + spatial prediction | Best JEPA-like World Model                    | **World Model V1** |
-| **2** | Big human egocentric video + VLM pose waypoints          | Supervised action prediction                | Best foundation VLA + World Model imagination | **VLA V1**         |
-| **3** | Medium human manipulation data + data-collecting gripper | Supervised action prediction                | VLA V1                                        | **VLA V2**         |
-| **4** | Small teleoperation dataset                              | Direct robot action supervision             | VLA V2                                        | **VLA V3**         |
+Each minibatch can contain examples from multiple levels.
 
-## 2.1 Stage 1 — Massive Human Egocentric Video
+For example:
 
-The first stage learns a general predictive model of the physical world from massive human egocentric video.
+```text
+Batch
+├── 70% massive human video
+├── 20% human action-supervised examples
+├── 8% gripper manipulation examples
+└── 2% teleoperation examples
+```
 
-The starting point is the best available **JEPA-like World Model**, which is fine-tuned to predict both future observations and spatially masked regions of the environment.
+These ratios are illustrative rather than fixed.
 
-The objective is not yet robot action prediction.
+The optimal mixture should depend on the training stage, model capability, task distribution, and availability of each dataset.
+
+The central idea is that **high-fidelity data remains present while the model is learning broad representations**, rather than being introduced only after the model has already converged on a lower-fidelity distribution.
+
+---
+
+## 2.2 Dynamic Data Mixture
+
+The composition of the training mixture can evolve throughout training.
+
+Early training may strongly favor massive datasets because the model first needs broad physical and visual representations.
+
+```math
+\alpha_{\mathrm{human}}
+\gg
+\alpha_{\mathrm{teleop}}
+```
+
+Later, the model can increasingly emphasize more robot-relevant data:
+
+```math
+\alpha_{\mathrm{teleop}}
+\uparrow
+\qquad
+\alpha_{\mathrm{gripper}}
+\uparrow
+```
+
+while still retaining samples from the massive datasets.
+
+A conceptual schedule is:
+
+```text
+EARLY TRAINING
+
+90% massive human video
+7% action-supervised human video
+2% gripper data
+1% teleoperation
+
+
+                ↓
+
+
+MID TRAINING
+
+70% massive human video
+15% action-supervised human video
+10% gripper data
+5% teleoperation
+
+
+                ↓
+
+
+LATE TRAINING
+
+40% massive human video
+20% action-supervised human video
+25% gripper data
+15% teleoperation
+```
+
+The actual ratios would be determined empirically.
+
+The important property is:
+
+> **The training distribution becomes progressively more robot-relevant without losing access to the enormous coverage of the lower levels.**
+
+This makes the funnel more analogous to a **curriculum over data mixtures** than a traditional sequence of fine-tuning stages.
+
+---
+
+## 2.3 Stage 1 Signal — Massive Human Egocentric Video
+
+The first and largest component of the training distribution is massive human egocentric video.
+
+The starting point is the best available **JEPA-like World Model**, which is trained or fine-tuned to predict both future observations and spatially masked regions of the environment.
+
+The objective is not primarily robot action prediction.
 
 It is to learn the latent structure of the world:
 
@@ -143,63 +357,70 @@ flowchart LR
     C --> E["Latent World Representation"]
     D --> E
 
-    E --> F["World Model V1"]
+    E --> F["World Model Learning Signal"]
 ```
 
-The output is **World Model V1**.
+The resulting World Model representation becomes a shared predictive component of the broader co-training process.
 
-This becomes a core predictive component of the subsequent action model.
+Importantly, the output is not necessarily frozen before proceeding to the next dataset.
+
+The World Model can continue receiving training signal while action and robot-relevant datasets are introduced.
 
 ---
 
-## 2.2 Stage 2 — Human Video + VLM Pose Waypoints
+## 2.4 Stage 2 Signal — Human Video + VLM Pose Waypoints
 
-The second stage connects world understanding to action.
+The next data source connects world understanding to action.
 
-A large human egocentric video dataset is processed with a VLM that extracts **human pose-estimation waypoints** from demonstrations. These waypoints provide an approximate action trajectory associated with each video.
+A large human egocentric video dataset is processed with a VLM that extracts **human pose-estimation waypoints** from demonstrations.
 
-The best available foundation VLA is then fine-tuned to predict these actions.
+These waypoints provide an approximate action trajectory associated with each video.
 
-Critically, the VLA also receives **latent future imagination from World Model V1**.
+The best available foundation VLA is trained using this additional action-supervised signal.
+
+At the same time, the VLA can receive latent future imagination from the World Model.
 
 ```mermaid
 flowchart TD
     A["Human Egocentric Video"] --> B["VLM"]
     B --> C["Human Pose / Action Waypoints"]
 
-    A --> D["World Model V1"]
+    A --> D["World Model"]
     D --> E["Latent Future Imagination"]
 
-    A --> F["Foundation VLA"]
+    A --> F["VLA"]
+
     C --> F
     E --> F
 
-    F --> G["VLA V1"]
+    F --> G["Shared VLA Training Signal"]
 ```
 
-The model therefore begins learning:
+The model begins learning:
 
 ```math
-\text{Observation} + \text{Task} + \text{Predicted Future}
+\text{Observation}
++
+\text{Task}
++
+\text{Predicted Future}
 \rightarrow
 \text{Action}
 ```
 
-The result is **VLA V1**.
+This signal remains active during later co-training rather than being discarded.
 
 ---
 
-## 2.3 Stage 3 — Human Manipulation + Data-Collecting Gripper
+## 2.5 Stage 3 Signal — Human Manipulation + Data-Collecting Gripper
 
-The third stage moves much closer to the final robot-control distribution.
+A smaller but much more robot-relevant dataset consists of humans performing manipulation tasks using a **data-collecting gripper**.
 
-Humans perform manipulation tasks using a **data-collecting gripper**.
-
-This introduces substantially more robot-relevant information:
+This introduces information that is difficult to obtain from ordinary video:
 
 * end-effector geometry,
-* object interaction,
 * contact events,
+* object interaction,
 * manipulation trajectories,
 * grasping,
 * pushing,
@@ -207,31 +428,52 @@ This introduces substantially more robot-relevant information:
 * deformation,
 * and interaction dynamics.
 
-The dataset is smaller than the massive human-video datasets, but every sample contains much more embodiment-relevant information.
-
-VLA V1 is fine-tuned on this data to produce **VLA V2**.
+The dataset is smaller than the human-video datasets, but every sample contains substantially more embodiment-relevant information.
 
 ```mermaid
 flowchart LR
     A["Human Manipulation<br/>+ Data-Collecting Gripper"]
-    --> B["Robot-Relevant Demonstrations"]
+    --> B["Contact + Motion + Action Data"]
 
-    B --> C["Supervised Fine-Tuning"]
-    C --> D["VLA V1"]
-    D --> E["VLA V2"]
+    B --> C["Shared VLA / World Model Training"]
 ```
+
+These examples are incorporated directly into the same co-training process.
+
+The model therefore does not first become a generic video learner and only later learn manipulation.
+
+Instead, **general world learning and manipulation learning continuously constrain one another**.
 
 ---
 
-## 2.4 Stage 4 — Small Teleoperation Dataset
+## 2.6 Stage 4 Signal — Small Teleoperation Dataset
 
-The final foundation-model stage uses a relatively small amount of **teleoperation data**.
+The highest layer of the funnel consists of a relatively small amount of **teleoperation data**.
 
-This is the closest training distribution to the final robot because the demonstrations are generated by the actual robot embodiment.
+This is the closest training distribution to the final robot because demonstrations are generated by the actual robot embodiment.
 
-VLA V2 is fine-tuned directly on this data to produce **VLA V3**.
+Teleoperation provides:
 
-The teleoperation dataset is deliberately split between two regimes:
+* true robot action distributions,
+* embodiment-specific kinematics,
+* real actuator constraints,
+* real interaction dynamics,
+* robot-specific temporal structure,
+* and realistic observation-action correlations.
+
+```mermaid
+flowchart TD
+    A["Small Teleoperation Dataset"]
+    --> B["Direct Robot Action Supervision"]
+
+    B --> C["Shared Co-Training Objective"]
+```
+
+The teleoperation dataset remains a **small but persistent high-fidelity signal** throughout the relevant portion of training.
+
+It does not need to become a final isolated fine-tuning stage.
+
+The dataset is deliberately split between two regimes:
 
 **50% zero-shot**
 
@@ -248,27 +490,85 @@ flowchart TD
 
     A --> C["50% One-Shot"]
 
-    B --> D["Supervised Fine-Tuning"]
+    B --> D["Shared Co-Training"]
     C --> D
 
-    D --> E["VLA V3"]
+    D --> E["Co-Trained Foundation VLA"]
 ```
 
-The final foundation model stack is therefore:
+---
+
+## 2.7 Why Co-Training Instead of Sequential Fine-Tuning?
+
+The reason to retain all layers in a common training process is that the datasets contain **complementary information**.
+
+Sequential training implicitly assumes that knowledge learned from an earlier distribution can be compressed into the model and then safely left behind.
+
+That assumption is undesirable here.
+
+Massive human video provides enormous diversity.
+
+Teleoperation provides accurate embodiment-specific supervision.
+
+If the model is trained only on human data and later fine-tuned entirely on teleoperation, the final optimization process is dominated by the small teleoperation distribution.
+
+This can push the model toward the narrow distribution of the available robots and tasks.
+
+Co-training instead keeps both objectives active:
 
 ```math
-\text{Human Video}
+\mathcal{L}
+=
+\lambda_{\mathrm{WM}}
+\mathcal{L}_{\mathrm{WM}}
++
+\lambda_{\mathrm{human}}
+\mathcal{L}_{\mathrm{human-action}}
++
+\lambda_{\mathrm{gripper}}
+\mathcal{L}_{\mathrm{robot-relevant}}
++
+\lambda_{\mathrm{teleop}}
+\mathcal{L}_{\mathrm{robot}}
+```
+
+The exact loss decomposition can evolve with the model.
+
+The broader principle is:
+
+> **Low-fidelity data supplies scale; high-fidelity data supplies grounding.**
+
+The model should benefit from both simultaneously.
+
+This also means that the data funnel can become a **continuous data-engineering system**.
+
+As better high-fidelity datasets become available, they can be injected into the same training mixture without rebuilding the entire training pipeline around a new final fine-tuning stage.
+
+---
+
+## 2.8 The Result
+
+The output is a jointly trained **World Model + VLA foundation stack**.
+
+Conceptually:
+
+```math
+\text{Massive Human Video}
++
+\text{Human Action Data}
++
+\text{Robot-Relevant Manipulation Data}
++
+\text{Teleoperation}
 \rightarrow
-\text{World Model}
-\rightarrow
-\text{Human Action Learning}
-\rightarrow
-\text{Robot-Relevant Action Learning}
-\rightarrow
-\text{Teleoperation Fine-Tuning}
+\boxed{\text{Co-Trained World Model + VLA}}
 ```
 
 This produces a robot brain that already possesses broad physical and manipulation knowledge before it ever encounters a particular deployment environment.
+
+The key architectural principle is:
+
+> **The funnel is a hierarchy of data fidelity, not a sequence of mutually exclusive training stages.**
 
 ---
 
@@ -623,7 +923,7 @@ This makes large-scale policy optimization economically feasible.
 
 # 8. Training the Environment-Specific Policy
 
-The deployment policy starts from **VLA V3**, not from scratch.
+The deployment policy starts from the **co-trained foundation VLA**, not from scratch.
 
 It is conditioned on:
 
@@ -681,7 +981,8 @@ z_{t:t+\delta}
 The policy is rewarded for moving toward the imagined successful outcome:
 
 ```math
-r_t =
+r_t
+=
 w_{\mathrm{goal}}
 \cdot
 \mathrm{sim}
@@ -883,7 +1184,7 @@ flowchart LR
     C --> D["Tutorial Skill Retrieval"]
 
     D --> E["3D VLM Planner"]
-    E --> F["VLA V3 / Adapted Policy"]
+    E --> F["Co-Trained VLA / Adapted Policy"]
 
     F --> G["Robot SDK"]
     G --> H["Motion Smoother"]
@@ -904,20 +1205,7 @@ A neural action model may produce noisy or abrupt outputs.
 The SDK therefore applies online motion smoothing and jerk-limited trajectory generation.
 
 ```math
-\left(
-q_{t+1},
-\dot{q}_{t+1},
-\ddot{q}_{t+1}
-\right)
-=
-f_{\mathrm{smooth}}
-\left(
-a_t,
-a_{<t},
-q_t,
-\dot{q}_t,
-\ddot{q}_t
-\right)
+(q_{t+1}, \dot{q}_{t+1}, \ddot{q}_{t+1}) = f_{\mathrm{smooth}}(a_t, a_{\lt t}, q_t, \dot{q}_t, \ddot{q}_t)
 ```
 
 The trajectory is constrained by hardware limits:
@@ -984,60 +1272,89 @@ The complete architecture is:
 
 ```mermaid
 flowchart TD
-    A["FOUNDATION MODEL DATA FUNNEL"]
+    A["FOUNDATION MODEL DATA PYRAMID"]
 
-    A1["Massive Human Egocentric Video"]
-    --> A2["World Model V1"]
+    A1["MASSIVE<br/>Human Egocentric Video"]
+    A2["LARGE<br/>Human Video + VLM Pose Waypoints"]
+    A3["MEDIUM<br/>Human + Data-Collecting Gripper"]
+    A4["SMALL<br/>Teleoperation"]
 
-    A2 --> A3["Big Human Video + VLM Pose Waypoints"]
-    A3 --> A4["VLA V1"]
+    A1 --> B["SINGLE CO-TRAINING PROCESS"]
+    A2 --> B
+    A3 --> B
+    A4 --> B
 
-    A4 --> A5["Medium Human + Data-Collecting Gripper"]
-    A5 --> A6["VLA V2"]
+    B --> C["World Model + VLA Foundation Brain"]
 
-    A6 --> A7["Small Teleoperation Dataset"]
-    A7 --> A8["VLA V3"]
+    C --> D["DEPLOYMENT ENVIRONMENT"]
 
-    A8 --> B["DEPLOYMENT ENVIRONMENT"]
+    D1["Environment Walkthrough"] --> D2["Real-to-Sim Agent"]
+    D3["Tactile / Contact Probing"] --> D2
+    D4["Environment + Task Context"] --> D2
+    D5["Task Videos"] --> D2
+    D6["Robot Specs + Random Policy"] --> D2
 
-    B1["Environment Walkthrough"] --> B2["Real-to-Sim Agent"]
-    B3["Tactile / Contact Probing"] --> B2
-    B4["Environment + Task Context"] --> B2
-    B5["Task Videos"] --> B2
-    B6["Robot Specs + Random Policy"] --> B2
+    D2 --> E["Initial Digital Twin"]
+    E --> F["Agentic System Identification"]
+    F --> G["Calibrated Digital Twin"]
 
-    B2 --> C["Initial Digital Twin"]
-    C --> D["Agentic System Identification"]
-    D --> E["Calibrated Digital Twin"]
+    G --> H["Surrogate Simulator"]
+    H --> I["Massive Simulation RL"]
 
-    E --> F["Surrogate Simulator"]
-    F --> G["Massive Simulation RL"]
+    C --> I
 
-    A8 --> G
-    A2 --> G
+    I --> J["Environment-Specific Policy"]
 
-    G --> H["Environment-Specific Policy"]
+    J --> K["Real-World Adaptation"]
+    K --> L["Deployment"]
 
-    H --> I["Real-World Adaptation"]
-    I --> J["Deployment"]
+    L --> M["Runtime Inference"]
+    M --> N["Human Feedback / Failures"]
 
-    J --> K["Runtime Inference"]
-    K --> L["Human Feedback / Failures"]
-
-    L --> M["Targeted Simulation"]
-    M --> G
+    N --> O["Targeted Simulation"]
+    O --> I
 ```
 
-The resulting loop is:
+The foundation component is therefore no longer:
 
 ```math
-\text{Foundation Training}
+\text{Human Video}
+\rightarrow
+\text{World Model}
+\rightarrow
+\text{Human Action Learning}
+\rightarrow
+\text{Robot-Relevant Action Learning}
+\rightarrow
+\text{Teleoperation Fine-Tuning}
+```
+
+Instead:
+
+```math
+\boxed{
+\text{Massive Human Data}
++
+\text{Action-Supervised Human Data}
++
+\text{Robot-Relevant Manipulation Data}
++
+\text{Teleoperation Data}
+\rightarrow
+\text{One Co-Trained Foundation Brain}
+}
+```
+
+The deployment pipeline then remains:
+
+```math
+\text{Foundation Brain}
 \rightarrow
 \text{Environment Reconstruction}
 \rightarrow
 \text{System Identification}
 \rightarrow
-\text{Simulation}
+\text{Calibrated Simulation}
 \rightarrow
 \text{Policy Learning}
 \rightarrow
@@ -1085,25 +1402,55 @@ The system does it autonomously.
 
 # 18. The Core Research Thesis
 
-The central thesis is that universal robot intelligence should be built as a **progressive funnel followed by environment-specific simulation**.
+The central thesis is that universal robot intelligence should be built as a **data-fidelity pyramid feeding a continuously co-trained foundation model, followed by environment-specific simulation**.
 
 The Foundation Model Data Funnel solves the first problem:
 
 > **How do we learn broad physical and manipulation intelligence without collecting enormous amounts of expensive robot data?**
 
-By progressively transforming:
+The answer is not to train on cheap data first and then discard it when higher-quality data becomes available.
+
+Instead, the system combines data sources with radically different scale and fidelity:
 
 ```math
 \text{Massive Human Video}
-\rightarrow
-\text{World Model}
-\rightarrow
++
 \text{Human Action Learning}
-\rightarrow
-\text{Robot-Relevant Learning}
-\rightarrow
++
+\text{Robot-Relevant Manipulation}
++
 \text{Teleoperation}
+\rightarrow
+\text{Co-Trained World Model + VLA}
 ```
+
+Each layer contributes something different.
+
+```text
+MASSIVE HUMAN VIDEO
+        │
+        │  Scale + world knowledge
+        ▼
+HUMAN ACTION DATA
+        │
+        │  Action structure
+        ▼
+GRIPPER MANIPULATION DATA
+        │
+        │  Contact + manipulation
+        ▼
+TELEOPERATION
+        │
+        │  Exact robot embodiment
+        ▼
+     CO-TRAINING
+```
+
+The core principle is:
+
+> **Data volume decreases as fidelity increases, but all levels remain useful and should remain represented in the training distribution.**
+
+The model therefore learns simultaneously from broad world observation and narrow high-fidelity robot supervision.
 
 The Real-to-Sim system solves the second problem:
 
@@ -1129,7 +1476,7 @@ Together:
 
 ```math
 \boxed{
-\text{Foundation Model Data Funnel}
+\text{Co-Trained Foundation Model Data Funnel}
 +
 \text{Agentic Real-to-Sim}
 =
@@ -1139,7 +1486,9 @@ Together:
 
 The most important architectural principle is therefore:
 
-> **Learn general intelligence once from massive human data. Use expensive robot data only where embodiment actually matters. Then use an autonomous calibrated simulator to specialize that intelligence to any robot and any environment.**
+> **Do not treat training data as a sequence of increasingly expensive replacements. Treat it as a hierarchy of complementary signals: massive datasets provide coverage, while progressively more faithful datasets continuously ground the same foundation model in the physical manipulation and robot-control distribution.**
+
+The foundation model should be broad enough to generalize across robots and environments, while the final deployment system should be capable of rapidly specializing that prior through autonomous simulation and system identification.
 
 ---
 
@@ -1152,19 +1501,41 @@ The user gives the system the environment, the robot, the task descriptions, a s
 Behind the scenes:
 
 ```math
-\text{Human Data}
-\rightarrow
-\text{World Model}
-\rightarrow
-\text{VLA}
-\rightarrow
+\begin{aligned}
+&
+\text{Massive Human Video}
++
+\text{Human Action Data}
++
+\text{Robot-Relevant Data}
++
+\text{Teleoperation}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Co-Trained World Model + VLA}
+\\
+&\qquad\qquad\downarrow
+\\
+&
 \text{Robot-Specific Adaptation}
-\rightarrow
+\\
+&\qquad\qquad\downarrow
+\\
+&
 \text{Digital Twin}
-\rightarrow
+\\
+&\qquad\qquad\downarrow
+\\
+&
 \text{Massive Simulation}
-\rightarrow
+\\
+&\qquad\qquad\downarrow
+\\
+&
 \text{Autonomous Robot}
+\end{aligned}
 ```
 
 At deployment:
