@@ -5,26 +5,29 @@
 We propose an end-to-end engine that turns a useless robot into a useful and self-improving robot, requiring only:
 
 - **Tactile Environment Probing Dataset**: Video and synchronized contact data from a human operating a handheld gripper to interact with, tap, deform, push, and manipulate environment objects and surfaces.
+- **Environment Walkthrough Video**: A short (30–90 second) handheld video where the user simply walks through the environment, giving a quick tour of the workspace. This provides the initial coarse geometry and layout used to bootstrap the digital twin before iterative refinement.
 - **Task Demonstration & Tutorial Datasets**: Two distinct videos per task:
   1. **Task Execution Video**: An uninterrupted recording of a human performing the task. This is not used for learning, it is used for evaluation.
   2. **Task Tutorial Video**: A video and audio recording of a human explaining the task before and while performing it like a tutorial. These tutorial videos serve as modular **skills** that are dynamically loaded into the context of the action model when a task is invoked.
-- **Robot Specifications**: The robot's SDK and hardware specification (including kinematics, joint limits, and end-effector dynamics) which should be provided by the robot vendor and be a single line of code to provide it to the SDK.
+- **Robot Specifications + Random Policy Calibration Clip**: The robot vendor provides the SDK, hardware specification (kinematics, joint limits, end-effector dynamics, etc.), and an approximately **1-minute recording** of the robot executing actions under a random policy. Supplying this to the SDK should require a single line of code. This clip is used together with the hardware specification to initialize the robot's dynamics inside the digital twin.
 
 The user should not need to manually build a simulator, design an RL environment, engineer a training curriculum, or train the robot policy.
 
 ### Required Setup
 
 - Interactive Environment Probing Data collected via the tactile-sensing handheld gripper.
+- Short Environment Walkthrough Video (30–90 seconds).
 - Two Task Videos per task (Execution Video + Tutorial & Explanation Video).
 - Robot SDK installed on the robot.
 - Robot Hardware Specification exposed through the SDK.
+- Vendor-provided ~1 Minute Random Policy Calibration Recording.
 - Optional environment metadata and hints.
 
 The engine automatically constructs the simulation environment, calibrates its physics, trains the robot policy, and adapts it to the physical hardware.
 
 ```mermaid
 flowchart TD
-    A["Interactive Tactile Probing + 2 Task Videos (Execution + Tutorial)"] --> D["Real-to-Sim Agent"]
+    A["Interactive Tactile Probing + Environment Walkthrough + 2 Task Videos (Execution + Tutorial)"] --> D["Real-to-Sim Agent"]
     B["Robot SDK + Specs"] --> D
     C["Environment Metadata"] --> D
 
@@ -47,9 +50,11 @@ The task is captured through the robot's audio sensor, converted to text using s
 
 ### The Goal
 
-$$
+
+```math
 \text{Robot} + \text{Tactile Video/Contact Data} + \text{2 Task Videos (Execution + Tutorial)} + \text{SDK} + \text{Task} \rightarrow \text{Autonomous Robot}
-$$
+```
+
 
 ---
 
@@ -148,9 +153,11 @@ The agent first infers approximate physical bounds:
 
 It then estimates the numerical parameter vector:
 
-$$
+
+```math
 \theta = \begin{bmatrix} m \\ \mu_s \\ \mu_d \\ e \\ k \\ c \\ \vdots \end{bmatrix}
-$$
+```
+
 
 where the parameters include:
 
@@ -179,9 +186,11 @@ flowchart TD
 
 The optimization objective minimizes both state kinematic trajectories $\tau$ and contact wrench trajectories $W$:
 
-$$
+
+```math
 \theta^* = \arg\min_{\theta} \left( D_{\text{kin}}\left(\tau_{\mathrm{real}}, \tau_{\mathrm{sim}}(\theta)\right) + \lambda D_{\text{force}}\left(W_{\mathrm{real}}, W_{\mathrm{sim}}(\theta)\right) \right)
-$$
+```
+
 
 The LLM agent reasons about physical discrepancies at a high level, selects parameters to unfreeze, and uses optimization tools to solve for physical parameters.
 
@@ -193,15 +202,19 @@ Entities that exhibit complex, non-scripted behaviors, such as humans, pets, or 
 
 Rather than requiring internal state access, the model predicts future states directly from observation histories:
 
-$$
+
+```math
 S^{\mathrm{agent}}_{t+1:t+H} \sim P_{\phi}\left(S^{\mathrm{agent}}_{t+1:t+H} \mid S_{\leq t}, E\right)
-$$
+```
+
 
 The simulator composes deterministic physics with learned behavioral dynamics:
 
-$$
+
+```math
 \text{Digital Twin} = \text{Explicit Physics (Calibrated via Tactile Data)} + \text{General World Model}
-$$
+```
+
 
 This allows the digital twin to combine highly calibrated physical interactions with learned dynamics for entities whose behavior cannot be efficiently described through explicit physics alone.
 
@@ -211,9 +224,11 @@ This allows the digital twin to combine highly calibrated physical interactions 
 
 Once the digital twin has been calibrated using physical interaction data, it serves as the teacher for a learned neural surrogate simulator.
 
-$$
+
+```math
 f_{\mathrm{sim}}(s_t, a_t) \approx f_{\mathrm{surrogate}}(s_t, a_t)
-$$
+```
+
 
 ```mermaid
 flowchart TD
@@ -235,9 +250,11 @@ Instead, it provides a much faster approximation that allows orders of magnitude
 
 The hierarchy operates as:
 
-$$
+
+```math
 \text{Real World (Tactile + Video)} \rightarrow \text{Calibrated Digital Twin} \rightarrow \text{Surrogate Model} \rightarrow \text{Fast Simulation RL}
-$$
+```
+
 
 ---
 
@@ -289,12 +306,45 @@ Collected signals include:
 - End-effector pose
 - Interaction forces and torques
 
+#### 2. Environment Walkthrough Video
+
+Before any tactile probing or task demonstrations, the user records a short **30–90 second walkthrough video** of the environment by simply pointing the camera around the workspace (e.g. kitchen, living room, workshop).
+
+This video is intentionally lightweight and is used only to bootstrap the digital twin.
+
+Its purposes are:
+
+- Recover the coarse room geometry and layout.
+- Identify large furniture and static structures.
+- Estimate camera scale and spatial relationships.
+- Produce the **initial approximate digital twin** before the Real-to-Sim agent refines geometry and physics using tactile interaction data.
+
+The reconstruction pipeline therefore operates in two stages:
+
+1. **Stage 1 — Coarse Initialization:** Environment walkthrough video produces an approximate digital twin.
+2. **Stage 2 — Physical Refinement:** Interactive tactile probing calibrates geometry, contact properties, materials, and object dynamics.
+
 #### 2. Two Task Videos Per Task
 
 For every task, the human records two distinct videos:
 1. **Task Execution Video**: An uninterrupted recording of the human performing the task.
 2. **Task Tutorial Video**: A video where the human explains the task before and while doing it, acting as a verbal and visual tutorial. 
    - **Modular Skill Representation**: These tutorial videos are stored as modular skills and dynamically loaded into the context window of the robot's action model when the task is executed.
+
+#### 3. Vendor Random Policy Calibration Recording
+
+Every supported robot ships with a short **approximately 1-minute calibration recording** captured by the robot vendor before deployment.
+
+The recording contains:
+
+- Robot observations.
+- Joint states and end-effector states.
+- Executed actions from a random policy.
+- Synchronized timestamps.
+
+The user never records this clip manually. It is distributed alongside the robot SDK and hardware specification and is passed into the SDK through a single configuration line.
+
+This trajectory allows the Real-to-Sim agent to estimate the robot's native dynamics, actuator characteristics, latency, and low-level control behavior before any task-specific training begins.
 
 This structured exploration grounds object mass, friction profiles, joint resistance, surface stiffness, and compliance directly from real-world contact events before policy training begins.
 
@@ -330,9 +380,11 @@ Whether the system is learning a pre-known task from initial demonstrations or f
 
 The robot policy is conditioned on observation, task specification, and the dynamically loaded task tutorial skill:
 
-$$
+
+```math
 \pi_{\theta}(a_t \mid o_t, T, S_{\text{tutorial}})
-$$
+```
+
 
 where:
 
@@ -360,9 +412,11 @@ The pipeline is as follows:
 
 The step reward $r_t$ is formulated in the latent space as:
 
-$$
+
+```math
 r_t = w_{\text{goal}} \cdot \text{sim}(z_{t:t+\delta}, z_{\text{target}(t:t+\delta)}) - w_{\text{penalty}} \mathbb{I}_{\text{fail}}(s_t)
-$$
+```
+
 
 where:
 * $z_{t:t+\delta} = \text{Encoder}(s_{t:t+\delta})$ is the latent embedding of the current simulator state trajectory.
@@ -413,9 +467,11 @@ Real-world RL adaptation to close the sim-to-real gap is executed **just once ev
 
 To perform this update, the user records a new tactile-aware video of themselves manipulating items in the house using the handheld tactile gripper. During this periodic or on-demand phase, the human asks the robot to perform a task and provides natural language feedback explaining what it did wrong, driving the adaptation loop:
 
-$$
+
+```math
 \text{Task Generation} \rightarrow \text{Real Interaction} \rightarrow \text{VLM Evaluation} \rightarrow \text{Reward} \rightarrow \text{RL Update}
-$$
+```
+
 
 This infrequent stage addresses residual discrepancies between the calibrated simulation and the deployed hardware.
 
@@ -452,19 +508,35 @@ Furthermore, every deployed policy automatically benefits from motion smoothing.
 
 The smoother takes the high-speed intended action input ($a_t$) and context from the action history ($a_{<t}$) to perform online interpolation and jerk-limited trajectory generation.
 
-$$
-q_{t+1}, \dot{q}_{t+1}, \ddot{q}_{t+1} = f_{\text{smooth}}(a_t, a_{<t}, q_t, \dot{q}_t, \ddot{q}_t)
-$$
+
+```math
+\left(
+q_{t+1},
+\dot{q}_{t+1},
+\ddot{q}_{t+1}
+\right)
+=
+f_{\mathrm{smooth}}
+\left(
+a_t,
+a_{\lt t},
+q_t,
+\dot{q}_t,
+\ddot{q}_t
+\right)
+```
 
 To maintain a completely hardware-agnostic implementation, the motion smoother queries the robot's specific physical limits directly from the SDK. It then enforces these constraints continuously, bounding the output trajectory by maximum velocity, acceleration, and jerk:
 
-$$
+
+```math
 \begin{align*}
 |\dot{q}(t)| &\leq v_{\max} \\
 |\ddot{q}(t)| &\leq a_{\max} \\
 |\dddot{q}(t)| &\leq j_{\max}
 \end{align*}
-$$
+```
+
 
 ```mermaid
 flowchart TD
@@ -509,7 +581,7 @@ Promising or high-risk trajectories can then be evaluated using the higher-fidel
 
 ```mermaid
 flowchart TD
-    A["1. MULTIMODAL PROBING<br/><br/>Handheld Gripper Tactile Video + Contact Data<br/>+ 2 Task Videos (Execution + Tutorial)<br/>+ Robot Hardware Specs"]
+    A["1. MULTIMODAL PROBING<br/><br/>Handheld Gripper Tactile Video + Contact Data<br/>+ Environment Walkthrough Video<br/>+ 2 Task Videos (Execution + Tutorial)<br/>+ Robot Hardware Specs + Random Policy Clip"]
 
     A --> B["2. CONSTRUCT & CALIBRATE<br/><br/>Real-to-Sim Agent<br/>↓<br/>Multimodal SysID (Mass, Friction, Stiffness)<br/>↓<br/>Calibrated Digital Twin<br/>↓<br/>Learned Surrogate Simulator"]
 
@@ -520,9 +592,11 @@ flowchart TD
 
 The complete system therefore forms a continuous loop:
 
-$$
+
+```math
 \text{Probe} \rightarrow \text{Construct} \rightarrow \text{Calibrate} \rightarrow \text{Learn} \rightarrow \text{Deploy} \rightarrow \text{Observe} \rightarrow \text{Correct} \rightarrow \text{Learn Again}
-$$
+```
+
 
 > **Note**: Every deployed policy automatically benefits from motion smoothing via the Robot SDK, ensuring fluid and hardware-safe operations out-of-the-box. Additionally, homes are supplied with non-breaking cups and dishes for the first month of usage.
 
@@ -536,9 +610,11 @@ The central hypothesis is:
 
 Instead of relying on pure video estimation or uncalibrated physics:
 
-$$
+
+```math
 \text{Interactive Tactile/Video Data} \rightarrow \text{Agentic Multimodal SysID} \rightarrow \text{Calibrated Twin} \rightarrow \text{Fast Surrogate RL} \rightarrow \text{Real Adaptation} \rightarrow \text{VLM-Guided Self-Correction}
-$$
+```
+
 
 ### The Product Vision
 
