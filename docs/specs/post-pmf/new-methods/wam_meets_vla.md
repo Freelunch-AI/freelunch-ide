@@ -1,155 +1,75 @@
-# Hierarchical Physical Intelligence for Robotics: Combining VLM, WAMs and VLA
+# Hierarchical Physical Intelligence for Robotics
 
-## 1. The Problem: General-Purpose Robotics Needs Both Physical Knowledge and Grounding
+## 1. The Core Idea
 
-Current robot foundation models are approaching two complementary capabilities, but neither is sufficient on its own for robust general-purpose robotics.
+General-purpose robots need two complementary capabilities:
 
-**Vision-Language-Action (VLA) models** are strong at understanding instructions and directly interacting with the physical world. However, they are fundamentally reactive: they observe the current state and predict actions. Their physical knowledge is therefore largely embedded implicitly in the policy, making it difficult to reason explicitly about long-horizon physical consequences and novel situations.
+**Physical imagination** — predicting how the physical world could evolve toward a desired outcome.
 
-**World Action Models (WAMs)** provide the complementary capability. By learning to predict how the world evolves under actions, they can acquire substantially richer knowledge of physical dynamics, object interactions, and long-horizon consequences. Recent systems such as DreamZero demonstrate that generative world models can already be used to imagine future robot trajectories and improve physical generalization.
+**Real-world grounding** — continuously selecting actions based on what is actually happening.
 
-But WAMs face a fundamental problem of their own:
+Vision-Language-Action (VLA) models are strong at grounding actions in real observations, but must implicitly learn much of the physical reasoning required for long-horizon manipulation.
 
-> **A predicted trajectory is only as good as the world model that generated it.**
+World Action Models (WAMs) provide a complementary capability: they can imagine future physical states and reason about the consequences of interactions. However, their expensive generative inference is better suited to **physical planning** than to high-frequency policy execution.
 
-The real world will inevitably differ from the model's prediction. Small errors in object pose, friction, contact dynamics, perception, or robot execution accumulate over a long trajectory. Consequently, a trajectory that is physically plausible in the imagined world can progressively drift from the state of the real world.
-
-This creates a fundamental tension:
+We propose a hierarchical architecture that separates these roles:
 
 ```math
-\text{WAM}
+\boxed{
+\text{VLM}
 \rightarrow
-\text{strong physical reasoning}
+\text{3D World State}
 \rightarrow
-\text{weak real-world grounding}
-```
-
-while:
-
-```math
-\text{VLA}
-\rightarrow
-\text{strong real-world grounding}
-\rightarrow
-\text{limited explicit physical reasoning}.
-```
-
-### Our hypothesis
-
-The solution is not to make either model do everything.
-
-Instead:
-
-> **Use the WAM to reason about how a physical subtask could be accomplished, and use the VLA to continuously ground that plan in the real world.**
-
----
-
-# 2. The Core Idea
-
-We propose a hierarchical architecture in which different models operate at different abstraction levels and timescales:
-
-```math
-\text{Task Planner VLM}
-\rightarrow
-\text{3D State Model}
+\text{3D Goal State}
 \rightarrow
 \text{WAM}
 \rightarrow
 \text{VLA}
-\rightarrow
-\text{Robot Control}
+}
 ```
 
-The key separation is:
+The central principle is:
 
-* **VLM:** determines *what needs to be accomplished*.
-* **3D-State Model:** determines *what the world currently looks like*.
-* **WAM:** determines *how the physical world could evolve to accomplish the current subtask*.
-* **VLA:** determines *how to execute that intention in the actual world*.
-* **Robot controller:** converts the VLA's actions into physical actuation.
+> **The WAM imagines how the world should evolve; the VLA continuously grounds that plan and executes it.**
 
-The WAM therefore becomes a **physical planner**, rather than the complete robot policy.
-
-The VLA becomes the **closed-loop grounding layer**, rather than having to independently discover all of the physical knowledge required for long-horizon reasoning.
+The WAM is invoked at the beginning of a physical motion segment to generate a future trajectory toward an explicit goal state. The VLA then runs at high frequency, using that trajectory together with the current 3D state and observations to produce robot actions.
 
 ---
 
-# 3. Hierarchical Task Planning
+# 2. A 3D-Native Architecture
 
-Complex tasks should not be treated as one enormous physical trajectory.
+The system is built around an explicit 3D representation of the environment.
 
-A high-level VLM first decomposes the task:
-
-```math
-T
-\rightarrow
-\{T_1,T_2,\ldots,T_N\}.
-```
-
-For example:
-
-```text
-"Prepare the kitchen for dinner"
-        │
-        ├── put dishes in dishwasher
-        ├── throw away trash
-        ├── wipe counter
-        └── place utensils on table
-```
-
-The planner handles **one subtask at a time**.
-
-This dramatically reduces the physical planning horizon.
-
-The WAM does not need to imagine the entire task from beginning to end. It only needs to solve the current physical objective.
-
-After execution, the high-level planner verifies whether the subtask was successfully completed before moving on:
-
-```math
-T_i
-\rightarrow
-\text{execute}
-\rightarrow
-\text{verify}
-\rightarrow
-T_{i+1}.
-```
-
-This creates a natural hierarchy between:
-
-```math
-\text{long-horizon semantic reasoning}
-```
-
-and:
-
-```math
-\text{shorter-horizon physical planning}.
-```
-
----
-
-# 4. Persistent 3D World Representation
-
-A central component of the architecture is a persistent representation of the physical world.
-
-Let:
+Let
 
 ```math
 S_t
 ```
 
-denote the current 3D representation of the environment.
+denote the current physical state.
 
-Rather than reconstructing the world from scratch at every timestep, a specialized 3D-State VLM updates the representation using the previous state and the new observation:
+It represents the relevant structure of the environment, including:
+
+* object identity;
+* geometry;
+* 3D position and orientation;
+* spatial relationships;
+* contact relationships;
+* object state.
+
+The state is continuously updated from observations:
 
 ```math
-S_{t-1}, O_t
-\rightarrow
-S_t.
+S_t
+=
+f_{\mathrm{3D}}(S_{t-1},O_t).
 ```
 
-Thus:
+The important design choice is that **3D state is the primary physical reasoning interface**.
+
+Rather than forcing the planning system to reason entirely through pixels, the architecture explicitly represents the objects and spatial relationships that matter for manipulation.
+
+This gives the system a persistent physical state:
 
 ```math
 S_0
@@ -163,49 +83,387 @@ S_2
 S_t.
 ```
 
-The representation should preserve persistent information while incorporating newly observed changes.
+---
 
-It should capture properties such as:
+# 3. Hierarchical Task Decomposition
 
-* object identity;
-* 3D position;
-* orientation;
-* geometry;
-* object relationships;
-* contact relationships;
-* state changes;
-* newly observed regions;
-* changes caused by previous actions.
+A high-level VLM converts a long-horizon instruction into a sequence of physical subtasks:
 
-This persistent 3D state becomes the common interface between the WAM and the VLA.
+```math
+T
+\rightarrow
+\{T_1,T_2,\ldots,T_N\}.
+```
+
+For example:
+
+```text
+Prepare the kitchen
+        ↓
+Put dishes in dishwasher
+        ↓
+Throw away trash
+        ↓
+Wipe the counter
+        ↓
+Place utensils on the table
+```
+
+Each subtask defines a relatively compact physical objective.
+
+This separates:
+
+```text
+semantic reasoning
+```
+
+from:
+
+```text
+physical reasoning
+```
+
+and prevents the WAM from having to plan an entire household task as one enormous trajectory.
 
 ---
 
-# 5. Why 3D Rather Than Just Images?
+# 4. Explicit 3D Goal States
 
-The WAM should reason about physical transformations in a representation that explicitly captures the structure of the world.
+For each subtask, the system explicitly constructs the desired physical configuration.
 
-An RGB frame tells the model what the world looks like from one viewpoint.
-
-A 3D representation instead provides a representation of:
+Given the current state and subtask:
 
 ```math
-\text{objects}
-+
-\text{geometry}
-+
-\text{pose}
-+
-\text{spatial relationships}.
+S_t,\;T_i
 ```
 
-This makes it possible to specify physical goals directly.
+a goal model generates:
 
-For example, instead of saying:
+```math
+S_G^i
+=
+f_{\mathrm{goal}}(S_t,T_i).
+```
 
-> "Move the cup into the cabinet."
+The goal state describes **what the world should look like after the subtask is completed**.
 
-the system can represent the desired transformation as a change in the 3D state:
+For example:
+
+```text
+"Put the cup in the cabinet"
+```
+
+becomes a physical objective such as:
+
+```math
+S_t
+\rightarrow
+S_G
+```
+
+where the cup has a desired position and orientation relative to the cabinet.
+
+This establishes an explicit separation:
+
+```text
+WHAT should happen?
+        ↓
+   Goal State
+
+HOW can it happen?
+        ↓
+       WAM
+```
+
+The WAM therefore does not need to infer the physical objective while simultaneously planning the motion.
+
+---
+
+# 5. The WAM as a Physical Imagination Engine
+
+The WAM receives the current state, the desired goal state, and the active subtask:
+
+```math
+(S_t,S_G^i,T_i).
+```
+
+It predicts a physically plausible sequence of future states:
+
+```math
+(S_t,S_G^i,T_i)
+\rightarrow
+(Z_1,Z_2,\ldots,Z_H).
+```
+
+where each
+
+```math
+Z_h
+```
+
+represents an imagined future world state.
+
+Conceptually:
+
+```text
+Current state
+      ↓
+Approach object
+      ↓
+Establish contact
+      ↓
+Grasp
+      ↓
+Lift
+      ↓
+Move
+      ↓
+Place
+      ↓
+Goal state
+```
+
+The WAM is therefore acting as a **physical planner**.
+
+Its output is not intended to directly replace the robot policy. It provides a physically informed prediction of how the subtask can unfold.
+
+---
+
+# 6. WAM Planning at Low Frequency
+
+The WAM is computationally expensive compared with a policy model.
+
+Rather than invoking it for every control step, the architecture uses it at the beginning of a motion-planning segment:
+
+```math
+(S_t,S_G,T_i)
+\rightarrow
+\text{WAM}
+\rightarrow
+Z_{1:H}.
+```
+
+The resulting imagined trajectory becomes context for the VLA.
+
+The WAM therefore operates at a relatively low frequency, while the VLA operates at high frequency.
+
+```math
+\boxed{
+\text{WAM}
+=
+\text{low-frequency physical planning}
+}
+```
+
+```math
+\boxed{
+\text{VLA}
+=
+\text{high-frequency policy execution}
+}
+```
+
+This separation allows each model to operate at the timescale appropriate to its role.
+
+---
+
+# 7. The VLA as the High-Frequency Grounding Layer
+
+The VLA receives:
+
+```math
+(O_t,S_t,T_i,Z_{1:H})
+```
+
+and predicts the next robot action:
+
+```math
+A_t
+=
+f_{\mathrm{VLA}}(O_t,S_t,T_i,Z_{1:H}).
+```
+
+The VLA therefore has access to both:
+
+```text
+the current real world
+```
+
+and:
+
+```text
+the WAM's imagined future.
+```
+
+Its task is to continuously ground the imagined physical trajectory in the actual environment.
+
+After execution:
+
+```math
+A_t
+\rightarrow
+O_{t+1}.
+```
+
+The 3D state is updated:
+
+```math
+S_{t+1}
+=
+f_{\mathrm{3D}}(S_t,O_{t+1}).
+```
+
+The VLA then produces the next action:
+
+```math
+A_{t+1}
+=
+f_{\mathrm{VLA}}(O_{t+1},S_{t+1},T_i,Z_{1:H}).
+```
+
+Thus the execution loop is:
+
+```math
+\boxed{
+\text{WAM plan}
+\rightarrow
+\text{VLA}
+\rightarrow
+\text{real world}
+\rightarrow
+\text{3D state update}
+\rightarrow
+\text{VLA}
+\rightarrow
+\cdots
+}
+```
+
+---
+
+# 8. Planning and Execution as Different Timescales
+
+The fundamental architectural separation is therefore:
+
+```math
+\boxed{
+f_{\mathrm{VLM}}
+<
+f_{\mathrm{WAM}}
+<
+f_{\mathrm{VLA}}
+<
+f_{\mathrm{controller}}
+}
+```
+
+The VLM makes relatively infrequent semantic decisions.
+
+The WAM makes relatively infrequent physical planning decisions.
+
+The VLA makes high-frequency policy decisions.
+
+The robot controller operates at an even higher frequency.
+
+This creates a natural computational hierarchy:
+
+```text
+VLM
+semantic planning
+        ↓
+WAM
+physical planning
+        ↓
+VLA
+high-frequency grounding
+        ↓
+Controller
+low-level control
+```
+
+---
+
+# 9. Closed-Loop Grounding
+
+The WAM's imagined trajectory is continuously grounded against the actual evolving state.
+
+At every policy step:
+
+```math
+(O_t,S_t,Z_{1:H})
+\rightarrow
+A_t.
+```
+
+The resulting observation changes the state:
+
+```math
+S_t
+\rightarrow
+A_t
+\rightarrow
+S_{t+1}.
+```
+
+The VLA therefore continuously adapts its action to the current physical configuration.
+
+For example, if an object is slightly displaced, a grasp is imperfect, or the robot's motion differs from the imagined trajectory, the VLA can adjust its next action using the newly observed 3D state.
+
+The WAM provides the **longer-horizon physical context**.
+
+The VLA provides the **high-frequency closed-loop adaptation**.
+
+---
+
+# 10. When the WAM Replans
+
+The WAM does not need to be continuously regenerated during normal execution.
+
+It can instead be invoked when the current physical plan is no longer sufficient.
+
+For example:
+
+```math
+(S_{t'},S_G,T_i)
+\rightarrow
+\text{WAM}
+\rightarrow
+Z'_{1:H}.
+```
+
+This creates a hierarchy of responses:
+
+```math
+\text{VLA correction}
+<
+\text{WAM replanning}
+<
+\text{task replanning}.
+```
+
+Small deviations are handled by the VLA.
+
+Changes that invalidate the current physical strategy trigger the WAM.
+
+Changes to the overall task strategy trigger the high-level planner.
+
+---
+
+# 11. Why 3D Goal-State Planning?
+
+Many manipulation tasks are naturally defined by physical configurations rather than visual appearances.
+
+Examples include:
+
+```text
+cup inside cabinet
+drawer fully closed
+block on top of another block
+object aligned with fixture
+tool inserted into socket
+```
+
+These are naturally represented as transformations:
 
 ```math
 S_t
@@ -213,553 +471,26 @@ S_t
 S_G.
 ```
 
-where the cup occupies a desired pose relative to the cabinet.
+A 3D-native system can therefore reason directly about the physical variables that define task success.
 
-The WAM can therefore reason about the transformation between physical states rather than merely predicting the next sequence of pixels.
+The WAM's problem becomes:
+
+```math
+\text{How can the world evolve from } S_t
+\text{ to } S_G?
+```
+
+This is a much more explicit physical planning problem than simply predicting the next image or action.
 
 ---
 
-# 6. Generating the 3D Goal State
+# 12. Training Objectives
 
-For each subtask, the system generates a desired 3D configuration.
+Each component specializes in a distinct problem.
 
-Given:
+### 3D World State
 
-```math
-S_t
-```
-
-and the subtask:
-
-```math
-T_i,
-```
-
-a goal-generation model produces:
-
-```math
-S_G^i
-=
-f_{\text{goal}}(S_t,T_i).
-```
-
-The WAM then receives both the current and desired states:
-
-```math
-(S_t,S_G^i,T_i).
-```
-
-This explicitly separates:
-
-```math
-\text{what should happen}
-```
-
-from:
-
-```math
-\text{how it should happen}.
-```
-
-The VLM defines the objective.
-
-The WAM reasons about the physical transformation required to reach it.
-
----
-
-# 7. The WAM as a Physical Planner
-
-The WAM receives:
-
-```math
-S_t,\;S_G^i,\;T_i
-```
-
-and generates an imagined physical trajectory.
-
-Conceptually:
-
-```math
-(S_t,S_G^i,T_i)
-\rightarrow
-(Z^V,Z^A).
-```
-
-where:
-
-* $Z^V$ represents predicted latent visual/world states;
-* $Z^A$ represents latent physical actions.
-
-The WAM can therefore imagine:
-
-```text
-current state
-      ↓
-approach object
-      ↓
-establish contact
-      ↓
-grasp
-      ↓
-lift
-      ↓
-move
-      ↓
-place
-      ↓
-goal state
-```
-
-The important point is that the WAM is **not being asked to execute this trajectory exactly**.
-
-It is being asked to provide a physically informed hypothesis about how the subtask can be accomplished.
-
----
-
-# 8. Latent Physical Actions
-
-The WAM should operate in a latent action space rather than being forced to predict the final robot action representation directly.
-
-It produces:
-
-```math
-Z^A =
-(z^A_1,z^A_2,\ldots,z^A_N).
-```
-
-Each latent action represents a higher-level physical intention.
-
-For example, a latent action could encode concepts corresponding to:
-
-```text
-approach
-grasp
-lift
-push
-pull
-place
-maintain contact
-```
-
-without requiring the WAM itself to specify the exact robot-specific execution parameters.
-
-The VLA then grounds these latent physical intentions into executable robot actions:
-
-```math
-Z^A
-\rightarrow
-A.
-```
-
-This provides an abstraction boundary between:
-
-```math
-\text{environment-level physical reasoning}
-```
-
-and:
-
-```math
-\text{robot-specific execution}.
-```
-
----
-
-# 9. The WAM Also Predicts the Consequences
-
-The WAM does not only predict actions.
-
-It predicts what should happen as a consequence of those actions.
-
-Conceptually:
-
-```math
-Z^V_0
-\rightarrow
-Z^V_1
-\rightarrow
-\cdots
-\rightarrow
-Z^V_N.
-```
-
-while simultaneously predicting:
-
-```math
-Z^A_1
-\rightarrow
-Z^A_2
-\rightarrow
-\cdots
-\rightarrow
-Z^A_N.
-```
-
-Thus the WAM represents a coupled prediction:
-
-```math
-\text{action}
-\rightarrow
-\text{physical consequence}.
-```
-
-This is the source of its physical reasoning capability.
-
-The model can effectively ask:
-
-> "If I perform this sequence of physical interactions, what should happen?"
-
-The resulting imagined trajectory provides the VLA with a physically informed target for execution.
-
----
-
-# 10. The VLA as a Closed-Loop Grounding Model
-
-The VLA receives the WAM's imagined trajectory together with the actual current state and observations.
-
-Conceptually:
-
-```math
-(O_t,S_t,T_i,Z^V,Z^A)
-\rightarrow
-A_t.
-```
-
-It then executes the action in the real world.
-
-The resulting observation is:
-
-```math
-A_t
-\rightarrow
-O_{t+1}.
-```
-
-The 3D-State Model updates:
-
-```math
-S_t,O_{t+1}
-\rightarrow
-S_{t+1}.
-```
-
-The VLA continues using the updated state.
-
-This gives:
-
-```math
-\text{WAM imagination}
-\rightarrow
-\text{VLA execution}
-\rightarrow
-\text{real observation}
-\rightarrow
-\text{updated 3D state}.
-```
-
-The VLA therefore continuously corrects for discrepancies between the imagined trajectory and reality.
-
----
-
-# 11. Why This Solves WAM Trajectory Drift
-
-Suppose the WAM predicts:
-
-```text
-grasp → lift → move → place
-```
-
-but the real object is slightly different from what the model expected.
-
-Perhaps:
-
-* the object is 3 cm farther away;
-* the grasp is slightly off;
-* the object slips;
-* the surface has different friction;
-* the robot's motion differs from the predicted motion.
-
-An open-loop WAM trajectory will progressively diverge from reality.
-
-Our system instead treats the WAM trajectory as a **plan to be grounded**, not a trajectory that must be followed exactly.
-
-The VLA continuously observes the consequences of its actions.
-
-Therefore:
-
-```math
-\text{predicted state}
-\neq
-\text{actual state}
-```
-
-does not automatically imply failure.
-
-The VLA adapts its execution to the actual state.
-
-If the discrepancy becomes too large for local correction, the WAM can generate a new plan from the newly estimated state.
-
----
-
-# 12. WAM Replanning Is Event-Driven
-
-The WAM therefore does not need to run continuously at the VLA's control frequency.
-
-For a subtask, the normal execution path is:
-
-```math
-S_t
-\rightarrow
-\text{WAM}
-\rightarrow
-(Z^V,Z^A)
-\rightarrow
-\text{VLA execution}.
-```
-
-The VLA handles normal deviations.
-
-Only when the current plan becomes invalid does the WAM need to be invoked again:
-
-```math
-S_{t'}
-\rightarrow
-\text{WAM}
-\rightarrow
-(Z^{V'},Z^{A'}).
-```
-
-This makes WAM inference **event-driven rather than control-frequency-driven**.
-
-The expensive generative world model can therefore operate relatively infrequently, while the VLA operates continuously.
-
----
-
-# 13. Speed and Computational Efficiency
-
-This separation also creates an important computational advantage.
-
-Current WAM-based systems can repeatedly generate future trajectories during closed-loop execution.
-
-If a task lasts $T$ seconds and replanning occurs every $k$ seconds:
-
-```math
-N_{\text{WAM}}
-\approx
-\frac{T}{k}.
-```
-
-Our architecture instead targets:
-
-```math
-N_{\text{WAM}}
-\approx
-1
-```
-
-for an uninterrupted subtask.
-
-The VLA handles the high-frequency execution loop.
-
-The WAM handles the low-frequency physical planning loop.
-
-The high-level VLM handles the even lower-frequency task-planning loop.
-
-Thus:
-
-```math
-\text{Task VLM}
-<
-\text{WAM}
-<
-\text{VLA}
-<
-\text{Robot Controller}
-```
-
-in terms of operating frequency.
-
-This is a natural allocation of computation:
-
-> **Expensive models reason slowly; reactive models execute quickly.**
-
----
-
-# 14. Comparison With Current WAMs
-
-The proposal is not simply "add a VLA after a WAM."
-
-The key difference is the **role assigned to the WAM**.
-
-|                               | Current WAM approach               | Proposed architecture          |
-| ----------------------------- | ---------------------------------- | ------------------------------ |
-| Primary role                  | World modeling + action generation | **Physical planning**          |
-| Execution                     | WAM-centric                        | **VLA-centric**                |
-| Planning horizon              | Potentially long                   | **Subtask-level**              |
-| Real-world grounding          | WAM closed loop                    | **Dedicated VLA loop**         |
-| Persistent 3D state           | Not central                        | **Central representation**     |
-| Goal specification            | Usually implicit/trajectory-based  | **Explicit 3D goal state**     |
-| Action representation         | Robot actions/action chunks        | **Latent physical actions**    |
-| WAM frequency                 | Repeated during execution          | **Event-driven**               |
-| Handling model–world mismatch | Replanning/control through WAM     | **VLA handles local mismatch** |
-| High-level task decomposition | Not central                        | **Dedicated VLM**              |
-| Subtask verification          | Not central                        | **Dedicated VLM**              |
-| Long-horizon reasoning        | WAM trajectory                     | **Task VLM + subtask WAM**     |
-
-The proposal therefore changes the fundamental relationship between the WAM and the robot.
-
-Instead of:
-
-```math
-\text{WAM}
-\rightarrow
-\text{robot trajectory}
-\rightarrow
-\text{execution}.
-```
-
-we propose:
-
-```math
-\text{WAM}
-\rightarrow
-\text{physical plan}
-\rightarrow
-\text{VLA}
-\rightarrow
-\text{grounded execution}.
-```
-
----
-
-# 15. Comparison With VLAs
-
-The same decomposition addresses the limitations of purely VLA-based systems.
-
-A VLA must otherwise learn a mapping such as:
-
-```math
-(\text{observation},\text{instruction})
-\rightarrow
-\text{action}.
-```
-
-For increasingly complex tasks, this forces the model to implicitly learn:
-
-* object dynamics;
-* contact mechanics;
-* long-horizon consequences;
-* affordances;
-* physical planning;
-* recovery strategies.
-
-Our architecture gives the VLA an explicit physical hypothesis from the WAM:
-
-```math
-(\text{observation},\text{task},\text{physical plan})
-\rightarrow
-\text{action}.
-```
-
-The VLA can therefore focus on the problem it is naturally suited for:
-
-> **grounding an intended physical behavior into the continuously changing real world.**
-
-This does not eliminate the need for physical knowledge in the VLA. Rather, it gives the VLA a much richer physical prior to condition on.
-
----
-
-# 16. Hierarchical Recovery
-
-The architecture naturally supports recovery at multiple levels.
-
-### Local execution failure
-
-The VLA handles small deviations:
-
-```math
-\text{execution error}
-\rightarrow
-\text{local correction}.
-```
-
-### Physical-plan failure
-
-If the current strategy no longer works:
-
-```math
-\text{current state}
-\rightarrow
-\text{WAM}
-\rightarrow
-\text{new physical plan}.
-```
-
-### Subtask failure
-
-If the subtask itself needs to change:
-
-```math
-T_i
-\rightarrow
-\text{Task Planner}
-\rightarrow
-\text{new subtask}.
-```
-
-### Task-level failure
-
-If the overall strategy is invalid:
-
-```math
-T
-\rightarrow
-\text{Task Planner}
-\rightarrow
-\text{new task decomposition}.
-```
-
-This produces a hierarchy:
-
-```math
-\text{VLA recovery}
-<
-\text{WAM replanning}
-<
-\text{task-level replanning}.
-```
-
-Small errors are handled cheaply.
-
-Large errors trigger progressively more expensive reasoning.
-
----
-
-# 17. Training the System
-
-Each component can be trained for a specialized objective.
-
-### Task Planner VLM
-
-Train it to:
-
-```math
-T
-\rightarrow
-\{T_1,\ldots,T_N\}
-```
-
-and to verify subtask completion:
-
-```math
-(S_t,T_i)
-\rightarrow
-P(T_i\text{ complete}).
-```
-
-### 3D-State Model
-
-Train:
+Learn to maintain a persistent physical representation:
 
 ```math
 (S_{t-1},O_t)
@@ -767,11 +498,9 @@ Train:
 S_t.
 ```
 
-to maintain a persistent physical representation.
-
 ### Goal Model
 
-Train:
+Learn to translate a semantic objective into a desired physical configuration:
 
 ```math
 (S_t,T_i)
@@ -779,117 +508,101 @@ Train:
 S_G^i.
 ```
 
-to translate semantic objectives into desired physical states.
-
 ### WAM
 
-Train:
+Learn to predict physically plausible future states conditioned on the current and desired state:
 
 ```math
 (S_t,S_G^i,T_i)
 \rightarrow
-(Z^V,Z^A).
+Z_{1:H}.
 ```
-
-to model physical consequences and generate physically plausible plans.
 
 ### VLA
 
-Train:
+Learn to ground the imagined trajectory into high-frequency robot actions:
 
 ```math
-(O_t,S_t,T_i,Z^V,Z^A)
+(O_t,S_t,T_i,Z_{1:H})
 \rightarrow
 A_t.
 ```
 
-to robustly ground the WAM's physical intentions into real-world execution.
-
-This division allows each model to specialize instead of forcing a single model to simultaneously learn:
+The resulting specialization is:
 
 ```text
-language
-+
-task planning
-+
-3D reconstruction
-+
-physics
-+
-trajectory generation
-+
-robot control
-+
-recovery.
+3D model
+→ represent reality
+
+Goal model
+→ define desired reality
+
+WAM
+→ imagine the transition
+
+VLA
+→ execute the transition
 ```
 
 ---
 
-# 18. The Complete Architecture
+# 13. Complete System
 
-For a task $T$, the complete system operates as follows.
+For a task `T`, the system operates as follows.
 
 ### Step 1 — Task decomposition
 
 ```math
 T
 \rightarrow
-\text{Task Planner}
+\text{VLM}
 \rightarrow
 T_i.
 ```
 
-### Step 2 — Maintain the current 3D state
+### Step 2 — Estimate the current 3D state
 
 ```math
 S_{t-1},O_t
 \rightarrow
-\text{3D-State Model}
-\rightarrow
 S_t.
 ```
 
-### Step 3 — Generate the desired physical state
+### Step 3 — Explicitly generate the goal state
 
 ```math
 S_t,T_i
 \rightarrow
-\text{Goal Model}
-\rightarrow
 S_G^i.
 ```
 
-### Step 4 — Generate a physical plan
+### Step 4 — Imagine the physical transition
 
 ```math
 S_t,S_G^i,T_i
 \rightarrow
 \text{WAM}
 \rightarrow
-(Z^V,Z^A).
+Z_{1:H}.
 ```
 
-### Step 5 — Ground the plan in reality
+### Step 5 — Run the VLA at high frequency
 
 ```math
-O_t,S_t,T_i,Z^V,Z^A
-\rightarrow
-\text{VLA}
+O_t,S_t,T_i,Z_{1:H}
 \rightarrow
 A_t.
 ```
 
-### Step 6 — Execute and observe
+### Step 6 — Observe the world
 
 ```math
 A_t
 \rightarrow
-\text{real world}
-\rightarrow
 O_{t+1}.
 ```
 
-### Step 7 — Update the world representation
+### Step 7 — Update the 3D state
 
 ```math
 S_t,O_{t+1}
@@ -897,20 +610,22 @@ S_t,O_{t+1}
 S_{t+1}.
 ```
 
-### Step 8 — Continue execution
+### Step 8 — Continue high-frequency VLA execution
 
-The VLA continues grounding the physical plan against the updated state.
+```math
+O_{t+1},S_{t+1},T_i,Z_{1:H}
+\rightarrow
+A_{t+1}.
+```
 
-### Step 9 — Replan if necessary
-
-If the current physical strategy becomes invalid:
+### Step 9 — Replan when needed
 
 ```math
 S_{t'}
 \rightarrow
 \text{WAM}
 \rightarrow
-\text{new plan}.
+Z'_{1:H}.
 ```
 
 ### Step 10 — Verify the subtask
@@ -918,12 +633,12 @@ S_{t'}
 ```math
 (S_t,T_i)
 \rightarrow
-\text{Task Planner}
+\text{VLM}
 \rightarrow
-\text{completed / failed}.
+\text{success / failure}.
 ```
 
-If complete:
+Then:
 
 ```math
 T_i
@@ -931,128 +646,130 @@ T_i
 T_{i+1}.
 ```
 
-The overall loop becomes:
-
-```math
-\text{Task}
-\rightarrow
-\text{Subtask}
-\rightarrow
-\text{Current 3D State}
-\rightarrow
-\text{3D Goal}
-\rightarrow
-\text{WAM Plan}
-\rightarrow
-\text{VLA Execution}
-\rightarrow
-\text{Updated 3D State}
-\rightarrow
-\text{Verification}
-\rightarrow
-\text{Next Subtask}.
-```
-
 ---
 
-# 19. Central Thesis
+# 14. The Proposed Architecture
 
-The central thesis is that **general-purpose robot intelligence should separate physical planning from physical execution**.
-
-VLAs and WAMs provide complementary capabilities:
-
-```math
-\text{VLA}
-=
-\text{real-world grounding}.
-```
-
-```math
-\text{WAM}
-=
-\text{physical imagination and planning}.
-```
-
-Neither capability should be forced to completely subsume the other.
-
-Instead, we propose:
+The complete architecture can be summarized as:
 
 ```math
 \boxed{
+\text{Task}
+\rightarrow
 \text{VLM}
 \rightarrow
 \text{3D State}
 \rightarrow
+\text{3D Goal}
+\rightarrow
 \text{WAM}
+\rightarrow
+\text{VLA}
+\rightarrow
+\text{3D State Update}
 \rightarrow
 \text{VLA}
 }
 ```
 
-where:
+with WAM replanning when required.
 
-* the **VLM** decomposes the task and verifies progress;
-* the **3D-State Model** maintains a persistent representation of reality;
-* the **WAM** imagines how the current physical subtask can be accomplished;
-* the **VLA** continuously grounds that imagined plan in the real world.
+The three central design choices are:
 
-The key conceptual shift is:
+### 1. 3D-native physical reasoning
 
-> **The WAM should not be the robot's entire policy. It should be the robot's physical imagination and planner.**
+The system maintains an explicit 3D representation of the physical world rather than relying exclusively on raw visual observations.
 
-And:
+### 2. Explicit goal-state imagination
 
-> **The VLA should not have to discover all physical reasoning implicitly. It should be the closed-loop mechanism that turns physical plans into successful real-world behavior.**
-
-This creates a hierarchy in which each model operates where its capabilities are most valuable:
+The system explicitly represents the desired future physical configuration:
 
 ```math
-\text{Understand}
+S_t
 \rightarrow
-\text{Decompose}
-\rightarrow
-\text{Represent}
-\rightarrow
-\text{Set Goal}
-\rightarrow
-\text{Imagine}
-\rightarrow
-\text{Ground}
-\rightarrow
-\text{Execute}
-\rightarrow
-\text{Verify}
-\rightarrow
-\text{Repeat}.
+S_G.
 ```
 
-The result is a system that combines the **physical knowledge and long-horizon reasoning of WAMs** with the **continuous grounding and adaptability of VLAs**, while avoiding the computational cost and brittleness of requiring a generative world model to continuously control the robot.
+The WAM then reasons about the transition between these states.
+
+### 3. Low-frequency WAM, high-frequency VLA
+
+The WAM performs expensive physical imagination at the planning timescale.
+
+The VLA continuously executes and grounds that plan at the policy timescale.
+
+```math
+\boxed{
+\text{WAM}
+\rightarrow
+\text{physical plan}
+\rightarrow
+\text{VLA}
+\rightarrow
+\text{high-frequency execution}
+}
+```
 
 ---
 
-# Clarification: What Does the VLA Output?
+# 15. Central Thesis
 
-For readers less familiar with robot control stacks, the VLA's output should be understood as a **robot action**, rather than a raw electrical motor command.
+The central thesis is:
 
-In practice, these actions are typically expressed as declarative setpoints or desired physical outcomes, such as end-effector motion, pose changes, gripper commands, or desired contact forces.
+> **General-purpose robot intelligence should separate physical planning from high-frequency physical execution.**
 
-For example:
-
-```math
-A_t =
-(\Delta x,\Delta y,\Delta z,\Delta R,F_{\text{contact}}).
-```
-
-The robot's existing control stack then translates these commands into the forces and torques required to achieve them, and ultimately into actuator-level electrical signals:
+WAMs and VLAs provide complementary capabilities.
 
 ```math
-\text{VLA action}
-\rightarrow
-\text{robot controller}
-\rightarrow
-\text{forces/torques}
-\rightarrow
-\text{motor signals}.
+\text{WAM}
+=
+\text{physical imagination}
 ```
 
-The proposed learning architecture therefore operates primarily **above the hardware-specific low-level control layer**.
+```math
+\text{VLA}
+=
+\text{high-frequency grounding and execution}
+```
+
+The missing interface between them is an explicit representation of **where the world is now** and **where it should end up**.
+
+That interface is a persistent 3D state and an explicit 3D goal state:
+
+```math
+\boxed{
+S_t
+\rightarrow
+S_G
+}
+```
+
+The WAM reasons about the transition.
+
+The VLA continuously grounds that transition in the real world.
+
+The resulting architecture is:
+
+```math
+\boxed{
+\text{Understand}
+\rightarrow
+\text{Represent in 3D}
+\rightarrow
+\text{Define Goal}
+\rightarrow
+\text{Imagine with WAM}
+\rightarrow
+\text{Execute with VLA}
+\rightarrow
+\text{Update 3D State}
+\rightarrow
+\text{Repeat}
+}
+```
+
+The fundamental shift is therefore:
+
+> **The WAM becomes the robot's physical imagination and planning engine, while the VLA becomes its high-frequency grounding and execution engine.**
+
+This allows expensive generative physical reasoning and fast reactive control to coexist in a single hierarchical architecture.
