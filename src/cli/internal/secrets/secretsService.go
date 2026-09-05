@@ -54,6 +54,12 @@ const podSelector = "app.kubernetes.io/name=openbao"
 //go:embed openbao.yaml
 var openbaoManifests []byte
 
+// namespaceManifest is the shared freelunch-system namespace. Applied before
+// openbao.yaml and never deleted; see the comment in the file.
+//
+//go:embed namespace.yaml
+var namespaceManifest []byte
+
 type (
 	// Runner executes an external command and returns its combined output.
 	// It exists so tests can drive the service without a cluster.
@@ -144,22 +150,27 @@ func (s *secretsServiceFinal) tool(ctx context.Context) (string, error) {
 	return s.kubectl, s.kubectlErr
 }
 
-// writeManifests materialises the embedded definition so kubectl can read it.
-func writeManifests() (path string, cleanup func(), err error) {
-	dir, err := os.MkdirTemp("", "freelunch-secrets-")
+// writeManifests materialises the embedded definitions so kubectl can read
+// them, and returns the directory holding them.
+func writeManifests() (dir string, cleanup func(), err error) {
+	dir, err = os.MkdirTemp("", "freelunch-secrets-")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("cannot create temp dir for secrets manifests: %w", err)
 	}
 
 	cleanup = func() { _ = os.RemoveAll(dir) }
 
-	path = filepath.Join(dir, "openbao.yaml")
-	if writeErr := os.WriteFile(path, openbaoManifests, 0o600); writeErr != nil {
-		cleanup()
-		return "", func() {}, fmt.Errorf("cannot write openbao.yaml: %w", writeErr)
+	for name, data := range map[string][]byte{
+		"namespace.yaml": namespaceManifest,
+		"openbao.yaml":   openbaoManifests,
+	} {
+		if writeErr := os.WriteFile(filepath.Join(dir, name), data, 0o600); writeErr != nil {
+			cleanup()
+			return "", func() {}, fmt.Errorf("cannot write %s: %w", name, writeErr)
+		}
 	}
 
-	return path, cleanup, nil
+	return dir, cleanup, nil
 }
 
 // pod returns the name of the running store pod. Callers exec into it — the
@@ -198,7 +209,7 @@ func (s *secretsServiceFinal) Install(ctx context.Context) error {
 		return err
 	}
 
-	path, cleanup, err := writeManifests()
+	dir, cleanup, err := writeManifests()
 	if err != nil {
 		return err
 	}
@@ -206,7 +217,15 @@ func (s *secretsServiceFinal) Install(ctx context.Context) error {
 
 	s.sm.LogsService().Debug(ctx, "installing the secrets store")
 
-	out, err := s.runner.Run(ctx, kubectl, "apply", "-f", path)
+	// The shared namespace goes first so this component installs on a fresh
+	// cluster on its own (`install --only secrets`, `install --skip auth`); it
+	// is applied, never created, so a namespace auth already made is fine.
+	out, err := s.runner.Run(ctx, kubectl, "apply", "-f", filepath.Join(dir, "namespace.yaml"))
+	if err != nil {
+		return fmt.Errorf("kubectl apply namespace failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	out, err = s.runner.Run(ctx, kubectl, "apply", "-f", filepath.Join(dir, "openbao.yaml"))
 	if err != nil {
 		return fmt.Errorf("kubectl apply failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -227,7 +246,7 @@ func (s *secretsServiceFinal) Delete(ctx context.Context) error {
 		return err
 	}
 
-	path, cleanup, err := writeManifests()
+	dir, cleanup, err := writeManifests()
 	if err != nil {
 		return err
 	}
@@ -235,7 +254,10 @@ func (s *secretsServiceFinal) Delete(ctx context.Context) error {
 
 	s.sm.LogsService().Debug(ctx, "deleting the secrets store")
 
-	out, err := s.runner.Run(ctx, kubectl, "delete", "-f", path, "--ignore-not-found")
+	// Only this component's manifests — never namespace.yaml. The namespace is
+	// shared, and deleting it would take the auth service down with it.
+	out, err := s.runner.Run(ctx, kubectl,
+		"delete", "-f", filepath.Join(dir, "openbao.yaml"), "--ignore-not-found")
 	if err != nil {
 		return fmt.Errorf("kubectl delete failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}

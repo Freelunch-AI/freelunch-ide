@@ -49,6 +49,12 @@ const BinDirEnvVar = "FREELUNCH_BIN_DIR"
 //go:embed keycloak.yaml
 var keycloakManifests []byte
 
+// namespaceManifest is the shared freelunch-system namespace. Applied before
+// keycloak.yaml and never deleted; see the comment in the file.
+//
+//go:embed namespace.yaml
+var namespaceManifest []byte
+
 //go:embed freelunch-realm.json
 var realmJSON []byte
 
@@ -169,6 +175,7 @@ func writeManifests() (dir string, cleanup func(), err error) {
 	cleanup = func() { _ = os.RemoveAll(dir) }
 
 	for name, data := range map[string][]byte{
+		"namespace.yaml":       namespaceManifest,
 		"keycloak.yaml":        keycloakManifests,
 		"freelunch-realm.json": realmJSON,
 	} {
@@ -200,10 +207,17 @@ func (s *authServiceFinal) Install(ctx context.Context) error {
 
 	s.sm.LogsService().Debug(ctx, "installing the auth service")
 
-	// The namespace must exist before the ConfigMap can land in it, and both
-	// live in keycloak.yaml — so apply the manifests, then the ConfigMap, then
-	// restart to pick up realm changes on re-install.
-	out, err := s.runner.Run(ctx, kubectl, "apply", "-f", filepath.Join(dir, "keycloak.yaml"))
+	// The shared namespace goes first so this component installs on a fresh
+	// cluster on its own (`install --only auth`); it is applied, never
+	// created, so a namespace the secrets component already made is fine.
+	out, err := s.runner.Run(ctx, kubectl, "apply", "-f", filepath.Join(dir, "namespace.yaml"))
+	if err != nil {
+		return fmt.Errorf("kubectl apply namespace failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Then the manifests, then the ConfigMap they mount, then a restart to
+	// pick up realm changes on re-install.
+	out, err = s.runner.Run(ctx, kubectl, "apply", "-f", filepath.Join(dir, "keycloak.yaml"))
 	if err != nil {
 		return fmt.Errorf("kubectl apply failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -254,6 +268,8 @@ func (s *authServiceFinal) Delete(ctx context.Context) error {
 
 	s.sm.LogsService().Debug(ctx, "deleting the auth service")
 
+	// Only this component's manifests — never namespace.yaml. The namespace is
+	// shared, and deleting it would take the secrets store down with it.
 	out, err := s.runner.Run(ctx, kubectl,
 		"delete", "-f", filepath.Join(dir, "keycloak.yaml"), "--ignore-not-found")
 	if err != nil {

@@ -4,11 +4,9 @@
 # known bootstrap password. It holds no real credentials and loses everything on
 # restart, which is why the realm is imported from committed JSON rather than
 # created by hand in the console.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: freelunch-system
----
+#
+# The freelunch-system namespace is not declared here: it is shared with the
+# other components and lives in namespace.yaml, applied first by Install.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

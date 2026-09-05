@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -169,7 +170,7 @@ func Test_secretsServiceFinal_Install(t *testing.T) {
 			// apply, rollout status.
 			name:      "success applies and waits",
 			setup:     withTools,
-			wantCalls: 2,
+			wantCalls: 3, // namespace, manifests, rollout wait
 		},
 		{name: "tools missing", setup: withoutTools, wantErr: true},
 		{
@@ -214,12 +215,42 @@ func Test_secretsServiceFinal_InstallWritesManifests(t *testing.T) {
 		t.Fatalf("Install() error = %v", err)
 	}
 
-	first := runner.calls[0]
-	if first.args[0] != "apply" || !strings.HasSuffix(first.args[2], "openbao.yaml") {
-		t.Errorf("first call = %v, want apply -f <path>/openbao.yaml", first.args)
+	// The shared namespace first, so `install --only secrets` and
+	// `install --skip auth` work on a fresh cluster; the store second.
+	first, second := runner.calls[0], runner.calls[1]
+	if first.args[0] != "apply" || !strings.HasSuffix(first.args[2], "namespace.yaml") {
+		t.Errorf("first call = %v, want apply -f <path>/namespace.yaml", first.args)
 	}
-	if _, err := os.Stat(first.args[2]); !os.IsNotExist(err) {
-		t.Errorf("manifest %s still exists after Install(); want it removed", first.args[2])
+	if second.args[0] != "apply" || !strings.HasSuffix(second.args[2], "openbao.yaml") {
+		t.Errorf("second call = %v, want apply -f <path>/openbao.yaml", second.args)
+	}
+	if _, err := os.Stat(second.args[2]); !os.IsNotExist(err) {
+		t.Errorf("manifest %s still exists after Install(); want it removed", second.args[2])
+	}
+}
+
+// Test_componentManifestDoesNotOwnNamespace guards the split: the namespace
+// is shared and lives only in namespace.yaml. If it were declared in
+// openbao.yaml, Delete would remove it and take the auth service down.
+func Test_componentManifestDoesNotOwnNamespace(t *testing.T) {
+	if strings.Contains(string(openbaoManifests), "kind: Namespace") {
+		t.Error("openbao.yaml declares a Namespace; it belongs in namespace.yaml only")
+	}
+	if !strings.Contains(string(namespaceManifest), "kind: Namespace") ||
+		!strings.Contains(string(namespaceManifest), "name: "+Namespace) {
+		t.Errorf("namespace.yaml must declare the %s Namespace", Namespace)
+	}
+}
+
+// Test_namespaceManifestMatchesAuth guards the deliberate duplication of
+// namespace.yaml across component packages; see the auth package's twin.
+func Test_namespaceManifestMatchesAuth(t *testing.T) {
+	other, err := os.ReadFile(filepath.Join("..", "auth", "namespace.yaml"))
+	if err != nil {
+		t.Fatalf("reading the auth copy: %v", err)
+	}
+	if !bytes.Equal(other, namespaceManifest) {
+		t.Error("secrets/namespace.yaml and auth/namespace.yaml differ; edit them together")
 	}
 }
 
@@ -256,6 +287,13 @@ func Test_secretsServiceFinal_Delete(t *testing.T) {
 				got := runner.calls[0].args
 				if got[0] != "delete" || got[len(got)-1] != "--ignore-not-found" {
 					t.Errorf("Delete() args = %v, want delete ... --ignore-not-found", got)
+				}
+				// The namespace is shared: deleting it would take the auth
+				// service down with the store.
+				for _, c := range runner.calls {
+					if strings.Contains(strings.Join(c.args, " "), "namespace.yaml") {
+						t.Errorf("Delete() touched namespace.yaml: %v", c.args)
+					}
 				}
 			}
 		})

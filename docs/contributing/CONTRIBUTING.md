@@ -514,6 +514,11 @@ clients: `freelunch-ide` (browser login for the Group 7 IDE, PKCE) and `freelunc
 `freelunch install` deploys **OpenBao 2.6.2** (dev mode) and seeds the demo credential
 `secret/example_service · api-key` on every run.
 
+- **The `freelunch-system` namespace is shared and owned by no component.** Each of auth
+  and secrets embeds an identical `namespace.yaml`, applies it before its own manifests,
+  and never deletes it — so `install --only secrets` works on a fresh cluster, and deleting
+  one component cannot take the other down. Tests keep the two copies identical. It used to
+  live inside the Keycloak manifest, which made the secrets store silently depend on auth.
 - **Why OpenBao and not HashiCorp Vault, which the tech stack originally named:** Vault
   has been **BUSL-1.1 licensed since 2023** — it restricts embedding in a commercial
   product, which is exactly what `freelunch install` does. OpenBao is the Linux
