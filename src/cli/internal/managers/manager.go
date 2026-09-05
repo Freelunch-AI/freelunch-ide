@@ -145,14 +145,22 @@ type (
 	// below names it, and managers cannot import a concrete service package
 	// without creating an import cycle.
 	SecretsStatus struct {
-		// Ready reports whether the store is up and answering.
-		Ready bool
+		// Up reports whether the pod runs and the store answers `bao status` as
+		// initialized. It says nothing about whether the store can serve
+		// secrets; see Ready.
+		Up bool
 		// Sealed is reported separately because a running-but-sealed store is
 		// the failure that looks most like success from the outside.
 		Sealed bool
-		// Engine is the mount path and version in use, e.g. "secret/ (kv v2)".
-		// Recorded because the v1/v2 distinction is what breaks 2.1.
+		// Engine is what is mounted at the KV path, e.g. "secret/ (kv v2)",
+		// empty when nothing is. Recorded because the v1/v2 distinction is what
+		// breaks 2.1.
 		Engine string
+		// Ready reports whether the store is usable as roadmap 1.4 promises:
+		// Up, not Sealed, and a KV v2 engine mounted at secret/. Dev mode
+		// mounts that engine on every start, so Up without Ready means the
+		// deployment was changed out from under us — waiting will not fix it.
+		Ready bool
 	}
 
 	// SecretsService owns the local secrets store described by roadmap 1.4.

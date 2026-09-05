@@ -14,6 +14,7 @@
 package secrets
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"encoding/json"
@@ -242,13 +243,19 @@ func (s *secretsServiceFinal) Delete(ctx context.Context) error {
 	return nil
 }
 
-// Status reports readiness, seal state and the mounted engine.
+// Status reports whether the store is up, sealed, what engine is mounted, and
+// whether all of that adds up to the store roadmap 1.4 promises.
 //
 // An absent or unready store is a normal answer, not an error. Sealed is
 // reported separately from Ready because a sealed store still has a Ready pod
 // — it is the failure that looks most like success from the outside. Dev mode
 // never seals, so Sealed=true here means someone changed the deployment out
-// from under us, which is exactly when it matters.
+// from under us, which is exactly when it matters. A store that is up but has
+// no KV v2 engine at secret/ is the same kind of failure and is reported the
+// same way: Up without Ready.
+//
+// A probe that fails on a store that is known to be up is an error: the answer
+// is unknown, and an unknown must not be reported as either ready or unready.
 func (s *secretsServiceFinal) Status(ctx context.Context) (*managers.SecretsStatus, error) {
 	kubectl, err := s.tool(ctx)
 	if err != nil {
@@ -262,44 +269,59 @@ func (s *secretsServiceFinal) Status(ctx context.Context) (*managers.SecretsStat
 		return status, nil
 	}
 
-	out, err := s.bao(ctx, kubectl, pod, "status", "-format=json")
-	if err != nil {
-		return status, nil
-	}
+	// `bao status` exits 2 when the store is sealed and kubectl exec passes
+	// that on as an error, so the error alone cannot tell "sealed" from "not
+	// answering". The JSON body is still printed; it is what decides, and only
+	// when it is missing does the store count as not answering.
+	out, _ := s.bao(ctx, kubectl, pod, "status", "-format=json")
 
 	var st struct {
 		Initialized bool `json:"initialized"`
 		Sealed      bool `json:"sealed"`
 	}
-	if jsonErr := json.Unmarshal(out, &st); jsonErr != nil {
+	if jsonErr := unmarshalJSONObject(out, &st); jsonErr != nil {
 		return status, nil
 	}
 
+	status.Up = st.Initialized
 	status.Sealed = st.Sealed
-	status.Ready = st.Initialized && !st.Sealed
-
-	if !status.Ready {
+	if !status.Up || status.Sealed {
 		return status, nil
 	}
 
 	out, err = s.bao(ctx, kubectl, pod, "secrets", "list", "-format=json")
 	if err != nil {
-		return status, nil
+		return nil, fmt.Errorf("secrets store is up but listing its engines failed: %w: %s",
+			err, strings.TrimSpace(string(out)))
 	}
 
 	var mounts map[string]struct {
 		Type    string            `json:"type"`
 		Options map[string]string `json:"options"`
 	}
-	if jsonErr := json.Unmarshal(out, &mounts); jsonErr != nil {
-		return status, nil
+	if jsonErr := unmarshalJSONObject(out, &mounts); jsonErr != nil {
+		return nil, fmt.Errorf("secrets store is up but its engine list could not be parsed: %w", jsonErr)
 	}
 
 	if m, ok := mounts[Mount+"/"]; ok {
 		status.Engine = fmt.Sprintf("%s/ (%s v%s)", Mount, m.Type, m.Options["version"])
+		status.Ready = m.Type == "kv" && m.Options["version"] == "2"
 	}
 
 	return status, nil
+}
+
+// unmarshalJSONObject decodes the JSON object in out, ignoring anything around
+// it. The runner returns combined output, so a non-zero exit from the bao CLI
+// arrives as the JSON body followed by kubectl's "command terminated with exit
+// code N" line; the body is still the answer.
+func unmarshalJSONObject(out []byte, v any) error {
+	first := bytes.IndexByte(out, '{')
+	last := bytes.LastIndexByte(out, '}')
+	if first < 0 || last < first {
+		return fmt.Errorf("no JSON object in %q", strings.TrimSpace(string(out)))
+	}
+	return json.Unmarshal(out[first:last+1], v)
 }
 
 // PutSecret writes one key/value pair at a logical path under the KV mount.

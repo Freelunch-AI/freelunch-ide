@@ -36,6 +36,12 @@ mounted engine:
 Secrets store is ready: secret/ (kv v2)
 ```
 
+"Ready" means exactly that line: the store answers, is unsealed, **and** a KV **v2** engine
+is mounted at `secret/`. Dev mode mounts it on every start, so if `status` instead says the
+store is `SEALED`, or `up but NOT READY` with a missing or different engine, the deployment
+has been changed out from under you and waiting will not fix it — inspect it, or recreate
+the environment. A store that is still coming up says `not ready` with no detail.
+
 ## Using it
 
 There is deliberately **no Ingress** — the consumer is external-secrets-operator (2.1),

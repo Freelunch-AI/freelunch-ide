@@ -456,12 +456,21 @@ func (s *commandServiceFinal) RunStatus(ctx context.Context, out io.Writer) erro
 	}
 
 	switch {
-	case secretsStatus == nil || (!secretsStatus.Ready && !secretsStatus.Sealed):
+	case secretsStatus == nil || !secretsStatus.Up:
 		_, err = fmt.Fprintln(out, "Secrets store is not ready.")
 	case secretsStatus.Sealed:
 		// Dev mode never seals, so this means the deployment was changed out
 		// from under us — worth its own line, since the pod looks healthy.
 		_, err = fmt.Fprintln(out, "Secrets store is SEALED — this dev-mode store should never seal; inspect the deployment.")
+	case !secretsStatus.Ready:
+		// Up, unsealed, and still not usable: the KV v2 engine 1.4 promises is
+		// not at secret/. Dev mode mounts it on every start, so like a seal
+		// this means the deployment was changed; waiting will not fix it.
+		mounted := "nothing is mounted at secret/"
+		if secretsStatus.Engine != "" {
+			mounted = "found " + secretsStatus.Engine
+		}
+		_, err = fmt.Fprintf(out, "Secrets store is up but NOT READY: %s; expected secret/ (kv v2). Dev mode mounts it on every start — inspect the deployment.\n", mounted)
 	default:
 		// The engine is printed because the kv v1/v2 distinction is what 2.1
 		// must configure for; visible here, drift is caught at a glance.

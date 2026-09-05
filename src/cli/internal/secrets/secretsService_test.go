@@ -52,6 +52,12 @@ func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte
 	joined := strings.Join(args, " ")
 	for k, v := range f.fail {
 		if strings.Contains(joined, k) {
+			// A failing command still has output — kubectl exec returns the
+			// bao CLI's body together with its non-zero exit — so a test may
+			// pair fail with out for the same key.
+			if body, ok := f.out[k]; ok {
+				return body, v
+			}
 			return []byte("boom"), v
 		}
 	}
@@ -257,18 +263,25 @@ func Test_secretsServiceFinal_Delete(t *testing.T) {
 }
 
 func Test_secretsServiceFinal_Status(t *testing.T) {
+	// kubectl exec passes the bao CLI's non-zero exit on as an error, and the
+	// runner returns combined output, so this is what a sealed store's
+	// `bao status` really looks like to the service.
+	sealedOutput := []byte(`{"initialized": true, "sealed": true}` + "\ncommand terminated with exit code 2\n")
+	sealedErr := errors.New("exit status 2")
+
 	tests := []struct {
-		name string
-		mut  func(r *fakeRunner)
-		want managers.SecretsStatus
+		name    string
+		mut     func(r *fakeRunner)
+		want    managers.SecretsStatus
+		wantErr bool
 	}{
 		{
-			name: "ready unsealed with engine",
+			name: "ready unsealed with the kv v2 engine",
 			mut:  func(_ *fakeRunner) {},
-			want: managers.SecretsStatus{Ready: true, Engine: "secret/ (kv v2)"},
+			want: managers.SecretsStatus{Up: true, Ready: true, Engine: "secret/ (kv v2)"},
 		},
 		{
-			name: "no running pod is not ready, not an error",
+			name: "no running pod is not up, not an error",
 			mut: func(r *fakeRunner) {
 				r.fail["get pod"] = errors.New("no items")
 			},
@@ -276,25 +289,68 @@ func Test_secretsServiceFinal_Status(t *testing.T) {
 		},
 		{
 			// The failure that looks most like success: pod Ready, store sealed.
-			name: "sealed store is reported sealed and not ready",
+			// bao exits 2 here, so the JSON must be read despite the error.
+			name: "sealed store is reported up and sealed, not ready",
 			mut: func(r *fakeRunner) {
-				r.out["status -format=json"] = []byte(`{"initialized": true, "sealed": true}`)
+				r.out["status -format=json"] = sealedOutput
+				r.fail["status -format=json"] = sealedErr
 			},
-			want: managers.SecretsStatus{Sealed: true},
+			want: managers.SecretsStatus{Up: true, Sealed: true},
 		},
 		{
-			name: "garbage status is not ready, not an error",
+			name: "status failing with no JSON is not up, not an error",
+			mut: func(r *fakeRunner) {
+				r.out["status -format=json"] = []byte("connection refused")
+				r.fail["status -format=json"] = errors.New("exit status 1")
+			},
+			want: managers.SecretsStatus{},
+		},
+		{
+			name: "garbage status is not up, not an error",
 			mut: func(r *fakeRunner) {
 				r.out["status -format=json"] = []byte("not json at all")
 			},
 			want: managers.SecretsStatus{},
 		},
 		{
-			name: "missing engine leaves Engine empty but Ready true",
+			name: "uninitialized store is not up",
 			mut: func(r *fakeRunner) {
-				r.out["secrets list"] = []byte(`{}`)
+				r.out["status -format=json"] = []byte(`{"initialized": false, "sealed": true}`)
 			},
-			want: managers.SecretsStatus{Ready: true},
+			want: managers.SecretsStatus{Sealed: true},
+		},
+		{
+			// Mohit's case: the store answers but secret/ is gone. Up, so the
+			// user is told to inspect rather than wait; not Ready, because the
+			// seed and 2.1's consumer have nowhere to read from.
+			name: "missing engine is up but not ready",
+			mut: func(r *fakeRunner) {
+				r.out["secrets list"] = []byte(`{"sys/": {"type": "system"}}`)
+			},
+			want: managers.SecretsStatus{Up: true},
+		},
+		{
+			// KV v1 at secret/ serves a different HTTP path; 2.1 would read
+			// nothing. The engine is reported so the message can name it.
+			name: "kv v1 engine is up but not ready",
+			mut: func(r *fakeRunner) {
+				r.out["secrets list"] = []byte(`{"secret/": {"type": "kv", "options": {"version": "1"}}}`)
+			},
+			want: managers.SecretsStatus{Up: true, Engine: "secret/ (kv v1)"},
+		},
+		{
+			name: "engine listing failure on an up store is an error, not a verdict",
+			mut: func(r *fakeRunner) {
+				r.fail["secrets list"] = errors.New("permission denied")
+			},
+			wantErr: true,
+		},
+		{
+			name: "unparseable engine listing on an up store is an error, not a verdict",
+			mut: func(r *fakeRunner) {
+				r.out["secrets list"] = []byte("not json")
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -304,13 +360,31 @@ func Test_secretsServiceFinal_Status(t *testing.T) {
 			tt.mut(runner)
 
 			got, err := svc.Status(ctx)
-			if err != nil {
-				t.Fatalf("Status() error = %v, want nil", err)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Status() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
 			}
 			if *got != tt.want {
 				t.Errorf("Status() = %+v, want %+v", *got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_unmarshalJSONObject(t *testing.T) {
+	var v struct {
+		A int `json:"a"`
+	}
+	if err := unmarshalJSONObject([]byte("noise {\"a\": 1}\ncommand terminated with exit code 2\n"), &v); err != nil || v.A != 1 {
+		t.Errorf("unmarshalJSONObject() = %+v, %v; want A=1, nil", v, err)
+	}
+	if err := unmarshalJSONObject([]byte("no object here"), &v); err == nil {
+		t.Error("unmarshalJSONObject() expected an error for output without a JSON object")
+	}
+	if err := unmarshalJSONObject([]byte("{not json}"), &v); err == nil {
+		t.Error("unmarshalJSONObject() expected an error for a malformed object")
 	}
 }
 

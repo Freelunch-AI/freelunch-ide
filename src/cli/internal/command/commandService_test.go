@@ -1034,13 +1034,25 @@ func Test_commandServiceFinal_RunStatus_reportsSecrets(t *testing.T) {
 	}{
 		{
 			name:    "ready store prints the engine",
-			secrets: &fakeSecretsService{status: &managers.SecretsStatus{Ready: true, Engine: "secret/ (kv v2)"}},
+			secrets: &fakeSecretsService{status: &managers.SecretsStatus{Up: true, Ready: true, Engine: "secret/ (kv v2)"}},
 			wantOut: []string{"Secrets store is ready: secret/ (kv v2)"},
 		},
 		{
 			name:    "sealed store gets its own loud line",
-			secrets: &fakeSecretsService{status: &managers.SecretsStatus{Sealed: true}},
+			secrets: &fakeSecretsService{status: &managers.SecretsStatus{Up: true, Sealed: true}},
 			wantOut: []string{"SEALED"},
+		},
+		{
+			// Up but the engine is gone: not "ready" (nothing to read from) and
+			// not "not ready" either (waiting will not bring it back).
+			name:    "up store without the engine says what is missing",
+			secrets: &fakeSecretsService{status: &managers.SecretsStatus{Up: true}},
+			wantOut: []string{"NOT READY", "nothing is mounted at secret/", "inspect the deployment"},
+		},
+		{
+			name:    "up store with the wrong engine names it",
+			secrets: &fakeSecretsService{status: &managers.SecretsStatus{Up: true, Engine: "secret/ (kv v1)"}},
+			wantOut: []string{"NOT READY", "found secret/ (kv v1)", "expected secret/ (kv v2)"},
 		},
 		{
 			name:    "absent store says not ready",
