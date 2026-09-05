@@ -36,6 +36,29 @@ image: rancher/k3s:v1.35.5-k3s1
 servers: 1
 agents: 1
 
+# Every host port below is bound to 127.0.0.1, never to all interfaces.
+#
+# Without an address, Docker publishes a port on every interface of the host,
+# and on Linux its iptables rules bypass ufw, so a host firewall does not help.
+# Everything behind these ports is a dev-mode service with committed
+# credentials by design (Keycloak admin, the realm password, the agent client
+# secret) or with no credentials at all (the registry is unauthenticated and
+# writable, and the cluster pulls from it). Reachable from a shared network,
+# that is an admin console anyone can log into and an image store anyone can
+# push code into. Loopback keeps the Demo what roadmap 1.2 says it is: local
+# to the laptop.
+#
+# Nothing needs the wider bind: Keycloak's hostname is keycloak.localhost, the
+# registry is addressed as localhost:5050, and in-cluster pulls reach the
+# registry over the Docker network by name, not through the host port.
+# WSL2 reaches loopback-bound ports through Windows' localhost forwarding.
+
+# The Kubernetes API is published by k3d on a random host port. Its default
+# bind is 0.0.0.0 as well; it is certificate-protected, but there is no reason
+# for it to listen on the network when nothing else does.
+kubeAPI:
+  hostIP: '127.0.0.1'
+
 ports:
   # Published on the k3d load balancer, which is the piece that makes this work
   # identically on macOS. Container IPs are not routable from a macOS host
@@ -46,10 +69,10 @@ ports:
   # 8080/8443 rather than 80/443 deliberately: ports below 1024 are privileged
   # on Linux, so binding them would demand root from the Linux developers for
   # no benefit. Nothing here needs the well-known ports.
-  - port: 8080:80
+  - port: 127.0.0.1:8080:80
     nodeFilters:
       - loadbalancer
-  - port: 8443:443
+  - port: 127.0.0.1:8443:443
     nodeFilters:
       - loadbalancer
 
@@ -65,7 +88,7 @@ registries:
   # than diagnosing it per laptop.
   create:
     name: freelunch-registry
-    host: '0.0.0.0'
+    host: '127.0.0.1'
     hostPort: '5050'
 
 options:

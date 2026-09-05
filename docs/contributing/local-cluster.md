@@ -147,6 +147,14 @@ kubectl delete ingress probe && kubectl delete svc probe && kubectl delete deplo
 | `8080` | ingress HTTP (`:80` in-cluster) | ports below 1024 are privileged on Linux and would require root |
 | `8443` | ingress HTTPS (`:443` in-cluster) | same |
 | `5050` | the cluster's local image registry | recent macOS binds `5000` for AirPlay Receiver |
+| random | the Kubernetes API, via the k3d load balancer | k3d picks it; the kubeconfig records it |
+
+All of them are bound to **`127.0.0.1` only**. Docker's default is every interface, which
+would put a Keycloak with committed dev credentials and an unauthenticated, writable
+registry on whatever network the laptop is connected to. The bind address is set per port
+in `k3d-cluster.yaml`, and the reasoning is in the comment there — do not widen it to make
+a demo reachable from another device; that wants an explicit, opt-in mechanism, not a
+default.
 
 The registry answers on the host:
 
@@ -309,7 +317,11 @@ Docker is not running. Everything here is containers; there is no fallback.
 
 **`port is already allocated` on 8080, 8443 or 5050**
 Something else on your machine holds the port. Find it with `lsof -i :8080`, or change the
-mapping in `k3d-cluster.yaml` — the ports are arbitrary and only need to be free.
+port number in `k3d-cluster.yaml` — the ports are arbitrary and only need to be free. Keep
+the `127.0.0.1:` prefix when you do.
+
+**The cluster is not reachable from another machine**
+Intended: every host port is bound to loopback (see [Ports](#ports)).
 
 **`checksums.txt is stale — run 'pixi run task pin:tools'`**
 `versions.env` was changed without regenerating the checksums. Run the command it suggests

@@ -460,7 +460,9 @@ Decisions worth knowing:
 
 `freelunch install` creates a two-node Kubernetes cluster as Docker containers using
 **k3d** (k3s in Docker), from a declarative config embedded in the binary. Traefik
-ingress on host ports 8080/8443, a local image registry on 5050.
+ingress on host ports 8080/8443, a local image registry on 5050, all bound to `127.0.0.1`
+only — the dev credentials are committed constants and the registry is unauthenticated, so
+nothing here may listen on the network (`local-cluster.md`, "Ports").
 
 **Why k3d and not the originally specced ProxMox + Talos VMs:** the team runs three
 operating systems, and the VM-based spec produced an environment at most one of us could
