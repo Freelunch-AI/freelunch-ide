@@ -1,13 +1,21 @@
-# Test + coverage report for every pull request.
+# Test + coverage report and static checks for every pull request.
 #
-# On each PR (open and every subsequent push) this workflow:
-#   1. provisions the exact toolchain pinned in pixi.toml (same as a workstation),
-#   2. runs the Go tests with -race and a coverage profile (Taskfile test:cover),
-#   3. runs the TypeScript tests under vitest with V8 coverage,
-#   4. posts one sticky comment on the PR with the results and coverage totals
-#      (edited in place on later pushes, so the PR gets exactly one comment),
-#      mirrors it into the run's job summary, and uploads the HTML coverage
-#      reports as an artifact.
+# On each PR (open and every subsequent push) this workflow runs two jobs in
+# parallel, both on the exact toolchain pinned in pixi.toml (same as a
+# workstation):
+#
+#   test  — runs the Go tests with -race and a coverage profile (Taskfile
+#           test:cover) and the TypeScript tests under vitest with V8 coverage,
+#           then posts one sticky comment on the PR with the results and
+#           coverage totals (edited in place on later pushes, so the PR gets
+#           exactly one comment), mirrors it into the run's job summary, and
+#           uploads the HTML coverage reports as an artifact.
+#   check — runs the rest of `pixi run check`: formatting, linters, the CLI and
+#           TypeScript builds, and the GoReleaser config validation. Its result
+#           is reported through the job status only.
+#
+# Together the two jobs are `pixi run check`, split so the tests are not run
+# twice and so a formatting nit never delays the coverage report.
 #
 # The comment step needs `pull-requests: write`. GITHUB_TOKEN only has that for
 # branches of this repository — a PR opened from a fork would run the tests but
@@ -121,3 +129,38 @@ jobs:
             src/cli/coverage.html
             src/ide_src/coverage/
           if-no-files-found: ignore
+
+  # Everything in `pixi run check` except the tests, which the `test` job
+  # already runs. The targets are invoked one by one so a red formatter does
+  # not hide whether the build and the linters passed — and, as in `test`,
+  # `if: always()` keeps the later gates running after an earlier one fails.
+  #
+  # GoReleaser is only *validated* here (`goreleaser check`). Building the
+  # snapshot archives on every PR would compile four binaries for little gain;
+  # the real release build runs on the version tag.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: true
+
+      - name: Install Go and Node dependencies
+        run: pixi run task setup:go setup:ts
+
+      - name: Formatting (golangci-lint fmt, Prettier)
+        run: pixi run task fmt:check
+
+      - name: Lint (golangci-lint, ESLint)
+        if: always()
+        run: pixi run task lint
+
+      - name: Build (freelunch CLI, tsc)
+        if: always()
+        run: pixi run task build
+
+      - name: Release configuration (goreleaser check)
+        if: always()
+        run: pixi run task package:check

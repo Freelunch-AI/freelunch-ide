@@ -365,10 +365,12 @@ These have each caused a real problem already.
 2. **Never install Go or Node yourself.** Pixi provides them. If you install your own, you
    will eventually hit a bug nobody else can reproduce.
 
-3. **Always run `pixi run check` before pushing.** Nothing runs it automatically. There is a
-   GitHub Action on the repository, but it is an **AI reviewer** — it does not run the tests.
-   If you skip the check, broken code reaches the branch and nobody finds out for days. That
-   has already happened once.
+3. **Always run `pixi run check` before pushing.** CI runs the same gates on every pull
+   request (`.github/workflows/pr-tests.yml`: tests with coverage in one job, formatting,
+   linters, builds and the GoReleaser config in another), but only on PRs — a broken push to
+   a branch is still found by nobody until it is opened for review. Running the check first
+   keeps the PR green on the first try and spares reviewers a round-trip over a formatting
+   nit.
 
 4. **Do not edit files inside `.pixi/` or `node_modules/`.** They are downloaded
    dependencies, are not committed, and any change is lost on the next install.

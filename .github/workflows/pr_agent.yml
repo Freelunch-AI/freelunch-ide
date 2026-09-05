@@ -17,13 +17,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC.KEY: ${{ secrets.ANTHROPIC_KEY }}
 
-          config.model: "anthropic/claude-opus-4-8"
+          config.model: 'anthropic/claude-opus-4-8'
           config.fallback_models: '["anthropic/claude-opus-4-7"]'
-          config.custom_model_max_tokens: "1000000"
-          config.max_model_tokens: "32000"
-          config.propagate_tool_errors: "true"
-          litellm.drop_params: "true"
+          config.custom_model_max_tokens: '1000000'
+          config.max_model_tokens: '32000'
+          config.propagate_tool_errors: 'true'
+          litellm.drop_params: 'true'
 
-          github_action_config.auto_review: "true"
-          github_action_config.auto_describe: "true"
-          github_action_config.auto_improve: "true"
+          github_action_config.auto_review: 'true'
+          github_action_config.auto_describe: 'true'
+          github_action_config.auto_improve: 'true'
