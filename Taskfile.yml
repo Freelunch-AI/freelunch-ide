@@ -1,0 +1,248 @@
+# Build orchestration for the FreeLunch repository.
+#
+# Every target assumes the tools declared in pixi.toml are on PATH. Run them
+# through `pixi run <target>` (or from inside `pixi shell`) so every contributor
+# uses the same tool versions.
+version: '3'
+
+vars:
+  # The Go module is rooted at src/cli/, so every Go task runs with `dir:` set
+  # to GO_DIR rather than at the repository root.
+  GO_DIR: src/cli
+  # Pinned cluster tools are installed here by the toolchain scripts; they are
+  # deliberately not on the user's PATH, so tasks address them explicitly.
+  FL_BIN: '{{.FREELUNCH_BIN_DIR | default (printf "%s/.freelunch/bin" .HOME)}}'
+  CLUSTER_CONFIG: src/cli/internal/cluster/k3d-cluster.yaml
+  # The npm workspace is rooted at src/ide_src/, so node_modules lives there.
+  TS_DIR: src/ide_src
+  # Prettier covers the whole repository, not just the workspace that ships it —
+  # YAML under templates/ and .github/ included. It must therefore run from the
+  # repository root, or .gitignore/.prettierignore resolve against src/ide_src/.
+  PRETTIER: src/ide_src/node_modules/.bin/prettier
+  # Explicit package patterns rather than ./... . node_modules now sits outside
+  # the module, so ./... would in fact be safe — the patterns are kept because
+  # they stay correct if an npm workspace is ever added under src/cli/.
+  GO_PKGS: ./cmd/... ./internal/...
+  # Relative to GO_DIR: the binary is still written to the repository-root bin/.
+  BIN_DIR: bin
+  CLI_BINARY: freelunch
+  LDFLAGS_PKG: github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: Install Go, Node and cluster dependencies
+    cmds:
+      - task: setup:go
+      - task: setup:ts
+      - task: setup:cluster-tools
+
+  setup:cluster-tools:
+    desc: Install pinned k3d and kubectl into ~/.freelunch/bin
+    cmds:
+      - task: setup:k3d
+      - task: setup:kubectl
+
+  setup:k3d:
+    desc: Install the pinned k3d into ~/.freelunch/bin
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/install-k3d.sh
+
+  setup:kubectl:
+    desc: Install the pinned kubectl into ~/.freelunch/bin
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/install-kubectl.sh
+
+  setup:airgap-images:
+    desc: Cache the k3s image bundle in ~/.freelunch/images for offline cluster creation
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/install-airgap-images.sh
+
+  pin:tools:
+    desc: Regenerate checksums.txt for the versions pinned in versions.env
+    cmds:
+      - ./{{.GO_DIR}}/internal/toolchain/scripts/pin-tools.sh
+
+  # --- Local cluster ------------------------------------------------------
+
+  cluster:up:
+    desc: Create the local Demo cluster from the committed k3d config
+    deps: [setup:cluster-tools]
+    cmds:
+      # Mirrors what ClusterService.Create does. If the two diverged, an airgap
+      # verified through one path would say nothing about the other.
+      - |
+        if ls "$HOME/.freelunch/images"/k3s-airgap-images-* >/dev/null 2>&1; then
+          {{.FL_BIN}}/k3d cluster create --config {{.CLUSTER_CONFIG}} \
+            --volume "$HOME/.freelunch/images:/var/lib/rancher/k3s/agent/images@server:*;agent:*"
+        else
+          {{.FL_BIN}}/k3d cluster create --config {{.CLUSTER_CONFIG}}
+        fi
+      - '{{.FL_BIN}}/kubectl get nodes'
+
+  cluster:down:
+    desc: Delete the local Demo cluster
+    cmds:
+      - '{{.FL_BIN}}/k3d cluster delete --config {{.CLUSTER_CONFIG}}'
+
+  cluster:status:
+    desc: Show the local Demo cluster and its nodes
+    cmds:
+      - '{{.FL_BIN}}/k3d cluster list'
+      - '{{.FL_BIN}}/kubectl get nodes -o wide'
+
+  setup:ts:
+    desc: Install Node dependencies
+    dir: '{{.TS_DIR}}'
+    cmds:
+      - npm ci
+
+  setup:go:
+    desc: Download Go module dependencies
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - go mod download
+
+  # --- Formatting ---------------------------------------------------------
+
+  fmt:
+    desc: Format all Go and TypeScript sources
+    deps: [fmt:go, fmt:ts]
+
+  fmt:go:
+    desc: Format Go sources
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - golangci-lint fmt
+
+  fmt:ts:
+    desc: Format every non-Go source in the repository with Prettier
+    cmds:
+      - '{{.PRETTIER}} --write .'
+
+  fmt:check:
+    desc: Verify formatting without rewriting files
+    cmds:
+      - task: fmt:check:go
+      - '{{.PRETTIER}} --check .'
+
+  fmt:check:go:
+    desc: Verify Go formatting without rewriting files
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - golangci-lint fmt --diff
+
+  # --- Linting ------------------------------------------------------------
+
+  lint:
+    desc: Lint all Go and TypeScript sources
+    deps: [lint:go, lint:ts]
+
+  lint:go:
+    desc: Lint Go sources
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - golangci-lint run {{.GO_PKGS}}
+
+  lint:ts:
+    desc: Lint TypeScript sources
+    dir: '{{.TS_DIR}}'
+    cmds:
+      - npm run lint
+
+  # --- Testing ------------------------------------------------------------
+
+  test:
+    desc: Run all Go and TypeScript tests
+    deps: [test:go, test:ts]
+
+  test:go:
+    desc: Run Go tests
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - go test -race {{.GO_PKGS}}
+
+  test:ts:
+    desc: Run TypeScript tests
+    dir: '{{.TS_DIR}}'
+    cmds:
+      - npm test
+
+  test:cover:
+    desc: Run Go tests and write an HTML coverage report
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - go test -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
+      - go tool cover -html=coverage.out -o coverage.html
+      - 'echo "coverage report: coverage.html"'
+
+  # --- Building -----------------------------------------------------------
+
+  build:
+    desc: Build the CLI and the TypeScript workspace
+    deps: [build:cli, build:ts]
+
+  build:cli:
+    desc: Build the freelunch CLI into bin/
+    dir: '{{.GO_DIR}}'
+    cmds:
+      - mkdir -p ../../{{.BIN_DIR}}
+      - >-
+        go build
+        -trimpath
+        -ldflags "-X {{.LDFLAGS_PKG}}.version={{.VERSION}} -X {{.LDFLAGS_PKG}}.commit={{.COMMIT}} -X {{.LDFLAGS_PKG}}.date={{.BUILD_DATE}}"
+        -o ../../{{.BIN_DIR}}/{{.CLI_BINARY}}
+        ./cmd/{{.CLI_BINARY}}
+      - '../../{{.BIN_DIR}}/{{.CLI_BINARY}} version'
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev
+      COMMIT:
+        sh: git rev-parse HEAD 2>/dev/null || echo unknown
+      BUILD_DATE:
+        sh: date -u +%Y-%m-%dT%H:%M:%SZ
+
+  build:ts:
+    desc: Compile the TypeScript workspace
+    dir: '{{.TS_DIR}}'
+    cmds:
+      - npm run build
+
+  # --- Packaging ----------------------------------------------------------
+
+  package:
+    desc: Build release archives locally without publishing
+    cmds:
+      - goreleaser release --snapshot --clean
+
+  package:check:
+    desc: Validate the GoReleaser configuration
+    cmds:
+      - goreleaser check
+
+  # --- Aggregates ---------------------------------------------------------
+
+  check:
+    desc: Run the full check suite before pushing
+    cmds:
+      - task: fmt:check
+      - task: lint
+      - task: test
+      - task: build
+
+  clean:
+    desc: Remove build output
+    cmds:
+      - rm -rf {{.BIN_DIR}} dist coverage.out coverage.html
+      - task: clean:ts
+
+  clean:ts:
+    desc: Remove TypeScript build output
+    dir: '{{.TS_DIR}}'
+    cmds:
+      - npm run clean

@@ -1,6 +1,6 @@
 name: Implementation task
 description: Turn an approved roadmap item or design decision into buildable work
-title: "[Task]: "
+title: '[Task]: '
 type: Task
 body:
   - type: markdown

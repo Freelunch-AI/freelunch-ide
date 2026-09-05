@@ -1,0 +1,121 @@
+{
+  "realm": "freelunch",
+  "displayName": "FreeLunch",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "hotfix",
+        "description": "roadmap 2.4: a PERMISSION, not a Persona. Grantable by a Platform Admin to any Persona; allows merging directly to main with no CI gates. Modelled as a realm role rather than a group because it composes with any Persona."
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "platform-admin",
+      "attributes": {
+        "freelunch.kind": ["persona"],
+        "freelunch.note": [
+          "roadmap 2.4 Core Persona: full access; manages Roles, permissions, setup."
+        ]
+      }
+    },
+    {
+      "name": "platform-engineer",
+      "attributes": {
+        "freelunch.kind": ["persona"],
+        "freelunch.note": [
+          "roadmap 2.4 Core Persona: configures platform policies, edits L2 directly, advanced CUE editing."
+        ]
+      }
+    },
+    {
+      "name": "developer",
+      "attributes": {
+        "freelunch.kind": ["persona"],
+        "freelunch.note": ["roadmap 2.4 Core Persona: models Services and Workflows on the canvas."]
+      }
+    },
+    {
+      "name": "developer-tech-lead",
+      "attributes": {
+        "freelunch.kind": ["temporary-grant"],
+        "freelunch.note": [
+          "roadmap 2.4 temporary approval grant, NOT a Persona. Assigned to a Developer for approving application PRs for staging and production."
+        ]
+      }
+    },
+    {
+      "name": "platform-tech-lead",
+      "attributes": {
+        "freelunch.kind": ["temporary-grant"],
+        "freelunch.note": [
+          "roadmap 2.4 temporary approval grant, NOT a Persona. Assigned to a Platform Engineer for approving platform PRs for staging and production."
+        ]
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "freelunch-ide",
+      "name": "FreeLunch IDE",
+      "description": "Browser login for the Theia-based IDE (Group 7). Public client using Authorization Code + PKCE. The redirect URIs below are PLACEHOLDERS - the IDE does not exist yet, and Group 7 must replace them with its real callback.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*", "http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:3000", "http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "freelunch-agent",
+      "name": "FreeLunch Agent Integration Layer",
+      "description": "Machine-to-machine client for the Coding Agent Observability API (roadmap 8.1), which obtains a token via client credentials. The secret below is NOT a secret - this is a dev-mode instance that holds nothing real.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "freelunch-agent-demo-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "carol",
+      "email": "carol@example.com",
+      "firstName": "Carol",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo", "temporary": false }],
+      "groups": ["/platform-admin"]
+    },
+    {
+      "username": "bob",
+      "email": "bob@example.com",
+      "firstName": "Bob",
+      "lastName": "Engineer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo", "temporary": false }],
+      "groups": ["/platform-engineer"]
+    },
+    {
+      "username": "alice",
+      "email": "alice@example.com",
+      "firstName": "Alice",
+      "lastName": "Developer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo", "temporary": false }],
+      "groups": ["/developer"]
+    }
+  ]
+}

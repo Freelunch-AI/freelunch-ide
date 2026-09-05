@@ -1,0 +1,9 @@
+# L1 platform configuration for a FreeLunch customer monorepo.
+#
+# Owned by Platform Engineers. `freelunch upgrade` diffs the L1 schema of a
+# newly published FreeLunch release against this file to decide whether the
+# upgrade is compatible.
+#
+# The platform version is the only field specified so far; see docs/roadmap.md
+# section 1.1. Everything else is deliberately absent rather than guessed.
+version: 0.0.0

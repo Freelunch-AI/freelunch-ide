@@ -1,0 +1,69 @@
+# Release configuration for the freelunch CLI.
+#
+# Triggered by pushing a semantic version tag, per branching_strategy.md.
+# Publishing to the Go module proxy needs no configuration here: it happens
+# automatically once the tag exists on GitHub.
+version: 2
+
+project_name: freelunch
+
+before:
+  hooks:
+    - go -C src/cli mod download
+
+builds:
+  - id: freelunch
+    # The Go module is rooted at src/cli/, not at the repository root.
+    dir: src/cli
+    main: ./cmd/freelunch
+    binary: freelunch
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo.version={{ .Version }}
+      - -X github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo.commit={{ .FullCommit }}
+      - -X github.com/Freelunch-AI/freelunch-ide/src/cli/internal/buildinfo.date={{ .CommitDate }}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: freelunch
+    ids:
+      - freelunch
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    # roadmap.md 1.1 requires versioned *template* publishing alongside the
+    # package. `freelunch init` scaffolds a customer monorepo from these files,
+    # so they must travel with the binary that reads them — a release carrying
+    # only the CLI would leave init with nothing to copy.
+    files:
+      # A bare directory src, not a glob: a glob such as templates/**/* makes
+      # GoReleaser strip the matched parent dirs, which flattened the
+      # monorepo/ level and would collide once a second template is added.
+      - src: templates
+        dst: templates
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-snapshot'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  draft: false
+  prerelease: auto

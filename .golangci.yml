@@ -1,0 +1,47 @@
+version: '2'
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+    - whitespace
+  settings:
+    errcheck:
+      check-type-assertions: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+  exclusions:
+    generated: lax
+    paths:
+      # Some npm packages vendor Go sources (e.g. flatted/golang); they are not ours.
+      - node_modules
+    rules:
+      # Tests may shadow and ignore errors freely; the assertions are the point.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Freelunch-AI/freelunch-ide/src/cli
+  exclusions:
+    paths:
+      - node_modules

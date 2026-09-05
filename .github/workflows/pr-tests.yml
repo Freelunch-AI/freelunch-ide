@@ -1,0 +1,166 @@
+# Test + coverage report and static checks for every pull request.
+#
+# On each PR (open and every subsequent push) this workflow runs two jobs in
+# parallel, both on the exact toolchain pinned in pixi.toml (same as a
+# workstation):
+#
+#   test  — runs the Go tests with -race and a coverage profile (Taskfile
+#           test:cover) and the TypeScript tests under vitest with V8 coverage,
+#           then posts one sticky comment on the PR with the results and
+#           coverage totals (edited in place on later pushes, so the PR gets
+#           exactly one comment), mirrors it into the run's job summary, and
+#           uploads the HTML coverage reports as an artifact.
+#   check — runs the rest of `pixi run check`: formatting, linters, the CLI and
+#           TypeScript builds, and the GoReleaser config validation. Its result
+#           is reported through the job status only.
+#
+# Together the two jobs are `pixi run check`, split so the tests are not run
+# twice and so a formatting nit never delays the coverage report.
+#
+# The comment step needs `pull-requests: write`. GITHUB_TOKEN only has that for
+# branches of this repository — a PR opened from a fork would run the tests but
+# fail to comment. All current PRs come from same-repo branches.
+name: PR Tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# A new push to the PR cancels the still-running report for the old commit.
+concurrency:
+  group: pr-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Installs pixi and `pixi install`s the environment, cached on pixi.lock.
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: true
+
+      # Only the module/package dependencies — deliberately not `task setup`,
+      # which would also download k3d/kubectl the unit tests never touch.
+      - name: Install Go and Node dependencies
+        run: pixi run task setup:go setup:ts
+
+      - name: Go tests with coverage
+        id: go
+        run: |
+          set -o pipefail
+          pixi run task test:cover 2>&1 | tee go-test.log
+
+      # `if: always()` from here on: a red Go suite must not stop the TS suite
+      # from running, nor stop the report from being posted.
+      - name: TypeScript tests with coverage
+        id: ts
+        if: always()
+        run: |
+          set -o pipefail
+          pixi run bash -c 'cd src/ide_src && npm test -- \
+            --coverage \
+            --coverage.reporter=text \
+            --coverage.reporter=text-summary \
+            --coverage.reporter=html' 2>&1 | tee ts-test.log
+
+      - name: Assemble report
+        if: always()
+        env:
+          GO_OUTCOME: ${{ steps.go.outcome }}
+          TS_OUTCOME: ${{ steps.ts.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          badge() { [ "$1" = success ] && echo "✅ pass" || echo "❌ fail"; }
+
+          GO_TOTAL=$(pixi run bash -c 'cd src/cli && go tool cover -func=coverage.out' 2>/dev/null \
+            | awk '/^total:/ {print $NF}')
+          TS_TOTAL=$(sed -n 's/^Statements[[:space:]]*:[[:space:]]*\([0-9.]*%\).*/\1/p' ts-test.log | tail -1)
+
+          {
+            echo "## 🧪 Test report"
+            echo
+            echo "| Suite | Result | Coverage (statements) |"
+            echo "| --- | --- | --- |"
+            echo "| Go (\`go test -race\`) | $(badge "$GO_OUTCOME") | ${GO_TOTAL:-n/a} |"
+            echo "| TypeScript (vitest) | $(badge "$TS_OUTCOME") | ${TS_TOTAL:-n/a} |"
+            echo
+            echo "<details><summary>Go — per-package results</summary>"
+            echo
+            echo '```'
+            grep -E '^(ok|FAIL|---)' go-test.log || echo "no test output captured"
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            echo "<details><summary>TypeScript — results and coverage summary</summary>"
+            echo
+            echo '```'
+            grep -E 'Test Files|Tests  |Statements|Branches|Functions|Lines' ts-test.log \
+              || echo "no test output captured"
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            echo "Full HTML coverage reports: \`coverage-reports\` artifact on [this run]($RUN_URL)."
+          } > report.md
+
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per PR, edited in place on every push (keyed by `header`).
+      - name: Post report on the PR
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pr-tests
+          path: report.md
+
+      - name: Upload HTML coverage reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-reports
+          path: |
+            src/cli/coverage.html
+            src/ide_src/coverage/
+          if-no-files-found: ignore
+
+  # Everything in `pixi run check` except the tests, which the `test` job
+  # already runs. The targets are invoked one by one so a red formatter does
+  # not hide whether the build and the linters passed — and, as in `test`,
+  # `if: always()` keeps the later gates running after an earlier one fails.
+  #
+  # GoReleaser is only *validated* here (`goreleaser check`). Building the
+  # snapshot archives on every PR would compile four binaries for little gain;
+  # the real release build runs on the version tag.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: true
+
+      - name: Install Go and Node dependencies
+        run: pixi run task setup:go setup:ts
+
+      - name: Formatting (golangci-lint fmt, Prettier)
+        run: pixi run task fmt:check
+
+      - name: Lint (golangci-lint, ESLint)
+        if: always()
+        run: pixi run task lint
+
+      - name: Build (freelunch CLI, tsc)
+        if: always()
+        run: pixi run task build
+
+      - name: Release configuration (goreleaser check)
+        if: always()
+        run: pixi run task package:check
