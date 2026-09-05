@@ -398,10 +398,28 @@ func (s *commandServiceFinal) RunStatus(ctx context.Context, out io.Writer) erro
 		return err
 	}
 
-	// The interface permits a nil status, so treat it the same as a cluster that
-	// is not there rather than dereferencing it.
-	if status == nil || !status.Running {
+	// Absent, API not answering, nodes NotReady and running are four different
+	// situations with four different remedies, so they get four different
+	// messages. The interface permits a nil status; treat it as absent rather
+	// than dereferencing it.
+	switch {
+	case status == nil || !status.Exists:
 		_, err = fmt.Fprintln(out, "Cluster is not running. Run `freelunch install` to create it.")
+		return err
+	case len(status.Nodes) == 0:
+		_, err = fmt.Fprintf(out, "Cluster %q exists but its API is not answering yet; check again shortly.\n", status.Name)
+		return err
+	case !status.Running:
+		if _, err = fmt.Fprintf(out, "Cluster %q exists but is not ready: %d of %d node(s) Ready.\n",
+			status.Name, readyNodeCount(status.Nodes), len(status.Nodes)); err != nil {
+			return err
+		}
+		if err := writeNodes(out, status.Nodes); err != nil {
+			return err
+		}
+		// The cluster is disposable by design ("fresh start only"), so the
+		// remedy is recreation, not repair.
+		_, err = fmt.Fprintln(out, "Run `freelunch uninstall` then `freelunch install` to recreate it.")
 		return err
 	}
 
@@ -410,10 +428,8 @@ func (s *commandServiceFinal) RunStatus(ctx context.Context, out io.Writer) erro
 		return err
 	}
 
-	for _, node := range status.Nodes {
-		if _, err = fmt.Fprintf(out, "  %s\n", node); err != nil {
-			return err
-		}
+	if err := writeNodes(out, status.Nodes); err != nil {
+		return err
 	}
 
 	authStatus, err := s.sm.AuthService().Status(ctx)
@@ -452,4 +468,31 @@ func (s *commandServiceFinal) RunStatus(ctx context.Context, out io.Writer) erro
 		_, err = fmt.Fprintf(out, "Secrets store is ready: %s\n", secretsStatus.Engine)
 	}
 	return err
+}
+
+// readyNodeCount counts the nodes whose Ready condition is True.
+func readyNodeCount(nodes []managers.ClusterNode) int {
+	n := 0
+	for _, node := range nodes {
+		if node.Ready {
+			n++
+		}
+	}
+	return n
+}
+
+// writeNodes prints one line per node with its readiness, in the wording
+// `kubectl get nodes` uses, so the output reads the same as the tool people
+// reach for next.
+func writeNodes(out io.Writer, nodes []managers.ClusterNode) error {
+	for _, node := range nodes {
+		state := "Ready"
+		if !node.Ready {
+			state = "NotReady"
+		}
+		if _, err := fmt.Fprintf(out, "  %s  %s\n", node.Name, state); err != nil {
+			return err
+		}
+	}
+	return nil
 }

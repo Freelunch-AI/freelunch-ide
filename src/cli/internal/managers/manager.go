@@ -50,7 +50,22 @@ type (
 		Execute(ctx context.Context, args []string) error
 	}
 
+	// ClusterNode is one node of the Demo cluster and whether it is Ready.
+	ClusterNode struct {
+		// Name is the node name as Kubernetes reports it.
+		Name string
+		// Ready reports whether the node's Ready condition is True. A node whose
+		// container has died, or that is still joining, is listed with Ready
+		// false rather than omitted: it exists, it is just not usable.
+		Ready bool
+	}
+
 	// ClusterStatus describes the local Demo cluster at a point in time.
+	//
+	// Existence and readiness are reported separately. A cluster can be known
+	// to k3d while its API is still coming up, or answer the API with nodes that
+	// are NotReady; neither is "absent" and neither is "running". Callers must
+	// not infer one from the other.
 	//
 	// It lives here rather than in the cluster package because the interface
 	// below names it, and managers cannot import a concrete service package
@@ -58,10 +73,14 @@ type (
 	ClusterStatus struct {
 		// Name of the cluster as k3d knows it.
 		Name string
-		// Running reports whether the cluster exists and its nodes are up.
+		// Exists reports whether k3d knows a cluster of this name.
+		Exists bool
+		// Running reports whether the cluster exists, its API answers, and every
+		// node is Ready. It is never true while Exists is false.
 		Running bool
-		// Nodes are the node names, empty when the cluster is not running.
-		Nodes []string
+		// Nodes lists every node the API reports, Ready or not. Empty when the
+		// cluster is absent or its API is not answering.
+		Nodes []ClusterNode
 	}
 
 	// ClusterService owns the local Kubernetes cluster described by roadmap

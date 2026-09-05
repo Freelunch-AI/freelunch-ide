@@ -475,6 +475,13 @@ customer running `freelunch install` has no pixi anyway — the CLI must provisi
 tools. They are fetched at pinned versions, digest-verified against an in-tree
 `checksums.txt`, into `~/.freelunch/bin`.
 
+**Existence is not readiness:** `freelunch status` asks the API for each node's `Ready`
+condition rather than listing node names, because `kubectl get nodes -o name` lists a
+NotReady node exactly like a healthy one. The status type therefore carries `Exists`,
+`Running` and per-node readiness separately, and the command gives a different answer for
+"no cluster", "API not answering yet", "a node is NotReady" and "running" — each has a
+different remedy, and the first three used to collapse into one misleading line.
+
 **Offline capability:** `pixi run task setup:airgap-images` caches the official k3s image
 bundle; with it present, cluster creation touches no network (verified by blackholing all
 registries — see `local-cluster.md` for why that, and not a Docker `--internal` network,

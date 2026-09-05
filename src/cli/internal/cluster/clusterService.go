@@ -292,10 +292,38 @@ func (s *clusterServiceFinal) Delete(ctx context.Context) error {
 	return nil
 }
 
-// Status reports whether the cluster exists and, if so, its node names.
+// nodeReadinessTemplate is the kubectl jsonpath that prints one line per node:
+// the node name, a tab, and the status of its Ready condition ("True",
+// "False" or "Unknown"). A node that has no Ready condition yet prints an empty
+// second field. `-o name` was not enough here: it lists NotReady nodes exactly
+// like healthy ones, so existence would have been reported as readiness.
+const nodeReadinessTemplate = `{range .items[*]}{.metadata.name}{"\t"}` +
+	`{range .status.conditions[?(@.type=="Ready")]}{.status}{end}{"\n"}{end}`
+
+// parseNodeReadiness turns nodeReadinessTemplate output into nodes. Only a
+// Ready condition of exactly "True" counts as Ready; "False", "Unknown" (the
+// kubelet stopped reporting) and a missing condition are all NotReady.
+func parseNodeReadiness(out []byte) []managers.ClusterNode {
+	var nodes []managers.ClusterNode
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		name, ready, _ := strings.Cut(strings.TrimSpace(line), "\t")
+		if name == "" {
+			continue
+		}
+		nodes = append(nodes, managers.ClusterNode{
+			Name:  name,
+			Ready: strings.TrimSpace(ready) == "True",
+		})
+	}
+	return nodes
+}
+
+// Status reports whether the cluster exists, whether its API answers, and the
+// readiness of each node. Running is true only when every node is Ready.
 //
-// A missing cluster is a normal answer rather than an error: callers ask this
-// precisely because they do not know yet.
+// A missing cluster, or one whose API is not answering, is a normal answer
+// rather than an error: callers ask this precisely because they do not know
+// yet, and `status` must stay useful while a cluster is still coming up.
 func (s *clusterServiceFinal) Status(ctx context.Context) (*managers.ClusterStatus, error) {
 	tools, err := s.toolset(ctx)
 	if err != nil {
@@ -307,22 +335,22 @@ func (s *clusterServiceFinal) Status(ctx context.Context) (*managers.ClusterStat
 	if _, listErr := s.runner.Run(ctx, tools.k3d, "cluster", "list", ClusterName); listErr != nil {
 		return status, nil
 	}
+	status.Exists = true
 
-	out, err := s.runner.Run(ctx, tools.kubectl, "get", "nodes", "-o", "name")
+	out, err := s.runner.Run(ctx, tools.kubectl, "get", "nodes", "-o", "jsonpath="+nodeReadinessTemplate)
 	if err != nil {
-		// The cluster exists but its API is not answering — report it as not
-		// running rather than failing, so `status` stays useful while a
-		// cluster is still coming up.
 		return status, nil
 	}
 
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if name := strings.TrimPrefix(strings.TrimSpace(line), "node/"); name != "" {
-			status.Nodes = append(status.Nodes, name)
-		}
-	}
+	status.Nodes = parseNodeReadiness(out)
 
 	status.Running = len(status.Nodes) > 0
+	for _, node := range status.Nodes {
+		if !node.Ready {
+			status.Running = false
+			break
+		}
+	}
 
 	return status, nil
 }

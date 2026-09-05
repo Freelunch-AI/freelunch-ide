@@ -322,33 +322,68 @@ func Test_clusterServiceFinal_Delete(t *testing.T) {
 }
 
 func Test_clusterServiceFinal_Status(t *testing.T) {
+	ready := func(name string) managers.ClusterNode { return managers.ClusterNode{Name: name, Ready: true} }
+	notReady := func(name string) managers.ClusterNode { return managers.ClusterNode{Name: name} }
+
 	tests := []struct {
 		name        string
 		setup       func(t *testing.T)
 		nodesOutput string
 		failList    bool
 		failNodes   bool
+		wantExists  bool
 		wantRunning bool
-		wantNodes   []string
+		wantNodes   []managers.ClusterNode
 		wantErr     bool
 	}{
 		{
-			name:        "running with two nodes",
+			name:        "running with two Ready nodes",
 			setup:       withTools,
-			nodesOutput: "node/k3d-freelunch-server-0\nnode/k3d-freelunch-agent-0\n",
+			nodesOutput: "k3d-freelunch-server-0\tTrue\nk3d-freelunch-agent-0\tTrue\n",
+			wantExists:  true,
 			wantRunning: true,
-			wantNodes:   []string{"k3d-freelunch-server-0", "k3d-freelunch-agent-0"},
+			wantNodes:   []managers.ClusterNode{ready("k3d-freelunch-server-0"), ready("k3d-freelunch-agent-0")},
+		},
+		{
+			// The case the -o name implementation got wrong: the node exists,
+			// so it was counted, but it is not usable.
+			name:        "a NotReady node exists but does not make the cluster running",
+			setup:       withTools,
+			nodesOutput: "k3d-freelunch-server-0\tTrue\nk3d-freelunch-agent-0\tFalse\n",
+			wantExists:  true,
+			wantRunning: false,
+			wantNodes:   []managers.ClusterNode{ready("k3d-freelunch-server-0"), notReady("k3d-freelunch-agent-0")},
+		},
+		{
+			// "Unknown" is what the API reports once the kubelet stops
+			// heartbeating (container killed, Docker paused); a node still
+			// joining has no Ready condition at all. Neither is Ready.
+			name:        "Unknown and missing Ready conditions are NotReady",
+			setup:       withTools,
+			nodesOutput: "k3d-freelunch-server-0\tUnknown\nk3d-freelunch-agent-0\t\n",
+			wantExists:  true,
+			wantRunning: false,
+			wantNodes:   []managers.ClusterNode{notReady("k3d-freelunch-server-0"), notReady("k3d-freelunch-agent-0")},
+		},
+		{
+			name:        "an API answering with no nodes is not running",
+			setup:       withTools,
+			nodesOutput: "",
+			wantExists:  true,
+			wantRunning: false,
 		},
 		{
 			name:        "cluster absent is not an error",
 			setup:       withTools,
 			failList:    true,
+			wantExists:  false,
 			wantRunning: false,
 		},
 		{
-			name:        "api not answering yet is not an error",
+			name:        "api not answering yet is not an error, and the cluster still exists",
 			setup:       withTools,
 			failNodes:   true,
+			wantExists:  true,
 			wantRunning: false,
 		},
 		{
@@ -381,13 +416,51 @@ func Test_clusterServiceFinal_Status(t *testing.T) {
 			if got.Name != ClusterName {
 				t.Errorf("Status().Name = %q, want %q", got.Name, ClusterName)
 			}
+			if got.Exists != tt.wantExists {
+				t.Errorf("Status().Exists = %v, want %v", got.Exists, tt.wantExists)
+			}
 			if got.Running != tt.wantRunning {
 				t.Errorf("Status().Running = %v, want %v", got.Running, tt.wantRunning)
 			}
-			if tt.wantNodes != nil && !reflect.DeepEqual(got.Nodes, tt.wantNodes) {
+			if !reflect.DeepEqual(got.Nodes, tt.wantNodes) {
 				t.Errorf("Status().Nodes = %v, want %v", got.Nodes, tt.wantNodes)
 			}
 		})
+	}
+}
+
+// Test_clusterServiceFinal_Status_asksForReadiness pins the shape of the node
+// query. `kubectl get nodes -o name` lists NotReady nodes indistinguishably
+// from Ready ones, so the query must ask for the Ready condition explicitly.
+func Test_clusterServiceFinal_Status_asksForReadiness(t *testing.T) {
+	withTools(t)
+	svc, runner, ctx := newServiceForTest(t)
+
+	if _, err := svc.Status(ctx); err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+
+	for _, c := range runner.calls {
+		if key(c.args) != "get nodes" {
+			continue
+		}
+		joined := strings.Join(c.args, " ")
+		if !strings.Contains(joined, "-o jsonpath=") || !strings.Contains(joined, `@.type=="Ready"`) {
+			t.Fatalf("get nodes must select the Ready condition via jsonpath; got %q", joined)
+		}
+		return
+	}
+	t.Fatal("Status() never ran `get nodes`")
+}
+
+func Test_parseNodeReadiness(t *testing.T) {
+	got := parseNodeReadiness([]byte("\n  a\tTrue \n\nb\tFalse\nc\n\t\n"))
+	want := []managers.ClusterNode{{Name: "a", Ready: true}, {Name: "b"}, {Name: "c"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseNodeReadiness() = %v, want %v", got, want)
+	}
+	if got := parseNodeReadiness(nil); got != nil {
+		t.Errorf("parseNodeReadiness(nil) = %v, want nil", got)
 	}
 }
 

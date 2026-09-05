@@ -179,7 +179,7 @@ have a `freelunch` binary and no pixi, no checkout and no Taskfile:
 |---|---|
 | `freelunch install` | Create the cluster from the config embedded in the binary |
 | `freelunch uninstall` | Delete the cluster |
-| `freelunch status` | Report whether the cluster is running, and its nodes |
+| `freelunch status` | Report whether the cluster exists, whether every node is Ready, and each node's state |
 
 Both drive the same pinned k3d and kubectl in `~/.freelunch/bin`, so they are
 interchangeable — use whichever is at hand. The tasks print more, which is usually what

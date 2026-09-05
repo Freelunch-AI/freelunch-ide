@@ -499,18 +499,50 @@ func Test_commandServiceFinal_RunStatus(t *testing.T) {
 			name: "reports a running cluster and its nodes",
 			cluster: &fakeClusterService{status: &managers.ClusterStatus{
 				Name:    "freelunch",
+				Exists:  true,
 				Running: true,
-				Nodes:   []string{"k3d-freelunch-server-0", "k3d-freelunch-agent-0"},
+				Nodes: []managers.ClusterNode{
+					{Name: "k3d-freelunch-server-0", Ready: true},
+					{Name: "k3d-freelunch-agent-0", Ready: true},
+				},
 			}},
-			wantOut: []string{"freelunch", "running", "k3d-freelunch-server-0", "k3d-freelunch-agent-0", "Auth service is not ready"},
+			wantOut:    []string{"freelunch", "running", "k3d-freelunch-server-0  Ready", "k3d-freelunch-agent-0  Ready", "Auth service is not ready"},
+			wantNotOut: []string{"NotReady"},
 		},
 		{
-			name: "reports a cluster that is not running",
+			name: "reports an absent cluster",
 			cluster: &fakeClusterService{status: &managers.ClusterStatus{
 				Name: "freelunch",
 			}},
 			wantOut:    []string{"not running", "freelunch install"},
 			wantNotOut: []string{"k3d-freelunch"},
+		},
+		{
+			// Exists but no nodes: k3d knows the cluster, the API is still
+			// coming up. Telling the user to run install here would be wrong.
+			name: "reports a cluster whose API is not answering",
+			cluster: &fakeClusterService{status: &managers.ClusterStatus{
+				Name:   "freelunch",
+				Exists: true,
+			}},
+			wantOut:    []string{"exists", "not answering"},
+			wantNotOut: []string{"freelunch install", "Auth service"},
+		},
+		{
+			// Existence is not readiness: the NotReady node must be named as
+			// such, the cluster must not be called running, and the later
+			// services must not be probed on a cluster that cannot run them.
+			name: "reports a cluster with a NotReady node",
+			cluster: &fakeClusterService{status: &managers.ClusterStatus{
+				Name:   "freelunch",
+				Exists: true,
+				Nodes: []managers.ClusterNode{
+					{Name: "k3d-freelunch-server-0", Ready: true},
+					{Name: "k3d-freelunch-agent-0"},
+				},
+			}},
+			wantOut:    []string{"not ready", "1 of 2 node(s) Ready", "k3d-freelunch-server-0  Ready", "k3d-freelunch-agent-0  NotReady", "freelunch uninstall"},
+			wantNotOut: []string{"is running", "Auth service"},
 		},
 		{
 			// The interface permits a nil status; it must not panic.
@@ -849,7 +881,8 @@ func Test_commandServiceFinal_RunStatus_reportsAuth(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cs := &fakeClusterService{status: &managers.ClusterStatus{
-				Name: "freelunch", Running: true, Nodes: []string{"n1"},
+				Name: "freelunch", Exists: true, Running: true,
+				Nodes: []managers.ClusterNode{{Name: "n1", Ready: true}},
 			}}
 			s, _, ctx := newTestServiceWithBoth(t, cs, tt.auth)
 			var buf bytes.Buffer
@@ -1024,7 +1057,8 @@ func Test_commandServiceFinal_RunStatus_reportsSecrets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sm, ctx := NewManagerForTests()
 			sm.WithClusterService(&fakeClusterService{status: &managers.ClusterStatus{
-				Name: "freelunch", Running: true, Nodes: []string{"n1"},
+				Name: "freelunch", Exists: true, Running: true,
+				Nodes: []managers.ClusterNode{{Name: "n1", Ready: true}},
 			}})
 			sm.WithAuthService(&fakeAuthService{status: &managers.AuthStatus{
 				Ready: true, Realm: "freelunch", IssuerURL: "http://x",
