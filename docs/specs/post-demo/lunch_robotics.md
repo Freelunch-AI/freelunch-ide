@@ -2,15 +2,67 @@
 
 ## The Vision
 
-We are building a **universal robot brain** that can turn a general-purpose robot into an autonomous worker inside an arbitrary physical environment. The fundamental problem in robotics is not simply making robots capable of moving or manipulating objects; it is giving them enough general intelligence to understand an unfamiliar world, perform useful tasks, adapt to the specific physics of that world, and improve as they encounter situations that were not represented in their original training data.
+We are building a **universal robot brain** that can turn a general-purpose robot into an autonomous worker inside an arbitrary physical environment. The fundamental problem in robotics is not simply making robots capable of moving or manipulating objects. It is giving them enough general intelligence to understand an unfamiliar world, reason about what should be done, predict the consequences of possible actions, adapt to the specific physics and embodiment of that world, and continuously improve as they encounter situations that were not represented in their original training data.
 
-Lunch Robotics separates this problem into **general intelligence, environment-specific intelligence, and continual fleet learning**. General robot intelligence is learned offline through a **Foundation Model Data Funnel** that combines massive amounts of human video with progressively more robot-relevant forms of supervision. Massive human video provides broad knowledge about the physical world, human action supervision connects that knowledge to purposeful behavior, manipulation data collected with a data-collecting gripper introduces contact and embodiment information, and a smaller amount of teleoperation data provides direct grounding in robot control. These datasets are not treated as isolated sequential stages. They jointly train a shared **World Model + VLA foundation brain**, with the training distribution becoming increasingly robot-relevant while retaining the broad coverage of the lower-fidelity datasets.
+Lunch Robotics separates this problem into **general physical intelligence, world simulation, adaptive reasoning, environment-specific intelligence, and continual fleet learning**.
 
-The resulting foundation brain is then adapted to a specific robot and physical environment by an autonomous **Real-to-Sim Agent**. Given a walkthrough of the environment, tactile probing data, task context, demonstrations, and the robot's hardware specification, the agent constructs and calibrates a digital twin, performs system identification, determines which aspects of the environment should be represented through explicit physics and which should be handled by learned dynamics, and trains a fast surrogate simulator. The foundation VLA can then undergo massive simulation RL inside this environment-specific model, producing an **environment-specific VLA** specialized to the particular robot and world.
+General robot intelligence is learned offline through a **Foundation Model Data Funnel** that combines massive amounts of human video with progressively more robot-relevant forms of supervision. Massive human video provides broad knowledge about the physical world. Human action supervision connects that knowledge to purposeful behavior. Manipulation data collected with a data-collecting gripper introduces contact and embodiment information. A smaller amount of teleoperation data provides direct grounding in robot control.
 
-The system does not stop learning after deployment. Each deployed robot continuously improves locally through simulation, while the platform monitors real-world execution for mistakes. A failure may be identified explicitly by the human user or automatically by a VLM observing the robot through cameras installed in the environment. Every detected mistake is captured as a rich episode containing the task and subtask being executed, the robot state and action trajectories, the World Model's imagined latent trajectory, the corresponding decoded imagined video, the actual video of the robot making the mistake, and the relevant simulator state and environment parameters.
+The World Model itself is trained in two complementary phases. First, it learns the structure and evolution of the physical world from massive passive video through future and spatial prediction. It is then further fine-tuned with **action-conditioned training**, where actions are explicitly provided as inputs to the model and it learns to predict what will happen after those actions. This transforms the World Model from a passive predictor into a learned **action-conditioned simulator** capable of evaluating hypothetical robot behaviors.
 
-These failures are **not automatically used to update the global model**. Instead, they are sent back to the Lunch Robotics team, where we analyze error modes across deployments and determine which failures are genuinely generalizable. Environment-specific quirks remain local. Problems that reveal broader capability gaps become the basis for carefully curated training datasets. Those curated datasets are then used to fine-tune a new version of the **global lab VLA**. The updated lab model is combined with knowledge accumulated in the environment-specific VLAs through continual weight mixing, producing a new mixed VLA that is redistributed to every deployment. Each environment then performs its own local RL again starting from this stronger initialization.
+These datasets are not treated as isolated sequential stages in which each dataset replaces the previous one. They jointly train a shared **World Model + VLA foundation brain**, with the training distribution becoming increasingly robot-relevant while retaining the broad coverage of the lower-fidelity datasets.
+
+Once this foundation model has learned to perceive, predict, and act, it undergoes a reasoning stage. The VLA is supervised on high-quality reasoning trajectories and then optimized with reinforcement learning so that it learns how to arrive at an action through useful reasoning rather than relying only on direct reactive mappings. Crucially, the amount of reasoning is not fixed. At inference time, the reasoning budget can be selected according to the task, uncertainty, and available compute.
+
+The final action-selection mechanism is therefore not a simple VLA-to-robot mapping.
+
+At every decision step, the VLA samples **three candidate actions**. Each candidate is passed through the action-conditioned World Model, which predicts the future trajectory that would result from executing that action. These predicted futures are compared against a target future trajectory imagined by the World Model for the current task and state. The candidate whose predicted future is closest to the desired imagined trajectory in latent space is selected for execution.
+
+```math
+d_i
+=
+\left\|
+z_{\mathrm{pred}}^{(i)}(t:t+H)
+-
+z_{\mathrm{target}}(t:t+H)
+\right\|_2
+```
+
+and:
+
+```math
+i^*
+=
+\arg\min_i d_i
+```
+
+The executed action is therefore:
+
+```math
+a_t
+=
+a_t^{(i^*)}
+```
+
+The VLA proposes what could be done. The World Model predicts what would happen. The imagined target defines what should happen. The latent comparison selects the action whose predicted consequence is closest to the desired future.
+
+This gives Lunch Robotics a closed perception-reasoning-imagination-action loop in which the VLA does not need to perfectly predict the optimal action in a single forward pass. It only needs to generate a small set of plausible candidates. The World Model then acts as the learned simulator that evaluates them.
+
+The reasoning-capable foundation brain is then adapted to a specific robot and physical environment by an autonomous **Real-to-Sim Agent**. Given a walkthrough of the environment, tactile probing data, task context, demonstrations, and the robot's hardware specification, the agent constructs and calibrates a digital twin, performs system identification, determines which aspects of the environment should be represented through explicit physics and which should be handled by learned dynamics, and trains a fast surrogate simulator.
+
+The foundation VLA can then undergo massive simulation RL inside this environment-specific model, producing an **environment-specific VLA** specialized to the particular robot and world.
+
+The system does not stop learning after deployment. Each deployed robot continuously improves locally through simulation, while the platform monitors real-world execution for mistakes. A failure may be identified explicitly by the human user or automatically by a VLM observing the robot through cameras installed in the environment.
+
+Every detected mistake is captured as a rich episode containing the task and subtask being executed, the robot state and action trajectories, the reasoning context, the three candidate actions considered by the VLA, the World Model's predicted future for each candidate, the target imagined future, the selected action, the actual execution, the corresponding decoded imagined videos, and the relevant simulator state and environment parameters.
+
+These failures are **not automatically used to update the global model**.
+
+Instead, they are sent back to the Lunch Robotics team, where we analyze error modes across deployments and determine which failures are genuinely generalizable. Environment-specific quirks remain local. Problems that reveal broader capability gaps become the basis for carefully curated training datasets.
+
+Those curated datasets are then used to improve a new version of the **global lab VLA**. Depending on the capability gap, the central training process can improve the model through additional supervised fine-tuning, reasoning supervision, reinforcement learning, World Model training, or a combination of them.
+
+The updated lab model is then combined with knowledge accumulated in the environment-specific VLAs through continual weight mixing, producing a new mixed VLA that is redistributed to every deployment. Each environment then performs its own local RL again starting from this stronger initialization.
 
 This creates a compounding global-local learning system:
 
@@ -18,7 +70,13 @@ This creates a compounding global-local learning system:
 \boxed{
 \text{Foundation Data}
 \rightarrow
+\text{World Model}
+\rightarrow
+\text{Action-Conditioned World Model}
+\rightarrow
 \text{Global VLA}
+\rightarrow
+\text{Reasoning SFT + RL}
 \rightarrow
 \text{Environment Adaptation}
 \rightarrow
@@ -38,168 +96,192 @@ This creates a compounding global-local learning system:
 }
 ```
 
-The key product idea is therefore simple: **the robots specialize locally, while Lunch Robotics learns globally**.
+The key product idea is therefore simple:
 
-The user provides:
-
-* **Tactile Environment Probing Data** collected with a sensorized handheld gripper.
-* **Environment Walkthrough Video** showing the physical workspace.
-* **Environment & Task Context Description** explaining the environment, tasks, constraints, and other agents.
-* **Two Videos per Task**: an execution demonstration for evaluation and a tutorial/explanation video that becomes a reusable skill.
-* **Robot SDK + Hardware Specification** exposing the robot's embodiment and physical limits.
-* **Vendor Random-Policy Calibration Recording**, approximately one minute of the robot executing random actions.
-
-The system automatically constructs the digital twin, identifies its physical parameters, generates massive simulation experience, trains the environment-specific policy, adapts it to hardware, monitors deployment, learns locally from mistakes, and continuously improves the shared global brain. The user should not need to manually build a simulator, write reinforcement-learning environments, engineer the training curriculum, perform system identification, generate synthetic data, or train the robot policy.
+> **The robots specialize locally, while Lunch Robotics learns globally.**
 
 ---
 
 # 1. The Architecture
 
-The Lunch Robotics architecture is built around three nested learning systems. The first is the **global foundation model**, which learns general physical and manipulation intelligence. The second is the **environment-specific adaptation system**, which takes the shared model and specializes it to a particular robot and physical environment. The third is the **fleet learning system**, which turns deployment failures into curated global training data and feeds the resulting improvements back to the entire fleet.
+The Lunch Robotics architecture is built around three nested learning systems operating on top of a shared reasoning-capable foundation model.
 
-### Layer 1 — Global Foundation Intelligence
+The first is the **global foundation model**, which learns broad physical, manipulation, predictive, and reasoning intelligence.
 
-A universal World Model + VLA is trained offline using the Foundation Model Data Funnel:
+The second is the **environment-specific adaptation system**, which takes the shared model and specializes it to a particular robot and physical environment.
 
-```math
-\text{Massive Human Video}
-+
-\text{Human Action Supervision}
-+
-\text{Robot-Relevant Manipulation Data}
-+
-\text{Teleoperation Data}
-\rightarrow
-\boxed{\text{Global World Model + VLA}}
-```
+The third is the **fleet learning system**, which turns deployment failures into curated global training data and feeds the resulting improvements back into the shared brain.
 
-This model learns the broad capabilities that should transfer across environments and embodiments, including visual understanding, physical prediction, object interaction, manipulation structure, task understanding, action reasoning, and general robot-control priors.
+At the center of the architecture is the interaction between the VLA and the World Model.
 
-### Layer 2 — Environment-Specific Intelligence
+The World Model provides two distinct capabilities. First, it can imagine a desirable future trajectory for the current task. Second, because it is action-conditioned, it can simulate the consequences of proposed actions.
 
-The global model is adapted to a particular robot and environment:
+The VLA therefore does not need to directly solve:
 
 ```math
-\text{Global VLA}
+(o_t, T)
 \rightarrow
-\text{Real-to-Sim Agent}
-\rightarrow
-\text{Calibrated Digital Twin}
-\rightarrow
-\text{Surrogate Simulator}
-\rightarrow
-\text{Environment RL}
-\rightarrow
-\text{Environment-Specific VLA}
+a_t^*
 ```
 
-This model learns everything that is specific to the deployment: local geometry, object configurations, physical properties, contact dynamics, robot embodiment, task conventions, and behaviors required by that environment.
-
-### Layer 3 — Fleet Learning
-
-Once deployed, the robot generates new experience:
+Instead, it solves:
 
 ```math
-\text{Environment-Specific VLA}
+(o_t, T)
 \rightarrow
-\text{Real Deployment}
-\rightarrow
-\text{Failure Detection}
-\rightarrow
-\text{Failure Data}
-\rightarrow
-\text{Team Analysis}
-\rightarrow
-\text{Curated Global Data}
-\rightarrow
-\text{Lab VLA}
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
 ```
 
-The updated global model is then mixed with the environment-specific models and redistributed:
+The World Model then solves:
 
 ```math
-\text{Lab VLA}
-+
-\text{Environment-Specific Knowledge}
+(s_t, a_t^{(i)})
 \rightarrow
-\text{Mixed VLA}
-\rightarrow
-\text{All Deployments}
+z_{t:t+H}^{(i)}
 ```
 
-The system therefore maintains a clear separation between **what should be general**, **what should remain local**, and **what the fleet has discovered should become general**.
+and compares the predicted futures against the imagined target:
+
+```math
+z_{\mathrm{target}}(t:t+H)
+```
+
+The final action is:
+
+```math
+a_t^*
+=
+a_t^{\left(
+\arg\min_i
+\left\|
+z_{t:t+H}^{(i)}
+-
+z_{\mathrm{target}}(t:t+H)
+\right\|_2
+\right)}
+```
+
+This creates the central action-selection loop:
+
+```text
+Observation + Task
+        ↓
+      VLA
+        ↓
+  3 Candidate Actions
+     ↙    ↓    ↘
+    a1    a2    a3
+     ↓    ↓    ↓
+  World Model Simulator
+     ↓    ↓    ↓
+ Future  Future  Future
+     ↘    ↓    ↙
+   Latent Comparison
+          ↓
+   Best Candidate
+          ↓
+        Robot
+```
+
+The architecture therefore separates **proposal** from **evaluation**.
+
+The VLA proposes actions using its learned policy and reasoning capability.
+
+The World Model evaluates the physical consequences.
+
+The imagined target future provides the reference for what successful progress should look like.
 
 ---
 
 # 2. Foundation Model Data Funnel
 
-The foundation model is trained through a deliberate **data funnel** in which the amount of available data decreases as the fidelity and robot relevance increase. Massive datasets provide broad coverage of the world, while smaller datasets provide increasingly direct supervision about manipulation, contact, embodiment, and robot actions.
+The foundation model is trained through a deliberate **data funnel** in which the amount of available data decreases as fidelity and robot relevance increase.
 
-The critical point is that these datasets are not treated as independent training stages. They form a shared training distribution and jointly contribute to the same foundation-model optimization process. Low-fidelity data continues to provide scale and diversity while high-fidelity data continuously anchors the model to the final robot-control distribution.
+Massive datasets provide broad coverage of the physical world, while smaller datasets provide increasingly direct supervision about manipulation, contact, embodiment, and robot actions.
 
-```math
-P_{\mathrm{train}}(x)
-=
-\sum_{i=1}^{N}
-\alpha_i(t)
-P_i(x)
-```
+A separate World Model training progression runs through this funnel. The World Model first learns from passive observations and is then trained to model the effects of actions.
 
-where $P_i$ represents a layer of the data pyramid and $\alpha_i(t)$ controls how heavily that layer contributes at a given point in training. The mixture can change as the model develops, but the lower levels remain present so that increasing robot relevance does not come at the cost of losing broad world knowledge.
+The final reasoning stage teaches the VLA how to use this predictive machinery effectively.
 
-The funnel can be summarized as:
+The five primary foundation stages are:
 
 ```text
-                         ┌───────────────────────┐
-                         │   TELEOPERATION       │
-                         │   Smallest volume     │
-                         │   Highest fidelity    │
-                         └───────────┬───────────┘
-                                     │
-                         ┌───────────┴───────────┐
-                         │ HUMAN + GRIPPER DATA  │
-                         │ Manipulation-relevant │
-                         └───────────┬───────────┘
-                                     │
-                         ┌───────────┴───────────┐
-                         │ HUMAN VIDEO + ACTION  │
-                         │ Approximate actions   │
-                         └───────────┬───────────┘
-                                     │
-              ┌──────────────────────┴──────────────────────┐
-              │        MASSIVE HUMAN EGOCENTRIC VIDEO      │
-              │        Broadest world coverage              │
-              └─────────────────────────────────────────────┘
+                         ┌────────────────────────────┐
+                         │ STAGE 5                    │
+                         │ REASONING SFT + RL         │
+                         │ Adaptive reasoning         │
+                         └─────────────┬──────────────┘
+                                       │
+                         ┌─────────────┴──────────────┐
+                         │ STAGE 4                    │
+                         │ TELEOPERATION              │
+                         │ Direct robot actions       │
+                         └─────────────┬──────────────┘
+                                       │
+                         ┌─────────────┴──────────────┐
+                         │ STAGE 3                    │
+                         │ HUMAN + GRIPPER DATA       │
+                         │ Manipulation + contact     │
+                         └─────────────┬──────────────┘
+                                       │
+                         ┌─────────────┴──────────────┐
+                         │ STAGE 2                    │
+                         │ HUMAN VIDEO + ACTION       │
+                         │ Approximate action data    │
+                         └─────────────┬──────────────┘
+                                       │
+                    ┌──────────────────┴──────────────────┐
+                    │ STAGE 1                             │
+                    │ MASSIVE HUMAN EGOCENTRIC VIDEO      │
+                    │ Broadest world coverage             │
+                    └─────────────────────────────────────┘
 
-                            ↓   ↓   ↓   ↓
+                         ↓    ↓    ↓    ↓    ↓
 
-                       SHARED CO-TRAINING
+                    SHARED FOUNDATION TRAINING
 
-                            ↓   ↓   ↓   ↓
+                         ↓    ↓    ↓    ↓    ↓
 
-                    GLOBAL WORLD MODEL + VLA
+              WORLD MODEL + VLA + ACTION SIMULATION
 ```
 
-The lower levels primarily answer **what the physical world is and how it evolves**. The middle levels add information about **how humans act within that world**. The upper levels teach **how useful manipulation translates into robot-relevant action and control**. The funnel is therefore not a staircase in which one form of data replaces another; it is a hierarchy of complementary supervision.
+Within this funnel, the World Model itself has two training phases:
+
+```math
+\text{Passive World Model}
+\rightarrow
+\text{Action-Conditioned World Model}
+```
+
+The first learns what the world does.
+
+The second learns what happens **when an action is taken**.
 
 ---
 
 ## 2.1 The Data Pyramid
 
-| Layer | Data                                         | Scale   | Supervision                       | Robot Relevance |
-| ----- | -------------------------------------------- | ------- | --------------------------------- | --------------- |
-| **1** | Massive human egocentric video               | Massive | Self-supervised                   | Low             |
-| **2** | Human video + VLM pose waypoints             | Large   | Approximate action supervision    | Medium          |
-| **3** | Human manipulation + data-collecting gripper | Medium  | Robot-relevant action supervision | High            |
-| **4** | Teleoperation data                           | Small   | Direct robot action supervision   | Highest         |
+| Stage | Data                                         | Scale    | Supervision                       | Primary Capability                           |
+| ----- | -------------------------------------------- | -------- | --------------------------------- | -------------------------------------------- |
+| **1** | Massive human egocentric video               | Massive  | Self-supervised                   | World representation and physical prediction |
+| **2** | Human video + VLM pose waypoints             | Large    | Approximate action supervision    | Human action understanding                   |
+| **3** | Human manipulation + data-collecting gripper | Medium   | Robot-relevant action supervision | Contact and manipulation                     |
+| **4** | Teleoperation data                           | Small    | Direct robot action supervision   | Robot control and embodiment                 |
+| **5** | Reasoning traces + RL rollouts               | Targeted | SFT + outcome-driven RL           | Adaptive reasoning and action selection      |
 
-These four layers are sampled together. Early in training, the model can place more weight on massive datasets because broad visual and physical representations need to emerge first. As training progresses, increasingly more weight can be placed on manipulation and robot-specific datasets, while the lower layers remain active to preserve generalization.
+The World Model is progressively transformed from a passive predictive model into an action-conditioned simulator as action data becomes available.
 
 ---
 
-## 2.2 Stage 1 — Massive Human Egocentric Video
+# 2.2 Stage 1 — Massive Human Egocentric Video
 
-Massive human egocentric video provides the broadest source of physical-world information. The starting point is the best available **JEPA-like World Model**, which is trained or fine-tuned to predict future observations while also learning to predict spatially masked regions of the environment in latent space. The goal is not simply to reproduce pixels; it is to learn a useful internal representation of objects, spatial relationships, motion, interactions, contact-relevant structure, and temporal evolution.
+Massive human egocentric video provides the broadest source of physical-world information.
+
+The starting point is the best available **JEPA-like World Model**, which is trained or fine-tuned to predict future observations while also learning to predict spatially masked regions of the environment in latent space.
+
+The goal is not simply to reproduce pixels.
+
+It is to learn a useful internal representation of objects, spatial relationships, motion, interactions, contact-relevant structure, and temporal evolution.
 
 ```mermaid
 flowchart LR
@@ -213,15 +295,91 @@ flowchart LR
     D --> E
 ```
 
-The World Model remains part of the shared training process as more robot-relevant datasets are introduced. It is therefore continuously grounded by action data while continuing to benefit from the much larger human-video distribution.
+At this point, the World Model is primarily learning the structure of the world from passive observations.
+
+It answers questions such as:
+
+> What is likely to happen next?
+
+> What does the hidden part of the scene look like?
+
+> How are objects related in space and time?
+
+> How does the physical state evolve?
+
+This creates the latent world representation that later becomes the basis for action-conditioned simulation.
 
 ---
 
-## 2.3 Stage 2 — Human Video + VLM Pose Waypoints
+# 2.3 World Model Training Stage — Action-Conditioned Simulation
 
-The second layer connects broad world understanding to purposeful action. A VLM processes large-scale human egocentric videos and extracts approximate pose and action waypoints. These trajectories provide weak but scalable action supervision without requiring robot data.
+The next World Model training stage explicitly introduces **actions as inputs**.
 
-At the same time, the World Model produces latent future imagination from the observed video. The VLA can therefore learn from both the observed action trajectory and the predicted evolution of the environment:
+Instead of learning only:
+
+```math
+z_{t+1}
+\sim
+P_{\phi}(z_{t+1} \mid s_t)
+```
+
+the model learns:
+
+```math
+z_{t+1}
+\sim
+P_{\phi}(z_{t+1} \mid s_t, a_t)
+```
+
+and over longer horizons:
+
+```math
+z_{t:t+H}
+\sim
+P_{\phi}
+\left(
+s_t,
+a_{t:t+H-1}
+\right)
+```
+
+The model is fine-tuned using datasets containing observations paired with actions and resulting future states.
+
+Teleoperation, robot manipulation data, data-collecting gripper trajectories, and other action-labeled datasets progressively teach the World Model the relationship:
+
+```text
+Current World State
+        +
+     Action
+        ↓
+Future World State
+```
+
+This transforms the World Model into a learned **action-conditioned simulator**.
+
+The model does not need to produce a perfect pixel-level simulation of the future.
+
+It needs to accurately predict the latent aspects of the future that matter for decision-making: object motion, contact state, task progress, spatial relationships, physical consequences, and other task-relevant changes.
+
+The resulting model can answer:
+
+> **"If the robot takes this action, what will the world look like afterward?"**
+
+This capability becomes central to the final action-selection loop.
+
+---
+
+# 2.4 Stage 2 — Human Video + VLM Pose Waypoints
+
+The second data layer connects broad world understanding to purposeful action.
+
+A VLM processes large-scale human egocentric videos and extracts approximate pose and action waypoints.
+
+These trajectories provide weak but scalable action supervision without requiring robot data.
+
+At the same time, the World Model produces latent future imagination from the observed video.
+
+The VLA can therefore learn from both the observed action trajectory and the predicted evolution of the environment.
 
 ```mermaid
 flowchart TD
@@ -249,13 +407,17 @@ The model begins learning a relationship of the form:
 \text{Action}
 ```
 
-This provides a bridge between passive physical-world understanding and purposeful interaction.
+This creates a bridge between passive physical-world understanding and purposeful interaction.
 
 ---
 
-## 2.4 Stage 3 — Human Manipulation + Data-Collecting Gripper
+# 2.5 Stage 3 — Human Manipulation + Data-Collecting Gripper
 
-The third layer introduces substantially more direct information about manipulation and contact. Humans perform manipulation tasks using a **data-collecting gripper** that records end-effector motion and interaction signals. This gives the model access to information that is difficult to recover from ordinary video alone, including grasping, pushing, pulling, contact transitions, deformation, and other manipulation dynamics.
+The third layer introduces substantially more direct information about manipulation and contact.
+
+Humans perform manipulation tasks using a **data-collecting gripper** that records end-effector motion and interaction signals.
+
+This gives the model access to information that is difficult to recover from ordinary video alone, including grasping, pushing, pulling, contact transitions, deformation, slip, and other manipulation dynamics.
 
 ```mermaid
 flowchart LR
@@ -265,29 +427,369 @@ flowchart LR
     B --> C["Shared World Model / VLA Training"]
 ```
 
-The dataset is smaller than the human-video datasets, but each example contains substantially more embodiment-relevant information. It provides an intermediate representation between human activity and direct robot control.
+This dataset is useful for both sides of the system.
+
+For the VLA, it provides better action supervision.
+
+For the World Model, it provides better supervision for learning how actions transform physical states.
+
+The same action data therefore helps the system learn both:
+
+```math
+\text{What action should I take?}
+```
+
+and:
+
+```math
+\text{What will happen if I take this action?}
+```
 
 ---
 
-## 2.5 Stage 4 — Teleoperation
+# 2.6 Stage 4 — Teleoperation
 
-Teleoperation provides the highest-fidelity foundation-model supervision because demonstrations are generated directly by real robots. It provides true robot action distributions, embodiment-specific kinematics, actuator constraints, interaction dynamics, temporal structure, and realistic observation-action correlations.
+Teleoperation provides the highest-fidelity foundation-model supervision because demonstrations are generated directly by real robots.
+
+It provides true robot action distributions, embodiment-specific kinematics, actuator constraints, interaction dynamics, temporal structure, and realistic observation-action correlations.
 
 ```mermaid
 flowchart TD
     A["Teleoperation"]
     --> B["Direct Robot Action Supervision"]
 
-    B --> C["Shared Co-Training"]
+    B --> C["Shared VLA Training"]
+    B --> D["Action-Conditioned World Model"]
 ```
 
-Because teleoperation is expensive, its value comes from fidelity rather than scale. The teleoperation dataset is split between zero-shot and one-shot regimes so that the foundation model is trained both to generalize without a robot demonstration and to exploit a single demonstration when one is available.
+The same teleoperation trajectories therefore serve two complementary purposes.
+
+The VLA learns which actions are associated with successful behavior.
+
+The World Model learns what happens after those actions are executed.
+
+Because teleoperation is expensive, its value comes from fidelity rather than scale.
+
+The teleoperation dataset can be split between zero-shot and one-shot regimes so that the foundation model is trained both to generalize without a robot demonstration and to exploit a single demonstration when one is available.
 
 ---
 
-## 2.6 Why Co-Training Instead of Sequential Fine-Tuning?
+# 2.7 Stage 5 — Reasoning SFT + RL
 
-The different data layers contain complementary information, and sequential fine-tuning risks allowing the final, smallest dataset to dominate the model. Massive human video provides diversity and broad physical knowledge, while teleoperation provides highly accurate grounding in robot embodiment. Co-training keeps both forms of information active.
+The earlier stages teach the VLA **what the world looks like, how it evolves, how humans manipulate it, how robot actions affect it, and how to simulate those effects**.
+
+The fifth stage teaches the VLA **how to reason before proposing an action**.
+
+At this point, the model already has access to an action-conditioned World Model capable of evaluating candidate behaviors.
+
+Many real tasks nevertheless require reasoning about long-horizon goals, object affordances, safety constraints, task ordering, uncertainty, tool selection, other agents, and possible future outcomes.
+
+A purely reactive mapping from observation directly to action is therefore often insufficient.
+
+Stage 5 turns the VLA into a **reasoning-capable action proposal model**.
+
+## Reasoning SFT
+
+The first part of Stage 5 is supervised fine-tuning on high-quality reasoning trajectories paired with successful actions.
+
+These trajectories teach the VLA how to decompose tasks, identify relevant constraints, reason about the physical state, retrieve relevant skills, and determine what kinds of actions are worth considering.
+
+```math
+(o_t, T)
+\rightarrow
+r_{1:k}
+\rightarrow
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
+```
+
+The important point is that reasoning does not have to terminate in a single deterministic action.
+
+Reasoning can instead produce a distribution over promising candidate behaviors.
+
+## Reasoning RL
+
+After SFT, the model is further optimized with reinforcement learning.
+
+The reward is not based simply on whether the reasoning text looks convincing.
+
+It is tied to downstream physical outcomes.
+
+The VLA is rewarded when its reasoning produces candidate actions that lead to successful, safe, efficient, and robust behavior after being evaluated through the World Model and, ultimately, the environment.
+
+```mermaid
+flowchart TD
+    A["Foundation World Model + VLA"]
+    --> B["Reasoning SFT"]
+
+    B --> C["Reasoning-Capable VLA"]
+
+    C --> D["Sample Candidate Actions"]
+
+    D --> E["Action-Conditioned World Model"]
+
+    E --> F["Predicted Futures"]
+
+    F --> G["Task / Safety / Efficiency Reward"]
+
+    G --> H["Reasoning RL"]
+
+    H --> I["Reasoning-Optimized VLA"]
+```
+
+The model therefore learns not merely to reason, but to reason in a way that produces **better candidate actions**.
+
+---
+
+# 2.8 Why the VLA Samples Multiple Actions
+
+A single VLA prediction can be locally plausible while still being a poor decision.
+
+Instead of requiring the neural policy to identify the unique optimal action in one forward pass, Lunch Robotics lets it generate a small set of plausible alternatives.
+
+At each decision step:
+
+```math
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
+\sim
+\pi_{\theta}
+\left(
+a_t
+\mid
+o_t,
+T,
+r_{1:k},
+z_{\mathrm{WM}},
+S_{\mathrm{tutorial}}
+\right)
+```
+
+The three candidate actions can differ in grasp position, approach direction, force, timing, motion, or any other aspect of the action representation.
+
+The VLA therefore acts as a **proposal mechanism**.
+
+The World Model acts as the **candidate evaluator**.
+
+This separation reduces the amount of precision required from the VLA itself.
+
+Instead of:
+
+```math
+\text{VLA}
+\rightarrow
+\text{Perfect Action}
+```
+
+the architecture becomes:
+
+```math
+\text{VLA}
+\rightarrow
+\text{Three Plausible Actions}
+\rightarrow
+\text{World Model Evaluation}
+\rightarrow
+\text{Best Action}
+```
+
+---
+
+# 2.9 Target Future Imagination
+
+Before evaluating the three candidate actions, the World Model generates an imagined trajectory representing the desired direction of task progress.
+
+This target trajectory is conditioned on the current state, task specification, and available contextual information.
+
+```math
+z_{\mathrm{target}}(t:t+H)
+=
+\mathrm{WM}
+\left(
+s_t,
+T
+\right)
+```
+
+This is not necessarily an exact human trajectory.
+
+It represents a **latent future state sequence consistent with successful task execution**.
+
+The target can therefore capture things such as:
+
+* the object being moved toward the correct location,
+* a container becoming correctly oriented,
+* a grasp approaching a useful configuration,
+* a task state becoming progressively more complete,
+* a human or other agent remaining in an acceptable location.
+
+The model is therefore asking:
+
+> **What future should the robot be moving toward?**
+
+---
+
+# 2.10 Action-Conditioned Future Prediction
+
+Each candidate action is then passed to the action-conditioned World Model.
+
+For candidate \(i\):
+
+```math
+z_{\mathrm{pred}}^{(i)}(t:t+H)
+=
+\mathrm{WM}_{\mathrm{action}}
+\left(
+s_t,
+a_t^{(i)}
+\right)
+```
+
+The World Model predicts the future latent trajectory that should result if candidate \(a_t^{(i)}\) is executed.
+
+For the three actions:
+
+```math
+a_t^{(1)}
+\rightarrow
+z_{\mathrm{pred}}^{(1)}(t:t+H)
+```
+
+```math
+a_t^{(2)}
+\rightarrow
+z_{\mathrm{pred}}^{(2)}(t:t+H)
+```
+
+```math
+a_t^{(3)}
+\rightarrow
+z_{\mathrm{pred}}^{(3)}(t:t+H)
+```
+
+The result is three imagined consequences of three possible actions.
+
+---
+
+# 2.11 Latent Future Matching
+
+The three predicted futures are compared against the target imagined trajectory.
+
+For each candidate:
+
+```math
+d_i
+=
+\left\|
+z_{\mathrm{pred}}^{(i)}(t:t+H)
+-
+z_{\mathrm{target}}(t:t+H)
+\right\|_2
+```
+
+The action with the smallest latent distance is selected:
+
+```math
+i^*
+=
+\arg\min_{i \in \{1,2,3\}}
+d_i
+```
+
+and:
+
+```math
+a_t
+=
+a_t^{(i^*)}
+```
+
+The complete mechanism is therefore:
+
+```math
+\boxed{
+\text{Observation}
+\rightarrow
+\text{Reasoning}
+\rightarrow
+\text{3 VLA Actions}
+\rightarrow
+\text{3 World Model Futures}
+\rightarrow
+\text{Latent Comparison}
+\rightarrow
+\text{Best Action}
+}
+```
+
+This is the central decision-making mechanism of the Lunch Robotics architecture.
+
+The VLA determines **what could be done**.
+
+The World Model determines **what would happen**.
+
+The target imagination determines **what should happen**.
+
+The latent distance determines **which proposed action best moves the robot toward that future**.
+
+---
+
+# 2.12 Adaptive Reasoning at Inference Time
+
+A defining property of the architecture is that reasoning depth is **not fixed globally**.
+
+At inference time, the amount of reasoning performed before generating candidate actions can be selected according to task complexity, uncertainty, and available compute.
+
+```math
+k
+=
+f(T, E, B)
+```
+
+where \(T\) is the task, \(E\) represents the current environment and uncertainty, and \(B\) is the available inference-time compute budget.
+
+The same VLA can therefore behave differently depending on the problem.
+
+| Task                                                  | Reasoning Budget    |
+| ----------------------------------------------------- | ------------------- |
+| Pick up a cup from an empty table.                    | Minimal             |
+| Load fragile dishes into a dishwasher.                | Moderate            |
+| Prepare coffee while navigating around moving humans. | Extended            |
+| Recover after an unexpected object displacement.      | Extended / adaptive |
+
+A simple task should not incur the computational cost of deep deliberation.
+
+A difficult task should be allowed to use more.
+
+The objective is therefore not to maximize reasoning length.
+
+It is to maximize **useful reasoning per unit of inference compute**.
+
+More reasoning can also produce better candidate diversity before the World Model evaluation stage.
+
+```math
+\text{More Difficult Task}
+\rightarrow
+\text{More Reasoning}
+\rightarrow
+\text{Better Candidate Actions}
+\rightarrow
+\text{Better World Model Evaluation}
+```
+
+---
+
+# 2.13 Why Co-Training Instead of Sequential Fine-Tuning?
+
+The different data layers contain complementary information, and sequential fine-tuning risks allowing the final, smallest dataset to dominate the model.
+
+Massive human video provides diversity and broad physical knowledge.
+
+Teleoperation provides highly accurate grounding in robot embodiment.
+
+Action-conditioned training teaches the World Model the relationship between actions and physical consequences.
+
+Reasoning training teaches the VLA how to use these capabilities effectively.
+
+Co-training keeps these forms of information connected.
 
 A simplified objective is:
 
@@ -297,6 +799,9 @@ A simplified objective is:
 \lambda_{\mathrm{WM}}
 \mathcal{L}_{\mathrm{WM}}
 +
+\lambda_{\mathrm{WM-action}}
+\mathcal{L}_{\mathrm{WM-action}}
++
 \lambda_{\mathrm{human}}
 \mathcal{L}_{\mathrm{human}}
 +
@@ -305,13 +810,14 @@ A simplified objective is:
 +
 \lambda_{\mathrm{teleop}}
 \mathcal{L}_{\mathrm{teleop}}
++
+\lambda_{\mathrm{reason}}
+\mathcal{L}_{\mathrm{reason}}
 ```
 
 The fundamental principle is:
 
-> **Low-fidelity data provides scale and broad world knowledge; high-fidelity data provides grounding in manipulation and robot control.**
-
-The same foundation brain should benefit from both.
+> **Low-fidelity data provides scale and broad world knowledge; high-fidelity data provides grounding in manipulation and robot control; action-conditioned training turns prediction into simulation; reasoning training teaches the model how to use all of this intelligence effectively.**
 
 ---
 
@@ -321,11 +827,21 @@ Once the global foundation model exists, a new deployment requires only a relati
 
 The user records a **30–90 second walkthrough video** of the workspace. This provides coarse geometry, furniture, large objects, spatial layout, camera scale, and an initial scene representation from which the Real-to-Sim Agent can construct the initial digital twin.
 
-The user also provides an **Environment & Task Context Description** explaining what the environment is used for, which objects matter, what tasks the robot is expected to perform, what constitutes success, unusual or non-obvious procedures, environmental constraints, and the behavior of other agents such as humans or autonomous systems. This description serves as the semantic specification that complements the visual reconstruction.
+The user also provides an **Environment & Task Context Description** explaining what the environment is used for, which objects matter, what tasks the robot is expected to perform, what constitutes success, unusual or non-obvious procedures, environmental constraints, and the behavior of other agents such as humans or autonomous systems.
 
-The user additionally performs **tactile environment probing** with a sensorized handheld gripper. The gripper can tap, slide, push, lift, squeeze, deform compliant materials, and probe contact conditions while recording RGB-D video, pose, forces, tactile signals, slip information, and interaction trajectories. This information is primarily used for physical system identification rather than simply visual reconstruction.
+This description serves as the semantic specification that complements the visual reconstruction.
 
-Each task has two videos. The first is an **execution demonstration**, where the human performs the task naturally without explaining it and which is primarily used for evaluation. The second is a **tutorial video**, where the human explains the task and its important details while performing it. The tutorial is transformed into a modular skill representation that can later be dynamically retrieved by the robot.
+The user additionally performs **tactile environment probing** with a sensorized handheld gripper.
+
+The gripper can tap, slide, push, lift, squeeze, deform compliant materials, and probe contact conditions while recording RGB-D video, pose, forces, tactile signals, slip information, and interaction trajectories.
+
+This information is primarily used for physical system identification rather than simply visual reconstruction.
+
+Each task has two videos.
+
+The first is an **execution demonstration**, where the human performs the task naturally without explaining it and which is primarily used for evaluation.
+
+The second is a **tutorial video**, where the human explains the task and its important details while performing it. The tutorial is transformed into a modular skill representation that can later be dynamically retrieved by the robot.
 
 ```math
 \text{Execution Demonstration}
@@ -339,13 +855,23 @@ Each task has two videos. The first is an **execution demonstration**, where the
 \text{Reusable Skill Context}
 ```
 
-Finally, the robot vendor provides the **robot SDK and hardware specification**, including kinematics, joint limits, actuator information, end-effector specifications, and hardware control constraints. The vendor also provides approximately one minute of random-policy execution containing synchronized observations and actions. This recording helps the system identify robot dynamics, actuator behavior, latency, joint response, and low-level control characteristics.
+Finally, the robot vendor provides the **robot SDK and hardware specification**, including kinematics, joint limits, actuator information, end-effector specifications, and hardware control constraints.
+
+The vendor also provides approximately one minute of random-policy execution containing synchronized observations and actions.
+
+This recording helps the system identify robot dynamics, actuator behavior, latency, joint response, and low-level control characteristics.
+
+It also provides valuable action-conditioned training data for the World Model.
 
 ---
 
 # 4. The Real-to-Sim Agent
 
-The system does not rely on a fixed, hand-engineered simulator-generation pipeline. Instead, an **RL-trained LLM agent acts as an autonomous simulation engineer and system-identification engineer**. It reasons over the environment videos, tactile measurements, task descriptions, robot specifications, and World Model predictions, then uses specialized tools to construct the digital twin.
+The system does not rely on a fixed, hand-engineered simulator-generation pipeline.
+
+Instead, an **RL-trained LLM agent acts as an autonomous simulation engineer and system-identification engineer**.
+
+It reasons over the environment videos, tactile measurements, task descriptions, robot specifications, and World Model predictions, then uses specialized tools to construct the digital twin.
 
 The agent has access to tools for multimodal video analysis, tactile and force analysis, 3D reconstruction, simulator generation, physics simulation, system identification, trajectory optimization, parameter estimation, experiment design, World Model integration, code generation, and simulation evaluation.
 
@@ -380,7 +906,9 @@ flowchart TD
     Q -->|"Validated"| R["Finalize"]
 ```
 
-The goal is not to create a visually perfect replica of the environment. It is to create a **useful executable model of the world** that is sufficiently accurate for policy training and counterfactual reasoning.
+The goal is not to create a visually perfect replica of the environment.
+
+It is to create a **useful executable model of the world** that is sufficiently accurate for policy training, candidate-action evaluation, and counterfactual reasoning.
 
 The agent determines which aspects should be explicitly simulated and which should instead be represented through learned dynamics.
 
@@ -388,7 +916,9 @@ The agent determines which aspects should be explicitly simulated and which shou
 
 # 5. Agentic System Identification
 
-Visual reconstruction alone cannot reveal many of the physical quantities that matter for manipulation. The system may need to estimate object mass, friction, compliance, damping, restitution, actuator response, and other parameters.
+Visual reconstruction alone cannot reveal many of the physical quantities that matter for manipulation.
+
+The system may need to estimate object mass, friction, compliance, damping, restitution, actuator response, and other parameters.
 
 ```math
 \theta =
@@ -447,14 +977,17 @@ The result is a calibrated environment model rather than a purely visual reconst
 
 # 6. Explicit Physics + General World Model
 
-Not every entity in the environment should be represented with hand-designed physics. Rigid objects and contact interactions can often be modeled explicitly, while humans, pets, and other complex non-scripted entities are better represented through the general World Model.
+Not every entity in the environment should be represented with hand-designed physics.
+
+Rigid objects and contact interactions can often be modeled explicitly, while humans, pets, and other complex non-scripted entities are better represented through the general World Model.
 
 ```math
 S^{\mathrm{agent}}_{t+1:t+H}
 \sim
 P_{\phi}
 \left(
-S_{\leq t}, E
+S_{\leq t},
+E
 \right)
 ```
 
@@ -470,11 +1003,17 @@ The digital twin therefore becomes a hybrid system:
 
 The Environment & Task Context Description is especially useful here because it tells the Real-to-Sim Agent which entities matter, what they are expected to do, and which aspects of their behavior are relevant to the robot's tasks.
 
+The action-conditioned World Model adds another layer to this hybrid system.
+
+Explicit physics can handle quantities that require physical precision, while the learned model can predict complex, difficult-to-model interactions and other agent behavior.
+
 ---
 
 # 7. Learned Surrogate Simulator
 
-High-fidelity simulation is necessary for calibration and validation but is too expensive to run at the scale required for large-scale RL. The calibrated digital twin is therefore used to generate experience from which the system trains a learned **surrogate simulator**.
+High-fidelity simulation is necessary for calibration and validation but is too expensive to run at the scale required for large-scale RL.
+
+The calibrated digital twin is therefore used to generate experience from which the system trains a learned **surrogate simulator**.
 
 ```math
 f_{\mathrm{sim}}(s_t,a_t)
@@ -482,7 +1021,7 @@ f_{\mathrm{sim}}(s_t,a_t)
 f_{\mathrm{surrogate}}(s_t,a_t)
 ```
 
-The surrogate trades some physical fidelity for enormous speed and becomes the main engine for large-scale policy optimization.
+The surrogate trades some physical fidelity for enormous speed and becomes the main engine for large-scale policy optimization, candidate evaluation, and reasoning training.
 
 ```mermaid
 flowchart LR
@@ -510,13 +1049,21 @@ The resulting hierarchy is:
 \text{Massive Simulation}
 ```
 
-This allows the policy to experience millions of possible trajectories without requiring millions of physical experiments.
+There are therefore two simulation mechanisms in the architecture.
+
+The high-fidelity digital twin provides accurate physical validation.
+
+The learned World Model provides extremely fast latent prediction for candidate actions.
+
+The latter becomes particularly important at runtime, where three candidate actions can be evaluated at every control decision without requiring three expensive high-fidelity simulator rollouts.
 
 ---
 
 # 8. Training the Environment-Specific VLA
 
-The environment-specific VLA begins from the current **global or mixed VLA**, rather than being trained from scratch. It is conditioned on the current observation, the task specification, World Model latent imagination, and retrieved tutorial context.
+The environment-specific VLA begins from the current **global or mixed VLA**, rather than being trained from scratch.
+
+It is conditioned on the current observation, the task specification, World Model latent imagination, and retrieved tutorial context.
 
 ```math
 \pi_{\theta}
@@ -530,52 +1077,212 @@ S_{\mathrm{tutorial}}
 \right)
 ```
 
-where $o_t$ is the current observation, $T$ is the task specification, $z_{\mathrm{WM}}$ is the World Model latent imagination, $S_{\mathrm{tutorial}}$ is the retrieved skill context, and $a_t$ is the robot action.
+where \(o_t\) is the current observation, \(T\) is the task specification, \(z_{\mathrm{WM}}\) is the World Model latent imagination, \(S_{\mathrm{tutorial}}\) is the retrieved skill context, and \(a_t\) is the robot action proposal.
 
-The shared model provides general physical and manipulation intelligence, while the environment-specific training process teaches it the particular robot embodiment and physical world. The result is an **environment-specific VLA** that knows how to operate in that deployment.
+The important distinction is that the VLA does not directly determine the final executed action.
 
----
-
-# 9. Imagined Goal States and Motion-Based Rewards
-
-Exact trajectory matching is brittle because many different trajectories can successfully solve the same task. Instead, the training system uses the World Model and generative models to construct latent representations of successful future states and short-horizon motions.
+Instead, it generates three candidates:
 
 ```math
-z_{\mathrm{target}(t:t+\delta)}
-```
-
-The current simulated trajectory is encoded into the same latent space:
-
-```math
-z_{t:t+\delta}
-=
-\mathrm{Encoder}(s_{t:t+\delta})
-```
-
-The policy can then be rewarded for moving toward the imagined successful future rather than reproducing an exact human trajectory:
-
-```math
-r_t
-=
-w_{\mathrm{goal}}
-\cdot
-\mathrm{sim}
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
+\sim
+\pi_{\theta}
 \left(
-z_{t:t+\delta},
-z_{\mathrm{target}(t:t+\delta)}
+a_t
+\mid
+o_t,
+T,
+z_{\mathrm{WM}},
+S_{\mathrm{tutorial}}
 \right)
--
-w_{\mathrm{penalty}}
-\mathbb{I}_{\mathrm{fail}}(s_t)
 ```
 
-This creates dense information about successful progress while preserving flexibility in how the task is solved. A VLM judge can additionally detect catastrophic outcomes such as dropping a payload, damaging a fragile object, crushing a compliant object, entering a restricted area, or performing clearly destructive behavior.
+The World Model then evaluates those candidates.
+
+The shared model therefore provides:
+
+* general physical intelligence,
+* manipulation knowledge,
+* reasoning,
+* candidate action generation,
+* and the prior used to interpret the current state.
+
+The environment-specific training process teaches it the particular robot embodiment and physical world.
+
+The result is an **environment-specific VLA that proposes actions intelligently and knows how to reason about the environment before proposing them**.
 
 ---
 
-# 10. Environment-Specific Simulation RL
+# 9. Imagined Goal States and Target Future Trajectories
 
-The calibrated twin and surrogate allow the environment-specific VLA to experience an enormous variety of scenarios. The system can vary object positions, physical properties, robot configurations, clutter, lighting, dynamics, task parameters, and the behavior of other agents.
+Exact trajectory matching is brittle because many different trajectories can successfully solve the same task.
+
+Instead, the training system uses the World Model and generative models to construct latent representations of successful future states and short-horizon motions.
+
+```math
+z_{\mathrm{target}}(t:t+H)
+```
+
+The target trajectory is an imagined representation of where the world should be heading if the task is progressing successfully.
+
+It does not need to prescribe an exact robot trajectory.
+
+Two very different physical motions may lead to essentially the same successful state.
+
+The latent target therefore represents **task-relevant future structure rather than a single demonstrated trajectory**.
+
+This creates a more flexible objective:
+
+```math
+\text{Current State}
+\rightarrow
+\text{Desired Future Region}
+```
+
+rather than:
+
+```math
+\text{Current State}
+\rightarrow
+\text{Exact Demonstration Trajectory}
+```
+
+---
+
+# 10. Three-Action World Model Selection
+
+At every decision point, the VLA generates three candidate actions.
+
+```math
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
+```
+
+Each candidate is passed through the action-conditioned World Model:
+
+```math
+z_{\mathrm{pred}}^{(i)}(t:t+H)
+=
+\mathrm{WM}_{\mathrm{action}}
+\left(
+s_t,
+a_t^{(i)}
+\right)
+```
+
+This produces three predicted future trajectories:
+
+```text
+Candidate 1
+    ↓
+World Model
+    ↓
+Predicted Future 1
+
+Candidate 2
+    ↓
+World Model
+    ↓
+Predicted Future 2
+
+Candidate 3
+    ↓
+World Model
+    ↓
+Predicted Future 3
+```
+
+Each future is then compared to the target imagined future.
+
+```math
+d_i
+=
+\left\|
+z_{\mathrm{pred}}^{(i)}(t:t+H)
+-
+z_{\mathrm{target}}(t:t+H)
+\right\|_2
+```
+
+The selected candidate is:
+
+```math
+i^*
+=
+\arg\min_{i \in \{1,2,3\}}
+d_i
+```
+
+and the robot receives:
+
+```math
+a_t
+=
+a_t^{(i^*)}
+```
+
+The complete mechanism is:
+
+```math
+\boxed{
+\begin{aligned}
+&
+\text{Observation + Task}
+\\
+&\downarrow
+\\
+&
+\text{Reasoning}
+\\
+&\downarrow
+\\
+&
+\text{VLA Samples 3 Candidate Actions}
+\\
+&\downarrow
+\\
+&
+\text{Action-Conditioned World Model}
+\\
+&\downarrow
+\\
+&
+\text{3 Predicted Future Trajectories}
+\\
+&\downarrow
+\\
+&
+\text{Compare Against Target Imagined Future}
+\\
+&\downarrow
+\\
+&
+\text{Minimum Latent Distance}
+\\
+&\downarrow
+\\
+&
+\text{Execute Selected Action}
+\end{aligned}
+}
+```
+
+This makes the World Model an active part of the control policy rather than a passive auxiliary model.
+
+The VLA proposes.
+
+The World Model simulates.
+
+The imagined trajectory defines the target.
+
+The latent distance performs the selection.
+
+---
+
+# 11. Environment-Specific Simulation RL
+
+The calibrated twin and surrogate allow the environment-specific VLA to experience an enormous variety of scenarios.
+
+The system can vary object positions, physical properties, robot configurations, clutter, lighting, dynamics, task parameters, and the behavior of other agents.
 
 The curriculum can progress automatically from simple interactions to increasingly complex tasks:
 
@@ -589,13 +1296,39 @@ flowchart LR
     --> F["Full Autonomy"]
 ```
 
-The Real-to-Sim Agent can identify weaknesses in the policy and generate additional simulations around them. This local simulation loop does not end when the robot is deployed; it remains active throughout the robot's lifetime.
+The RL process optimizes not only the action proposals but also the interaction between reasoning, candidate generation, World Model evaluation, and final action selection.
+
+A useful training episode can therefore contain:
+
+```text
+Current State
+      ↓
+Reasoning
+      ↓
+3 Candidate Actions
+      ↓
+World Model Rollouts
+      ↓
+Target Future Comparison
+      ↓
+Selected Action
+      ↓
+Environment Outcome
+      ↓
+Reward
+```
+
+The system can train the VLA to generate candidates that are diverse enough to provide useful alternatives while still concentrating probability mass around physically plausible actions.
+
+The Real-to-Sim Agent can identify weaknesses in both action generation and candidate selection and generate additional simulations around them.
 
 ---
 
-# 11. Real Deployment and Local Continual Learning
+# 12. Real Deployment and Local Continual Learning
 
-Simulation will inevitably differ from reality, so deployment creates a continual local learning loop. The environment-specific VLA operates on the real robot while its calibrated simulator continues to generate additional training scenarios and perform online RL.
+Simulation will inevitably differ from reality, so deployment creates a continual local learning loop.
+
+The environment-specific VLA operates on the real robot while its calibrated simulator continues to generate additional training scenarios and perform online RL.
 
 ```math
 \text{Real Deployment}
@@ -611,15 +1344,36 @@ Simulation will inevitably differ from reality, so deployment creates a continua
 \text{Updated Environment-Specific VLA}
 ```
 
-The real robot therefore provides the evidence about where the current model is wrong, while the simulator provides the scale needed to explore and optimize the correction. This keeps the expensive physical interaction loop focused on discovering reality gaps rather than brute-force policy search.
+The real robot therefore provides the evidence about where the current model is wrong, while the simulator provides the scale needed to explore and optimize the correction.
+
+This includes failures in:
+
+* perception,
+* reasoning,
+* candidate action generation,
+* World Model prediction,
+* candidate selection,
+* and low-level execution.
+
+For example, the VLA may generate three plausible grasps, but the World Model may incorrectly predict the consequences of one of them.
+
+Alternatively, the World Model may correctly identify the best candidate, but the robot's low-level controller may fail to execute it accurately.
+
+These failure modes can be separated and diagnosed because the architecture records the entire candidate-selection process.
 
 ---
 
-# 12. Post-Deployment Failure Data
+# 13. Post-Deployment Failure Data
 
-Every deployed robot is a source of valuable real-world experience. The system monitors execution continuously and identifies situations in which the robot makes a mistake. These mistakes can be explicitly reported by the human user or automatically detected by a VLM observing the robot through cameras installed in the environment.
+Every deployed robot is a source of valuable real-world experience.
 
-The system does not merely record a sentence describing the mistake. It captures the complete context surrounding the failure:
+The system monitors execution continuously and identifies situations in which the robot makes a mistake.
+
+These mistakes can be explicitly reported by the human user or automatically detected by a VLM observing the robot through cameras installed in the environment.
+
+The system does not merely record a sentence describing the mistake.
+
+It captures the complete decision context:
 
 ```text
 Failure Episode
@@ -627,85 +1381,121 @@ Failure Episode
 ├── Subtask being executed
 ├── Environment and task context
 ├── Robot state trajectory
-├── Action trajectory
-├── World Model imagined latent trajectory
-├── Decoded imagined video trajectory
+├── Reasoning trajectory / decision context
+├── Candidate action 1
+├── Candidate action 2
+├── Candidate action 3
+├── World Model prediction for action 1
+├── World Model prediction for action 2
+├── World Model prediction for action 3
+├── Target imagined trajectory
+├── Latent distance for each candidate
+├── Selected action
+├── Actual robot action trajectory
 ├── Real video of the robot execution
 ├── Failure timestamp / event
 ├── Human feedback or VLM failure judgment
 └── Relevant simulator state + environment parameters
 ```
 
-This is particularly valuable because the system can compare what the robot **imagined**, what it **executed**, and what **actually happened**.
+This is particularly valuable because the system can compare:
 
 ```math
-\text{Imagined Future}
-\leftrightarrow
-\text{Executed Trajectory}
-\leftrightarrow
-\text{Observed Outcome}
+\text{Reasoning}
+\rightarrow
+\text{Candidate Actions}
+\rightarrow
+\text{Imagined Futures}
+\rightarrow
+\text{Selected Action}
+\rightarrow
+\text{Real Outcome}
 ```
 
-The resulting dataset is much richer than standard failure logs because it captures both the external behavior and the internal predictive context available to the learning system.
+A failure may therefore reveal an error in the reasoning, candidate generation, World Model, target imagination, selection mechanism, or actual control.
+
+The resulting dataset is much richer than a standard failure log because it captures the complete decision process leading to the action.
 
 ---
 
-# 13. Failure-Conditioned Data Generation
+# 14. Failure-Conditioned Data Generation
 
-A single failure should not remain a single training example. Once a failure is identified, the system reconstructs the relevant state inside the calibrated digital twin and generates a large distribution of nearby scenarios.
+A single failure should not remain a single training example.
+
+Once a failure is identified, the system reconstructs the relevant state inside the calibrated digital twin and generates a large distribution of nearby scenarios.
 
 ```mermaid
 flowchart TD
     A["Real-World Failure"] --> B["Failure Episode"]
 
     B --> C["Task + Subtask"]
-    B --> D["State / Action Trajectory"]
-    B --> E["World Model Imagination"]
-    B --> F["Imagined Video"]
-    B --> G["Real Video"]
+    B --> D["Reasoning Context"]
+    B --> E["3 Candidate Actions"]
+    B --> F["World Model Predictions"]
+    B --> G["Target Future"]
+    B --> H["Real Execution"]
 
-    C --> H["Failure Analysis"]
-    D --> H
-    E --> H
-    F --> H
-    G --> H
+    C --> I["Failure Analysis"]
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> I
 
-    H --> I["Failure Condition"]
+    I --> J["Failure Condition"]
 
-    I --> J["Targeted Simulation Generation"]
+    J --> K["Targeted Simulation Generation"]
 
-    J --> K["Near-Failure Scenarios"]
-    J --> L["Counterfactual Successful Scenarios"]
-    J --> M["Perturbed Initial States"]
-    J --> N["Alternative Actions"]
+    K --> L["Near-Failure Scenarios"]
+    K --> M["Counterfactual Successful Scenarios"]
+    K --> N["Perturbed Initial States"]
+    K --> O["Alternative Actions"]
+    K --> P["Alternative Reasoning Paths"]
+    K --> Q["Alternative Candidate Sets"]
 
-    K --> O["Local RL"]
-    L --> O
-    M --> O
-    N --> O
+    L --> R["Local RL"]
+    M --> R
+    N --> R
+    O --> R
+    P --> R
+    Q --> R
 ```
 
-For example, if a robot squeezes a paper cup too hard, the system can generate scenarios with different cup positions, masses, compliance, approach directions, grasp forces, timings, and robot configurations. The goal is not to memorize the original mistake but to learn the boundary between successful and unsuccessful behavior.
+For example, if a robot squeezes a paper cup too hard, the system can generate scenarios with different cup positions, masses, compliance, approach directions, grasp forces, timings, and robot configurations.
+
+It can also generate alternative candidate-action sets and train the World Model to distinguish which proposed actions would produce desirable futures.
+
+The goal is not to memorize the original mistake.
+
+The goal is to learn the boundary between successful and unsuccessful behavior and to improve the complete decision loop:
 
 ```math
-\text{One Real Failure}
+\text{Reason}
 \rightarrow
-\text{Failure Understanding}
+\text{Propose}
 \rightarrow
-\text{Targeted Scenarios}
+\text{Predict}
 \rightarrow
-\text{Policy Improvement}
+\text{Compare}
+\rightarrow
+\text{Act}
 ```
 
-This process powers the local environment-specific learning loop.
+This powers the local environment-specific learning loop.
 
 ---
 
-# 14. Sending Deployment Failures Back to the Lunch Robotics Lab
+# 15. Sending Deployment Failures Back to the Lunch Robotics Lab
 
-The raw failure stream is also sent back to the Lunch Robotics lab, but **raw deployment failures are not directly used to fine-tune the global VLA**. The central dataset pipeline begins with human-led error-mode analysis.
+The raw failure stream is also sent back to the Lunch Robotics lab, but **raw deployment failures are not directly used to fine-tune the global VLA**.
 
-Different deployments will produce different kinds of mistakes. Some are caused by local geometry, local objects, local task conventions, or environment-specific calibration. Others reveal a genuine limitation in the general robot intelligence.
+The central dataset pipeline begins with human-led error-mode analysis.
+
+Different deployments will produce different kinds of mistakes.
+
+Some are caused by local geometry, local objects, local task conventions, or environment-specific calibration.
+
+Others reveal a genuine limitation in general robot intelligence, World Model prediction, candidate generation, reasoning, or action selection.
 
 The Lunch Robotics team analyzes failure episodes across deployments to distinguish these cases and identify **systematic, recurring, and generalizable error modes**.
 
@@ -713,13 +1503,13 @@ For example:
 
 ```text
 Environment A:
-Robot crushes a paper cup.
+Candidate grasp predicts success but damages object.
 
 Environment B:
-Robot squeezes a plastic container too hard.
+Candidate push predicts stable motion but causes slip.
 
 Environment C:
-Robot damages a thin package while grasping it.
+Candidate pull predicts the wrong contact transition.
 
                     ↓
 
@@ -728,20 +1518,64 @@ Robot damages a thin package while grasping it.
                     ↓
 
 Generalizable Error Mode:
-Poor force regulation for compliant objects.
+World Model underestimates contact dynamics.
 ```
 
-This step is critical because the global model should learn reusable capabilities, not absorb every local quirk from every deployment.
+The same process can reveal reasoning-level failures:
 
-The result of the analysis is a set of prioritized global capability gaps. Only those failure modes that the team believes represent meaningful, transferable shortcomings are promoted into global training.
+```text
+Environment A:
+Robot generates three nearly identical candidates.
+
+Environment B:
+Robot fails to include a recovery action.
+
+Environment C:
+Robot does not generate alternatives after uncertainty increases.
+
+                    ↓
+
+          Cross-Deployment Analysis
+
+                    ↓
+
+Generalizable Error Mode:
+Insufficient candidate diversity under uncertainty.
+```
+
+Or selection failures:
+
+```text
+Environment A:
+Best predicted candidate is consistently misranked.
+
+Environment B:
+Latent distance does not correlate with task progress.
+
+Environment C:
+The World Model predicts plausible futures but the target trajectory is poorly defined.
+
+                    ↓
+
+          Cross-Deployment Analysis
+
+                    ↓
+
+Generalizable Error Mode:
+Weak future representation for task-oriented action selection.
+```
+
+This distinction is critical because the global model should learn reusable capabilities, not absorb every local quirk from every deployment.
+
+The result of the analysis is therefore a set of prioritized global capability gaps, including both **action-level deficiencies and reasoning- and prediction-level deficiencies**.
 
 ---
 
-# 15. Curating the Global Training Dataset
+# 16. Curating the Global Training Dataset
 
 Once a generalizable error mode has been identified, the Lunch Robotics team creates a **curated training dataset** around that capability gap.
 
-The curated dataset can combine selected real-world failure episodes with successful examples, counterfactual successful trajectories, targeted simulation rollouts, adversarial near-failure scenarios, World Model imagined trajectories, decoded imagined videos, and relevant examples from the original foundation datasets.
+The curated dataset can combine selected real-world failure episodes with successful examples, counterfactual successful trajectories, targeted simulation rollouts, adversarial near-failure scenarios, World Model imagined trajectories, decoded imagined videos, high-quality reasoning traces, candidate action sets, and relevant examples from the original foundation datasets.
 
 ```math
 \mathcal{D}_{\mathrm{curated}}
@@ -750,21 +1584,25 @@ The curated dataset can combine selected real-world failure episodes with succes
 \left(
 \mathcal{D}_{\mathrm{deployment}},
 \mathcal{D}_{\mathrm{simulation}},
+\mathcal{D}_{\mathrm{reasoning}},
+\mathcal{D}_{\mathrm{WM}},
 \mathcal{D}_{\mathrm{foundation}}
 \right)
 ```
 
-This is a deliberate dataset-engineering step rather than an automatic ingestion pipeline. The team is effectively asking:
+This is a deliberate dataset-engineering step rather than an automatic ingestion pipeline.
 
-> **What capability is actually missing, and what data will teach the global model that capability in a way that transfers beyond the environment where the failure was observed?**
+The team is effectively asking:
 
-For example, three different environments may expose what appears to be three distinct failures, but careful analysis may reveal a common underlying problem such as insufficient understanding of compliant-object manipulation, poor force regulation, or weak contact-state reasoning.
+> **What capability is actually missing, where in the decision loop does the failure originate, and what data will teach the global system that capability in a way that transfers beyond the environment where the failure was observed?**
 
-The curated dataset should therefore teach the underlying capability rather than the superficial details of the environments where the failures first appeared.
+The answer might require improving the VLA's reasoning, increasing the diversity of candidate actions, improving the action-conditioned World Model, improving the target future representation, or improving the final latent selection objective.
+
+The curated dataset therefore teaches the underlying capability rather than the superficial details of the environments where the failure first appeared.
 
 ---
 
-# 16. Fine-Tuning a New Global Lab VLA
+# 17. Fine-Tuning a New Global Lab VLA
 
 The curated dataset is used to improve the **global lab VLA**.
 
@@ -778,9 +1616,39 @@ W_{\mathrm{lab}},
 \right)
 ```
 
-This produces a new release of the lab VLA that incorporates the generalizable knowledge discovered through deployment.
+The new release can improve both action capability and reasoning capability.
 
-The lab VLA is therefore continuously evolving through two sources of intelligence: the original foundation-model training distribution and the carefully selected capability gaps discovered in real-world operation.
+Some capability gaps may require new demonstrations and supervised fine-tuning.
+
+Others may be better addressed through additional reinforcement learning, especially when the failure involves deciding among multiple candidate actions, allocating reasoning compute, or recovering from uncertainty.
+
+Some failures will primarily indicate weaknesses in the action-conditioned World Model.
+
+In those cases, the central training pipeline can produce targeted action-conditioned data and update the World Model separately:
+
+```math
+W_{\mathrm{WM}}'
+=
+\mathrm{FineTune}
+\left(
+W_{\mathrm{WM}},
+\mathcal{D}_{\mathrm{WM,curated}}
+\right)
+```
+
+The resulting global system therefore evolves as a coordinated stack:
+
+```text
+Curated Failure Data
+        ↓
+ ┌──────┼────────┐
+ ↓      ↓        ↓
+VLA   Reasoning  World Model
+ ↓      ↓        ↓
+ └──────┼────────┘
+        ↓
+   New Lab System
+```
 
 The important distinction is:
 
@@ -793,42 +1661,54 @@ Generalizable error modes
           ↓
 Curated training dataset
           ↓
-New Lab VLA
+Action / World Model / Reasoning improvement
+          ↓
+New Lab VLA + World Model
 ```
 
 The deployment fleet is therefore a source of **candidate knowledge**, while the Lunch Robotics lab decides what knowledge becomes part of the global brain.
 
 ---
 
-# 17. Environment-Specific VLAs and the Global Lab VLA
+# 18. Environment-Specific VLAs and the Global Lab VLA
 
 The architecture maintains two distinct classes of model.
 
-The **global lab VLA** is the shared general-purpose model maintained by Lunch Robotics. It captures broadly reusable capabilities learned from the foundation data funnel and from curated deployment-derived training.
+The **global lab VLA** is the shared general-purpose model maintained by Lunch Robotics.
 
-Each deployment maintains its own **environment-specific VLA**, which is optimized for its physical environment, robot embodiment, objects, task distribution, and local dynamics.
+It captures broadly reusable capabilities learned from the foundation data funnel and from curated deployment-derived training.
+
+It also contains the general reasoning ability required to decide how much computation to allocate before generating candidate actions.
+
+Each deployment maintains its own **environment-specific VLA**, which is optimized for its physical environment, robot embodiment, objects, task distribution, local dynamics, and local operating conventions.
 
 ```text
-                         GLOBAL LAB VLA
+                          GLOBAL LAB VLA
                                │
                                ▼
                        Shared Initialization
                                │
-             ┌─────────────────┼─────────────────┐
-             │                 │                 │
-             ▼                 ▼                 ▼
-        Environment A     Environment B     Environment C
-        Specific VLA      Specific VLA      Specific VLA
-             │                 │                 │
-             ▼                 ▼                 ▼
+                 ┌─────────────┼─────────────┐
+                 │             │             │
+                 ▼             ▼             ▼
+           Environment A  Environment B  Environment C
+           Specific VLA   Specific VLA   Specific VLA
+                 │             │             │
+                 ▼             ▼             ▼
         Local Simulation RL + Real Deployment
 ```
 
-This distinction prevents the global model from being dominated by the peculiarities of any one deployment while still allowing every deployment to become highly specialized.
+The local models therefore inherit a common general intelligence and reasoning capability while learning the unique behavior required by their environments.
+
+The same principle applies to the World Model.
+
+The global model provides broad physical priors.
+
+The environment-specific system adapts prediction to the actual robot, objects, materials, geometry, and dynamics of the deployment.
 
 ---
 
-# 18. Continual Weight Mixing
+# 19. Continual Weight Mixing
 
 The next step is to combine the information accumulated by the global lab VLA and the environment-specific VLAs.
 
@@ -873,9 +1753,13 @@ W_N
 \right)
 ```
 
-The exact implementation may eventually use parameter-space merging, model deltas, adapter composition, selective merging, or another technique. The architectural principle is that useful information accumulated centrally and useful knowledge discovered through deployment should be consolidated into a stronger common initialization.
+The exact implementation may eventually use parameter-space merging, model deltas, adapter composition, selective merging, or another technique.
 
-The resulting **mixed VLA** is redistributed to all environments. Each deployment then starts a new round of environment-specific adaptation from this shared state:
+The architectural principle is that useful information accumulated centrally and useful knowledge discovered through deployment should be consolidated into a stronger common initialization.
+
+The resulting **mixed VLA** is redistributed to all environments.
+
+Each deployment then starts a new round of environment-specific adaptation from this shared state:
 
 ```math
 W_i^{(t+1)}
@@ -891,7 +1775,7 @@ Every global update therefore becomes available to the entire fleet.
 
 ---
 
-# 19. The Global-Local Learning Flywheel
+# 20. The Global-Local Learning Flywheel
 
 Lunch Robotics consequently has two interacting learning loops.
 
@@ -915,6 +1799,8 @@ The **local loop** teaches each robot how to operate in its own physical world:
 }
 ```
 
+The local loop can improve perception, reasoning, candidate generation, World Model usage, candidate selection, recovery, and environment-specific knowledge without immediately modifying the shared model.
+
 The **global loop** turns the collective experience of the fleet into improvements to the shared brain:
 
 ```math
@@ -927,7 +1813,7 @@ The **global loop** turns the collective experience of the fleet into improvemen
 \rightarrow
 \text{Curated Data}
 \rightarrow
-\text{New Lab VLA}
+\text{New Lab System}
 \rightarrow
 \text{Weight Mixing}
 \rightarrow
@@ -941,7 +1827,7 @@ Together:
 
 ```mermaid
 flowchart TD
-    A["LAB VLA"] --> B["WEIGHT MIXING"]
+    A["LAB VLA + WORLD MODEL"] --> B["WEIGHT MIXING"]
     B --> C["MIXED VLA"]
 
     C --> D["Environment A"]
@@ -954,56 +1840,98 @@ flowchart TD
     F --> F1["Environment-Specific RL"]
     G --> G1["Environment-Specific RL"]
 
-    D1 --> D2["Real Deployment"]
-    E1 --> E2["Real Deployment"]
-    F1 --> F2["Real Deployment"]
-    G1 --> G2["Real Deployment"]
+    D1 --> D2["3 Action Candidates"]
+    E1 --> E2["3 Action Candidates"]
+    F1 --> F2["3 Action Candidates"]
+    G1 --> G2["3 Action Candidates"]
 
-    D2 --> H["Failure Episodes"]
-    E2 --> H
-    F2 --> H
-    G2 --> H
+    D2 --> H["World Model Evaluation"]
+    E2 --> I["World Model Evaluation"]
+    F2 --> J["World Model Evaluation"]
+    G2 --> K["World Model Evaluation"]
 
-    H --> I["Lunch Robotics Error-Mode Analysis"]
+    H --> L["Real Deployment"]
+    I --> M["Real Deployment"]
+    J --> N["Real Deployment"]
+    K --> O["Real Deployment"]
 
-    I --> J["Curated Global Dataset"]
+    L --> P["Failure Episodes"]
+    M --> P
+    N --> P
+    O --> P
 
-    J --> K["New Lab VLA"]
+    P --> Q["Lunch Robotics Error-Mode Analysis"]
 
-    K --> A
+    Q --> R["Curated Global Dataset"]
+
+    R --> S["New Lab VLA / World Model"]
+
+    S --> A
 ```
 
-The architecture therefore separates **local specialization from global generalization**. A deployment is free to discover local solutions without automatically contaminating the global model, while recurring failures that reveal general capability gaps can be deliberately promoted into the shared brain.
+The architecture therefore separates **local specialization from global generalization**.
+
+A deployment is free to discover local solutions without automatically contaminating the global model, while recurring failures that reveal general capability, prediction, or reasoning gaps can be deliberately promoted into the shared brain.
 
 ---
 
-# 20. Safety
+# 21. Safety
 
 Safety is implemented at multiple levels because no single model should be trusted to guarantee safe operation.
 
-At the foundation level, the models are exposed to safety-oriented and adversarial training examples so that broad behavioral constraints are established before deployment. At the environment level, the calibrated digital twin allows the policy to experience dangerous scenarios without putting the real robot or environment at risk. These scenarios can include fragile objects, unstable surfaces, unsafe force application, dangerous tool use, restricted areas, and adversarial instructions.
+At the foundation level, the models are exposed to safety-oriented and adversarial training examples so that broad behavioral constraints are established before deployment.
 
-A high-level 3D VLM planner evaluates user intent before execution and can reject clearly unsafe or inappropriate tasks. During execution, uncertain or high-risk candidate actions can be evaluated in the surrogate and, when necessary, the high-fidelity digital twin before being passed to the robot.
+At the environment level, the calibrated digital twin allows the policy to experience dangerous scenarios without putting the real robot or environment at risk.
+
+At runtime, the World Model provides another safety mechanism.
+
+Because the robot generates three candidate actions, dangerous or implausible futures can be rejected before execution.
+
+```math
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
+\rightarrow
+\text{World Model Futures}
+\rightarrow
+\text{Safety Evaluation}
+\rightarrow
+\text{Selection}
+```
+
+A high-level 3D VLM planner evaluates user intent before execution and can reject clearly unsafe or inappropriate tasks.
+
+During execution, uncertain or high-risk candidate actions can be evaluated in the surrogate and, when necessary, the high-fidelity digital twin before being passed to the robot.
+
+Reasoning itself can become another safety mechanism.
+
+Tasks involving high uncertainty or high consequence can automatically receive a larger reasoning budget, allowing the VLA to generate better alternatives and the system to perform more extensive counterfactual evaluation.
 
 ```mermaid
 flowchart LR
     A["Current State"]
-    --> B["Candidate Actions"]
+    --> B["Reasoning"]
 
-    B --> C["Fast Surrogate Rollouts"]
-    C --> D["High-Fidelity Twin"]
+    B --> C["3 Candidate Actions"]
 
-    D --> E["Safety + Task Evaluation"]
-    E --> F["Execute Best Candidate"]
+    C --> D["Action-Conditioned World Model"]
+
+    D --> E["Predicted Futures"]
+
+    E --> F["Safety + Task Evaluation"]
+
+    F --> G["High-Fidelity Twin"]
+
+    G --> H["Execute Selected Action"]
 ```
 
 Runtime monitoring provides another safety layer by continuously observing execution and detecting unexpected or dangerous outcomes.
 
 ---
 
-# 21. Robot SDK
+# 22. Robot SDK
 
-The Robot SDK is the final hardware abstraction layer between the policy and the physical robot. The robot should interact with the user through natural language while the underlying system translates those instructions into task specifications, retrieves the appropriate skill context, plans the execution, generates VLA actions, and converts those actions into hardware-safe trajectories.
+The Robot SDK is the final hardware abstraction layer between the policy and the physical robot.
+
+The robot should interact with the user through natural language while the underlying system translates those instructions into task specifications, retrieves the appropriate skill context, determines the required reasoning budget, generates VLA candidate actions, evaluates those candidates through the World Model, and converts the selected action into a hardware-safe trajectory.
 
 ```mermaid
 flowchart LR
@@ -1014,19 +1942,31 @@ flowchart LR
     C --> D["Tutorial Skill Retrieval"]
 
     D --> E["3D VLM Planner"]
-    E --> F["Environment-Specific VLA"]
+    E --> F["Reasoning Budget"]
 
-    F --> G["Robot SDK"]
-    G --> H["Motion Smoother"]
-    H --> I["Hardware Controller"]
-    I --> J["Robot"]
+    F --> G["Environment-Specific VLA"]
+
+    G --> H["3 Candidate Actions"]
+
+    H --> I["Action-Conditioned World Model"]
+
+    I --> J["Future Comparison"]
+
+    J --> K["Selected Action"]
+
+    K --> L["Robot SDK"]
+    L --> M["Motion Smoother"]
+    M --> N["Hardware Controller"]
+    N --> O["Robot"]
 ```
 
-The neural policy therefore does not need to directly satisfy every low-level hardware constraint. The SDK provides the final control and safety interface.
+The neural policy therefore does not need to directly satisfy every low-level hardware constraint.
+
+The SDK provides the final control and safety interface.
 
 ---
 
-## 21.1 Motion Smoothing
+## 22.1 Motion Smoothing
 
 A neural action policy can produce noisy or abrupt outputs, so the SDK applies online smoothing and jerk-limited trajectory generation.
 
@@ -1046,11 +1986,11 @@ q_t,
 The resulting trajectory is constrained by the robot's hardware limits:
 
 ```math
-\begin{align*}
+\begin{aligned}
 |\dot{q}(t)| &\leq v_{\max} \\
 |\ddot{q}(t)| &\leq a_{\max} \\
 |\dddot{q}(t)| &\leq j_{\max}
-\end{align*}
+\end{aligned}
 ```
 
 These constraints are read directly from the robot specification, keeping the policy hardware-agnostic.
@@ -1059,13 +1999,15 @@ For low-latency deployment, a diffusion-based action policy can additionally und
 
 ---
 
-# 22. Runtime Task Execution
+# 23. Runtime Task Execution
 
-At runtime, the experience should be intentionally simple. The user can say:
+At runtime, the experience should be intentionally simple.
+
+The user can say:
 
 > **"Clean the table."**
 
-The system converts the request into a task specification, retrieves the relevant tutorial, uses the planner to determine the task structure, and passes the execution problem to the environment-specific VLA.
+The system converts the request into a task specification, retrieves the relevant tutorial, uses the planner to determine the task structure and difficulty, selects an appropriate reasoning budget, and passes the execution problem to the environment-specific VLA.
 
 ```mermaid
 flowchart TD
@@ -1076,24 +2018,49 @@ flowchart TD
     C --> D["Retrieve Table-Cleaning Tutorial"]
 
     D --> E["3D VLM Planner"]
-    E --> F["Environment-Specific VLA"]
+    E --> F["Reasoning Budget"]
 
-    F --> G["Candidate Actions"]
-    G --> H["Surrogate Rollouts"]
+    F --> G["Environment-Specific VLA"]
 
-    H --> I["High-Risk Twin Validation"]
+    G --> H["Reasoning"]
 
-    I --> J["Robot SDK"]
-    J --> K["Robot"]
+    H --> I["Sample 3 Candidate Actions"]
 
-    K --> L["Runtime Monitoring"]
+    I --> J["Action-Conditioned World Model"]
+
+    J --> K["3 Predicted Future Trajectories"]
+
+    K --> L["Compare with Target Future"]
+
+    L --> M["Select Minimum Latent Distance"]
+
+    M --> N["Surrogate / High-Risk Validation"]
+
+    N --> O["Robot SDK"]
+    O --> P["Robot"]
+
+    P --> Q["Runtime Monitoring"]
 ```
 
-The tutorial supplies task-specific contextual knowledge, the planner determines the task structure, the VLA determines how the robot should act, the World Model predicts how the world will evolve, and the digital twin evaluates the physical consequences of candidate behaviors. The SDK ensures hardware-safe execution, while runtime monitoring determines whether the execution succeeded or entered a failure state.
+The tutorial supplies task-specific contextual knowledge.
+
+The planner determines the task structure.
+
+The VLA determines how much reasoning is required and generates three plausible actions.
+
+The World Model predicts what would happen after each candidate.
+
+The target imagined future describes where the system should be going.
+
+The latent comparison selects the candidate whose predicted outcome is closest to that target.
+
+The SDK ensures hardware-safe execution, while runtime monitoring determines whether the execution succeeded or entered a failure state.
+
+The user therefore experiences a simple conversational interface even though the underlying system is performing substantial perception, planning, reasoning, simulation, candidate evaluation, and control.
 
 ---
 
-# 23. End-to-End System
+# 24. End-to-End System
 
 The full architecture is a continuous pipeline from foundation-model training to deployment and back again.
 
@@ -1106,42 +2073,62 @@ flowchart TD
     A3["MEDIUM<br/>Human + Data-Collecting Gripper"]
     A4["SMALL<br/>Teleoperation"]
 
-    A1 --> B["SINGLE CO-TRAINING PROCESS"]
-    A2 --> B
-    A3 --> B
-    A4 --> B
+    A1 --> B["PASSIVE WORLD MODEL"]
+    A2 --> C["ACTION / VLA TRAINING"]
+    A3 --> C
+    A4 --> C
 
-    B --> C["GLOBAL LAB<br/>WORLD MODEL + VLA"]
+    B --> D["ACTION-CONDITIONED WORLD MODEL"]
+    C --> D
 
-    C --> D["REAL-TO-SIM AGENT"]
+    D --> E["GLOBAL WORLD MODEL + VLA"]
 
-    D --> E["CALIBRATED DIGITAL TWIN"]
-    E --> F["SURROGATE SIMULATOR"]
-    F --> G["ENVIRONMENT-SPECIFIC RL"]
+    E --> F["REASONING SFT"]
+    F --> G["REASONING RL"]
+    G --> H["REASONING-CAPABLE LAB SYSTEM"]
 
-    G --> H["ENVIRONMENT-SPECIFIC VLA"]
-    H --> I["REAL DEPLOYMENT"]
+    H --> I["REAL-TO-SIM AGENT"]
 
-    I --> J["RUNTIME MONITORING"]
+    I --> J["CALIBRATED DIGITAL TWIN"]
+    J --> K["SURROGATE SIMULATOR"]
 
-    J --> K["SUCCESSFUL EXPERIENCE"]
-    J --> L["FAILURE EPISODES"]
+    K --> L["ENVIRONMENT-SPECIFIC RL"]
 
-    L --> M["TARGETED LOCAL SIMULATION"]
-    M --> G
+    L --> M["ENVIRONMENT-SPECIFIC VLA"]
 
-    L --> N["LUNCH ROBOTICS ERROR-MODE ANALYSIS"]
+    M --> N["REASONING"]
+    N --> O["3 CANDIDATE ACTIONS"]
 
-    N --> O["CURATED GLOBAL DATA"]
+    O --> P["ACTION-CONDITIONED WORLD MODEL"]
 
-    O --> P["NEW LAB VLA"]
+    P --> Q["3 PREDICTED FUTURES"]
 
-    P --> Q["WEIGHT MIXING"]
+    Q --> R["TARGET FUTURE COMPARISON"]
 
-    H --> Q
+    R --> S["SELECT ACTION"]
 
-    Q --> R["MIXED VLA"]
-    R --> D
+    S --> T["REAL DEPLOYMENT"]
+
+    T --> U["RUNTIME MONITORING"]
+
+    U --> V["SUCCESSFUL EXPERIENCE"]
+    U --> W["FAILURE EPISODES"]
+
+    W --> X["TARGETED LOCAL SIMULATION"]
+    X --> L
+
+    W --> Y["LUNCH ROBOTICS ERROR-MODE ANALYSIS"]
+
+    Y --> Z["CURATED GLOBAL DATA"]
+
+    Z --> AA["NEW LAB VLA / WORLD MODEL"]
+
+    AA --> AB["WEIGHT MIXING"]
+    M --> AB
+
+    AB --> AC["MIXED VLA"]
+
+    AC --> I
 ```
 
 The local environment lifecycle is:
@@ -1159,6 +2146,14 @@ The local environment lifecycle is:
 \rightarrow
 \text{Environment-Specific VLA}
 \rightarrow
+\text{Reasoning}
+\rightarrow
+\text{3 Candidate Actions}
+\rightarrow
+\text{World Model Evaluation}
+\rightarrow
+\text{Action Selection}
+\rightarrow
 \text{Real Deployment}
 \rightarrow
 \text{Failure}
@@ -1175,7 +2170,7 @@ The global fleet lifecycle is:
 \rightarrow
 \text{Curated Global Dataset}
 \rightarrow
-\text{New Lab VLA}
+\text{New Lab VLA / World Model}
 \rightarrow
 \text{Weight Mixing}
 \rightarrow
@@ -1184,13 +2179,17 @@ The global fleet lifecycle is:
 \text{All Deployments}
 ```
 
-The resulting architecture is not a one-way pipeline. It is a **closed learning system** in which the foundation model creates capable initial policies, environments provide the physical context required for specialization, deployments expose the weaknesses of those policies, and the company converts the most generalizable weaknesses into improvements to the shared brain.
+The resulting architecture is not a one-way pipeline.
+
+It is a **closed learning system** in which the foundation model creates capable initial policies, the action-conditioned World Model provides learned simulation, reasoning training teaches the model how to allocate cognition, candidate generation provides multiple possible behaviors, latent future matching selects among those behaviors, environments provide the physical context required for specialization, deployments expose the weaknesses of those policies, and the company converts the most generalizable weaknesses into improvements to the shared brain.
 
 ---
 
-# 24. What the User Actually Does
+# 25. What the User Actually Does
 
-From the user's perspective, the system should be almost trivial. They provide the environment information, task descriptions, tactile probing, task demonstrations, and robot interface required to initialize the system.
+From the user's perspective, the system should be almost trivial.
+
+They provide the environment information, task descriptions, tactile probing, task demonstrations, and robot interface required to initialize the system.
 
 ```math
 \text{Environment}
@@ -1204,25 +2203,57 @@ From the user's perspective, the system should be almost trivial. They provide t
 \text{Robot SDK}
 ```
 
-They do not manually build a simulator, model the environment's physics, perform system identification, create RL environments, engineer the training curriculum, generate synthetic datasets, train the policy, or tune low-level control. The platform performs those steps autonomously.
+They do not manually build a simulator, model the environment's physics, perform system identification, create RL environments, engineer the training curriculum, generate synthetic datasets, train the policy, or tune low-level control.
 
-After deployment, the user simply uses the robot. When the robot makes a mistake, the user can point it out, while environmental cameras and VLM monitoring can independently detect many failures. The resulting event is automatically recorded and becomes part of the local learning loop and, when appropriate, the global error-analysis pipeline.
+They also do not need to manually choose the action that best matches the task.
+
+The system automatically:
+
+```text
+Understand Task
+      ↓
+Reason
+      ↓
+Generate 3 Candidate Actions
+      ↓
+Imagine Consequences
+      ↓
+Compare Future Trajectories
+      ↓
+Select Best Action
+      ↓
+Execute Safely
+```
+
+They also do not need to decide how much reasoning the robot should perform for every individual action.
+
+The system learns to scale reasoning with the task, uncertainty, and available inference budget.
+
+More demanding tasks can receive more deliberation, while simple tasks can remain fast.
+
+After deployment, the user simply uses the robot.
+
+When the robot makes a mistake, the user can point it out, while environmental cameras and VLM monitoring can independently detect many failures.
+
+The resulting event is automatically recorded and becomes part of the local learning loop and, when appropriate, the global error-analysis pipeline.
 
 The user therefore does not need to become a robotics engineer in order to operate and improve the system.
 
 ---
 
-# 25. The Core Research Thesis
+# 26. The Core Research Thesis
 
-The central thesis of Lunch Robotics is that universal robot intelligence should be built from four complementary components:
+The central thesis of Lunch Robotics is that universal robot intelligence should be built from five complementary components:
 
 ```math
 \boxed{
 \text{Foundation Model Data Funnel}
 +
-\text{Agentic Real-to-Sim}
+\text{Action-Conditioned World Model}
 +
-\text{Environment-Specific RL}
+\text{Reasoning SFT + RL}
++
+\text{Agentic Real-to-Sim}
 +
 \text{Curated Fleet Learning}
 }
@@ -1246,7 +2277,72 @@ The answer is to combine data sources with radically different scale and fidelit
 \text{Global World Model + VLA}
 ```
 
-The Real-to-Sim system solves the second problem:
+The Action-Conditioned World Model solves the next problem:
+
+> **How does the robot predict the consequences of an action before committing to it?**
+
+The answer is to fine-tune the World Model with action data as an explicit input:
+
+```math
+\text{Current State}
++
+\text{Action}
+\rightarrow
+\text{Predicted Future Trajectory}
+```
+
+This turns the World Model into a learned simulator that can be queried with hypothetical robot actions.
+
+Reasoning SFT and RL solve the next problem:
+
+> **How do we teach the model to use all of this knowledge intelligently rather than simply map observations directly to actions?**
+
+The answer is to train the VLA on successful reasoning trajectories and optimize reasoning through RL while allowing reasoning depth to scale at inference time.
+
+```math
+\text{Observation}
++
+\text{Task}
++
+\text{World Model}
+\rightarrow
+\text{Adaptive Reasoning}
+\rightarrow
+\text{Candidate Actions}
+```
+
+The candidate-action mechanism solves the next problem:
+
+> **How do we avoid relying on a single VLA prediction to make every decision perfectly?**
+
+The answer is to sample three candidate actions and use the World Model to evaluate their consequences:
+
+```math
+\{a_t^{(1)}, a_t^{(2)}, a_t^{(3)}\}
+\rightarrow
+\{z_{\mathrm{pred}}^{(1)}, z_{\mathrm{pred}}^{(2)}, z_{\mathrm{pred}}^{(3)}\}
+\rightarrow
+\text{Latent Comparison}
+\rightarrow
+a_t^*
+```
+
+The action whose predicted future is closest to the World Model's imagined target future is selected:
+
+```math
+a_t^*
+=
+a_t^{\left(
+\arg\min_i
+\left\|
+z_{\mathrm{pred}}^{(i)}
+-
+z_{\mathrm{target}}
+\right\|_2
+\right)}
+```
+
+The Real-to-Sim system solves the next problem:
 
 > **How do we adapt that general intelligence to an arbitrary robot operating in an arbitrary physical environment?**
 
@@ -1266,11 +2362,13 @@ By transforming:
 \text{Environment-Specific VLA}
 ```
 
-The deployment learning system solves the third problem:
+The deployment learning system solves the final problem:
 
 > **How do we continue improving after the robot is operating in the real world?**
 
-The answer is to let each deployment learn locally while sending rich failure data back to the central lab. The Lunch Robotics team analyzes those failures across environments, identifies generalizable error modes, and curates the datasets required to teach those capabilities to the global model:
+The answer is to let each deployment learn locally while sending rich failure data back to the central lab.
+
+The Lunch Robotics team analyzes those failures across environments, identifies generalizable error modes, and curates the datasets required to teach those capabilities to the global model:
 
 ```math
 \text{Deployment Failures}
@@ -1279,7 +2377,7 @@ The answer is to let each deployment learn locally while sending rich failure da
 \rightarrow
 \text{Curated Data}
 \rightarrow
-\text{New Lab VLA}
+\text{New Lab VLA / World Model}
 ```
 
 Finally, the global and local models are combined and redistributed:
@@ -1300,7 +2398,11 @@ The most important architectural principle is therefore:
 
 > **The robots specialize locally, while Lunch Robotics learns globally.**
 
-A deployed robot is not merely a consumer of a fixed model. It is an autonomous learning agent operating inside a particular physical environment and a sensor collecting valuable evidence about what the shared brain still does not understand. The centralized Lunch Robotics team then acts as the intelligence filter that determines which discoveries should become part of the universal model.
+A deployed robot is not merely a consumer of a fixed model.
+
+It is an autonomous learning agent operating inside a particular physical environment and a sensor collecting valuable evidence about what the shared brain still does not understand.
+
+The centralized Lunch Robotics team then acts as the intelligence filter that determines which discoveries should become part of the universal model and which should remain local.
 
 This creates a compounding learning flywheel:
 
@@ -1316,6 +2418,12 @@ This creates a compounding learning flywheel:
 \rightarrow
 \text{Better Lab VLA}
 \rightarrow
+\text{Better World Model}
+\rightarrow
+\text{Better Reasoning}
+\rightarrow
+\text{Better Action Selection}
+\rightarrow
 \text{Better Initialization}
 \rightarrow
 \text{Better Environment Adaptation}
@@ -1326,15 +2434,19 @@ This creates a compounding learning flywheel:
 }
 ```
 
-The fundamental insight is that **deployment is not merely inference at the edge**. Deployment is where the system discovers what intelligence is still missing.
+The fundamental insight is that **deployment is not merely inference at the edge**.
+
+Deployment is where the system discovers what intelligence, prediction, and reasoning are still missing.
 
 ---
 
-# 26. The Product Vision
+# 27. The Product Vision
 
 The end state is **zero-to-hero robot autonomy**.
 
-The user provides a robot, an environment, the tasks it needs to perform, a small amount of tactile probing, and task demonstrations. The rest of the system operates behind the scenes.
+The user provides a robot, an environment, the tasks it needs to perform, a small amount of tactile probing, and task demonstrations.
+
+The rest of the system operates behind the scenes.
 
 ```math
 \begin{aligned}
@@ -1355,6 +2467,21 @@ The user provides a robot, an environment, the tasks it needs to perform, a smal
 &\qquad\qquad\downarrow
 \\
 &
+\text{Action-Conditioned World Model}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Reasoning SFT + RL}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Reasoning-Capable Global VLA}
+\\
+&\qquad\qquad\downarrow
+\\
+&
 \text{Real-to-Sim Agent}
 \\
 &\qquad\qquad\downarrow
@@ -1371,6 +2498,31 @@ The user provides a robot, an environment, the tasks it needs to perform, a smal
 \\
 &
 \text{Environment-Specific VLA}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Reasoning}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Three Candidate Actions}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{World Model Future Prediction}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Latent Future Matching}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Selected Action}
 \\
 &\qquad\qquad\downarrow
 \\
@@ -1409,7 +2561,7 @@ Across the fleet, deployment failures are converted into curated improvements to
 &\qquad\qquad\downarrow
 \\
 &
-\text{New Lab VLA}
+\text{New Lab VLA + World Model}
 \\
 &\qquad\qquad\downarrow
 \\
@@ -1432,8 +2584,14 @@ At deployment, the user can simply say:
 
 > **"Clean the table."**
 
-The robot understands the task, retrieves the relevant skill, reasons about the physical environment, imagines the desired outcome, evaluates candidate behaviors, executes them through a hardware-safe control stack, and monitors the result.
+The robot understands the task, retrieves the relevant skill, determines how much reasoning is required, generates three plausible actions, uses the World Model to imagine the consequence of each action, compares those future trajectories against the desired imagined future, selects the best action, executes it through a hardware-safe control stack, and monitors the result.
 
-When the robot encounters something it does not understand, the system does not simply record a failure and move on. It captures the entire event, learns locally from the failure, and sends the information back to the Lunch Robotics lab. The team determines whether the failure reveals a broader capability gap, curates the appropriate training data, improves the global VLA, mixes the new global knowledge with the knowledge accumulated by specialized deployments, and redistributes the resulting model across the fleet.
+When the robot encounters something it does not understand, the system does not simply record a failure and move on.
 
-The long-term objective is therefore not to build another robot-specific policy. It is to build a **universal brain that can be installed into any robot, adapted to any physical environment, and continuously improved by the collective experience of every robot running it.**
+It captures the entire event, learns locally from the failure, and sends the information back to the Lunch Robotics lab.
+
+The team determines whether the failure reveals a broader capability, reasoning, prediction, or action-selection gap, curates the appropriate training data, improves the global VLA and/or World Model, mixes the new global knowledge with the knowledge accumulated by specialized deployments, and redistributes the resulting system across the fleet.
+
+The long-term objective is therefore not to build another robot-specific policy.
+
+It is to build a **universal brain that can be installed into any robot, adapted to any physical environment, reason at the appropriate level for any task, simulate the consequences of its candidate actions, select the action most likely to lead toward the desired future, and continuously improve through the collective experience of every robot running it.**
