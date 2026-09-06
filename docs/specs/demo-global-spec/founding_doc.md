@@ -268,23 +268,27 @@ FreeLunch composes these capabilities into a coherent developer experience.
 
 ---
 
-# 5. Personas
+# 5. Personas 
 
-### Platform Admin
+### Platform Admin Persona
 
 Owns the platform, organization configuration, identity, and emergency permissions.
 
-### Platform Engineer
+### Platform Engineer Persona
 
-Defines platform capabilities, policies, infrastructure, and deployment configuration.
+Defines platform capabilities, policies, infrastructure, and deployment configuration. 
 
-### Developer
+### Platform Lead Grant
+
+Grant that a Platform Engineers gets to be able to merge and request changes on Platform-level PRs.
+
+### Developer Persona
 
 Builds, deploys, observes, and operates applications through the platform.
 
-### Tech Lead
+### Tech Lead Grant
 
-A developer with additional responsibility for reviewing and merging changes.
+Grant that a Developer gets to be able to merge and request changes on Application-level PRs.
 
 ---
 
@@ -354,29 +358,23 @@ A developer with additional responsibility for reviewing and merging changes.
 
 The Demo does **not** attempt to solve the entire platform vision.
 
-### Application capabilities
+A list of things that won't be in the Demo:
 
 * Stateful services.
 * Database/queue lifecycle management.
 * DAG workflows.
 * GPU workloads.
 * Frontend application management.
-* Data engineering.
-* Full MLOps.
-* Confidential computing.
-* Distributed programming framework.
-
-### Infrastructure
-
 * Public-cloud deployment.
 * Multi-cloud.
 * On-premise clusters.
 * Embedded devices.
 * Remote Kubernetes development environments.
 * Full multi-cluster management.
-
-### Platform
-
+* Data engineering support.
+* MLOps support
+* Confidential computing.
+* Distributed programming framework.
 * Arbitrary new L1 abstraction types.
 * Fully tool-agnostic IaC.
 * Public/private reusable-block marketplace.
@@ -385,17 +383,18 @@ The Demo does **not** attempt to solve the entire platform vision.
 * Project management.
 * Agent management.
 * IDE action logging.
-* DORA/IDE analytics.
+* DORA analytics (for users) 
+* Platform Monitoring, Observability and Analytics (for us).
 * Budget enforcement and deployment cost gates.
-
-### Advanced product capabilities
-
 * A/B testing.
+* Alpha/Beta/Canary Deployments and Feature Flags
 * Time-travel/slow-motion trace replay.
 * System-wide experiment tracking.
 * DataOps promotion workflows.
 * Full OpenLineage integration.
 * Monitoring actions directly from IDE widgets.
+* DAST, Pentesting/Readteaming and Chaos Enigneering support.
+* Optimal Technical KPI Goal Definitions (automatically defined goals for latency, throughput, availability, precision, recall, etc to optimize business KPIs, optimize cost, while having a total dedication budget contraint that takes into account how hard is to improve each technical KPI)
 
 ---
 
