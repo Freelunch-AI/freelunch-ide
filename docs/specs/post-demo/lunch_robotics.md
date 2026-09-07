@@ -6,7 +6,7 @@ We are building a **universal robot brain** that can turn a general-purpose robo
 
 General robot intelligence is learned offline through a **Foundation Model Data Funnel** that combines massive amounts of human video with progressively more robot-relevant forms of supervision. Massive human video provides broad knowledge about the physical world, a generative World Model can then be used to produce large quantities of synthetic egocentric human manipulation experience that is filtered and action-annotated, human action supervision connects that knowledge to purposeful behavior, manipulation data collected with a data-collecting gripper introduces contact and embodiment information, and a smaller amount of teleoperation data provides direct grounding in robot control. The World Model itself is trained in two complementary phases: first, it learns the structure and evolution of the physical world from massive passive video through future and spatial prediction; second, it is further fine-tuned with **action-conditioned training**, where actions are explicitly provided as inputs and the model learns to predict what will happen after those actions. This transforms the World Model from a passive predictor into a learned **action-conditioned simulator** capable of evaluating hypothetical robot behaviors.
 
-The synthetic egocentric-data stage is deliberately positioned between passive foundation-model pretraining and dense action-conditioned training. Once the foundation World Model is sufficiently capable, it can generate large numbers of hypothetical human manipulation episodes covering tasks, objects, viewpoints, and physical situations that are expensive to collect in the real world. Humans and learned critics filter these generations for plausibility and usefulness, while pose-estimation models recover approximate hand and body actions from the surviving videos. These generated examples become an additional source of action-conditioned supervision, allowing the model to learn controllable physical dynamics at much greater scale than direct real-world collection alone would permit. Crucially, this is not treated as a closed synthetic-data loop: **real egocentric data remains the grounding source**, and the synthetic generation process is simultaneously used to discover where the foundation model is weak and determine which new real-world experiences should be collected to correct those weaknesses.
+The synthetic egocentric-data stage is deliberately positioned between passive foundation-model pretraining and dense action-conditioned training. Once the foundation World Model is sufficiently capable, it can generate large numbers of hypothetical human manipulation episodes covering tasks, objects, viewpoints, and physical situations that are expensive to collect in the real world. It can do this both by generating completely new egocentric trajectories and by taking real human videos and modifying their initial frames with an image-editing model to create controlled variations of the scene, object configuration, or task. Humans and learned critics filter these generations for plausibility and usefulness, while pose-estimation models recover approximate hand and body actions from the surviving videos. These generated examples become an additional source of action-conditioned supervision, allowing the model to learn controllable physical dynamics at much greater scale than direct real-world collection alone would permit. Crucially, this is not treated as a closed synthetic-data loop: **real egocentric data remains the grounding source**, and the synthetic generation process is simultaneously used to discover where the foundation model is weak and determine which new real-world experiences should be collected to correct those weaknesses.
 
 These datasets are not treated as isolated sequential stages in which each dataset replaces the previous one. They jointly train a shared **World Model + VLA foundation brain**, with the training distribution becoming increasingly robot-relevant while retaining the broad coverage of the lower-fidelity datasets. Once this foundation model has learned to perceive, predict, and act, it undergoes a reasoning stage in which the VLA is supervised on high-quality reasoning trajectories and then optimized with reinforcement learning so that it learns how to arrive at an action through useful reasoning rather than relying only on direct reactive mappings. Crucially, the amount of reasoning is not fixed: at inference time, the reasoning budget can be selected according to the task, uncertainty, and available compute.
 
@@ -320,7 +320,7 @@ where \(j\) indexes target updates and \(k\) indexes the higher-frequency action
 
 # 2. Foundation Model Data Funnel
 
-The foundation model is trained through a deliberate **data funnel** in which the amount of available data decreases as fidelity and robot relevance increase. Massive datasets provide broad coverage of the physical world, while smaller datasets provide increasingly direct supervision about manipulation, contact, embodiment, and robot actions. Between passive foundation-model pretraining and direct robot data, the system also creates a synthetic egocentric-data loop: the foundation World Model generates large numbers of human manipulation experiences, those experiences are filtered and action-annotated, and the resulting data is used to teach action-conditioned physical prediction while simultaneously exposing weaknesses in the model's current understanding of reality.
+The foundation model is trained through a deliberate **data funnel** in which the amount of available data decreases as fidelity and robot relevance increase. Massive datasets provide broad coverage of the physical world, while smaller datasets provide increasingly direct supervision about manipulation, contact, embodiment, and robot actions. Between passive foundation-model pretraining and direct robot data, the system also creates a synthetic egocentric-data loop: the foundation World Model generates large numbers of human manipulation experiences, including both entirely new trajectories and controlled variations derived from real videos, those experiences are filtered and action-annotated, and the resulting data is used to teach action-conditioned physical prediction while simultaneously exposing weaknesses in the model's current understanding of reality.
 
 The six primary foundation stages are:
 
@@ -345,7 +345,7 @@ The six primary foundation stages are:
                                        │
                          ┌─────────────┴──────────────┐
                          │ STAGE 3                    │
-                         │ HUMAN + SYNTHETIC ACTION   │
+                         │ SYNTHETIC HUMAN ACTION     │
                          │ Scalable action supervision│
                          └─────────────┬──────────────┘
                                        │
@@ -370,13 +370,13 @@ The six primary foundation stages are:
               WORLD MODEL + VLA + ACTION SIMULATION
 ```
 
-The synthetic-data stage is intentionally **not interpreted as a replacement for Stage 1**. Stage 1 supplies the real-world grounding from which the foundation World Model learns. Stage 3 then uses that learned model to manufacture large amounts of action-labeled egocentric experience that can be used to develop action-conditioned prediction and identify missing capability. The resulting model is periodically corrected by returning to real data and deliberately collecting the physical situations where the synthetic model is weakest.
+The synthetic-data stage is intentionally **not interpreted as a replacement for Stage 1**. Stage 1 supplies the real-world grounding from which the foundation World Model learns. Stage 3 then uses that learned model, together with real videos as seeds for controlled image-editing augmentation, to manufacture large amounts of action-labeled egocentric experience that can be used to develop action-conditioned prediction and identify missing capability. The resulting model is periodically corrected by returning to real data and deliberately collecting the physical situations where the synthetic model is weakest.
 
 | Stage | Data                                         | Scale      | Supervision                       | Primary Capability                           |
 | ----- | -------------------------------------------- | ---------- | --------------------------------- | -------------------------------------------- |
 | **1** | Massive human egocentric video               | Massive    | Self-supervised                   | World representation and physical prediction |
 | **2** | Human video + VLM pose waypoints             | Large      | Approximate action supervision    | Human action understanding                   |
-| **3** | World Model-generated human egocentric data  | Very Large | Synthetic action supervision      | Action-conditioned physical prediction       |
+| **3** | Synthetic human egocentric data              | Very Large | Synthetic action supervision      | Action-conditioned physical prediction       |
 | **4** | Human manipulation + data-collecting gripper | Medium     | Robot-relevant action supervision | Contact and manipulation                     |
 | **5** | Teleoperation data                           | Small      | Direct robot action supervision   | Robot control and embodiment                 |
 | **6** | Reasoning traces + RL rollouts               | Targeted   | SFT + outcome-driven RL           | Adaptive reasoning and action selection      |
@@ -409,7 +409,7 @@ The data funnel has both a **scale dimension** and a **grounding dimension**. Da
                     LOW FIDELITY / HIGH SCALE
 ```
 
-The critical addition is that the synthetic stage is **generated by the model trained at the bottom of the pyramid**. This creates a controlled bridge between broad passive world knowledge and dense action supervision without pretending that generated data contains novel grounding equivalent to real observations.
+The critical addition is that the synthetic stage is **generated using both the foundation World Model and real-video seeds**. This creates a controlled bridge between broad passive world knowledge and dense action supervision without pretending that generated data contains novel grounding equivalent to real observations.
 
 ---
 
@@ -467,29 +467,71 @@ which creates a bridge between passive physical-world understanding and purposef
 
 ---
 
-# 2.4 Stage 3 — World Model-Generated Human Egocentric Action Data
+# 2.4 Stage 3 — Synthetic Human Egocentric Action Data
 
-Once the foundation World Model has learned a sufficiently broad model of human behavior, objects, scenes, and physical evolution, it becomes a **generative source of additional egocentric manipulation experience**. The objective is not to manufacture a replacement for real-world observation, but to query the learned model for large numbers of plausible human interactions that would otherwise be expensive to collect. The World Model can be conditioned or prompted around tasks, object configurations, environments, and manipulation goals to generate diverse candidate trajectories that expand the action-conditioned training distribution.
+Once the foundation World Model has learned a sufficiently broad model of human behavior, objects, scenes, and physical evolution, it becomes a **generative source of additional egocentric manipulation experience**. The system generates this experience through two complementary mechanisms. First, the World Model can generate entirely new human egocentric trajectories from a task, scene, or manipulation specification. Second, and importantly, the system can take the initial frames of real human egocentric videos and use a powerful **image-editing model** to create controlled visual variations of those real scenes before handing the modified initial conditions to the World Model. These edits can vary object identity, object appearance, object position, scene configuration, clutter, background conditions, and other visually controllable properties while preserving the basic structure of the observed real-world situation.
 
 ```mermaid
 flowchart TD
-    A["Foundation World Model"]
-    --> B["Generate Egocentric Human Videos"]
+    A["Real Human Egocentric Video"] --> B["Initial Frames"]
+    B --> C["Image Editing Model"]
+    C --> D["Variation 1"]
+    C --> E["Variation 2"]
+    C --> F["Variation N"]
 
-    B --> C["Human Filtering / Quality Control"]
+    G["Task / Scene Specification"] --> H["Foundation World Model"]
+    D --> H
+    E --> H
+    F --> H
 
-    C --> D["Pose Estimator"]
-    D --> E["3D Hand / Body Action Trajectories"]
+    H --> I["Synthetic Egocentric Trajectories"]
 
-    E --> F["Synthetic Action Dataset"]
+    J["Foundation World Model"] --> H
+    J --> K["Fully Generated Trajectories"]
 
-    F --> G["Action-Conditioned World Model"]
-    F --> H["VLA Training"]
+    I --> L["Human / VLM Filtering"]
+    K --> L
 
-    G --> I["Model Weakness Analysis"]
-    I --> J["Targeted Real Data Collection"]
+    L --> M["Pose Estimator"]
+    M --> N["3D Hand / Body Actions"]
 
-    J --> A
+    N --> O["Synthetic Action Dataset"]
+
+    O --> P["Action-Conditioned World Model"]
+    O --> Q["VLA Training"]
+
+    L --> R["Failure / Quality Analysis"]
+    R --> S["Capability Gap Map"]
+
+    S --> T["Targeted Real Data Collection"]
+    T --> J
+```
+
+The second branch is particularly valuable because the real initial frames anchor the synthetic generation process to **actual camera statistics, real object appearances, real spatial configurations, real hand morphology, and real environmental layouts**. Instead of asking the World Model to hallucinate an entire scene from scratch, the system can start from a real observation and make small, controlled changes before generating the subsequent trajectory. This makes it possible to create large families of closely related examples around a real demonstration while preserving much more of the structure that made the original observation realistic.
+
+The image-editing branch can also create **small variations of the task itself**. A video of a person placing a red cup on a shelf could, for example, be transformed into variants involving a different cup, a slightly different shelf position, a different nearby object, or a slightly changed placement objective. The objective is not to generate arbitrary tasks that drift far from reality, but to create a dense neighborhood of related situations around genuine real-world observations. This provides a controlled form of data augmentation in which the system can vary the factors most useful for learning generalization while retaining real-world visual grounding.
+
+The two synthetic branches therefore complement each other:
+
+```text
+                     SYNTHETIC HUMAN DATA
+                              │
+                ┌─────────────┴─────────────┐
+                │                           │
+                ▼                           ▼
+       Fully generated trajectories   Real-video-seeded
+                                      image variations
+                │                           │
+                │                           │
+                └─────────────┬─────────────┘
+                              ▼
+                     World Model rollout
+                              ↓
+                   Human / VLM filtering
+                              ↓
+                      Pose estimation
+                              ↓
+                   Action annotations
 ```
 
 The first filtering layer is deliberately human-led. Humans inspect generated trajectories and reject examples containing obvious physical inconsistencies, implausible contacts, temporal artifacts, bad hand geometry, contradictory object behavior, or other failures that would otherwise reinforce errors in the model. Over time, these human judgments can be distilled into learned critics and VLM-based quality filters, allowing the system to scale while maintaining a human-controlled quality bar.
@@ -506,7 +548,7 @@ A_{\mathrm{human}}
 
 where \(A_{\mathrm{human}}\) can contain hand pose, wrist motion, body pose, temporal waypoints, and other available action representations. The resulting synthetic demonstrations are then mixed with real human action data and increasingly grounded manipulation data to train the World Model and VLA.
 
-The critical principle is that **synthetic data provides scale but not independent grounding**. The foundation World Model acquired its understanding from real observations, so its generations primarily sample and recombine knowledge already present in the model. The value is therefore not that synthetic data teaches facts about reality that the model has never observed, but that it creates an enormous number of explicit action-conditioned examples around the model's current beliefs. This makes otherwise implicit knowledge easier to train, probe, score, and transfer into controllable prediction.
+The critical principle is that **synthetic data provides scale but not independent grounding**. The foundation World Model acquired its understanding from real observations, so its generations primarily sample and recombine knowledge already present in the model. The value is therefore not that synthetic data teaches facts about reality that the model has never observed, but that it creates an enormous number of explicit action-conditioned examples around the model's current beliefs. Real-video-seeded editing adds another useful property: because the synthetic generation starts from actual observations, the resulting examples remain anchored to real scene structure while varying selected factors.
 
 The synthetic generation process also becomes a **diagnostic instrument for the foundation model**. The team can track which kinds of generations humans consistently reject, where pose reconstruction fails, which manipulation categories produce low-quality trajectories, and which task or object combinations lead to repeated inconsistencies. These failures provide an empirical map of the model's weaknesses:
 
@@ -523,10 +565,11 @@ Failure Taxonomy
         ├── Deformation
         ├── Fine-grained grasping
         ├── Long-horizon transitions
-        └── Rare object configurations
+        ├── Rare object configurations
+        └── Image-editing / scene-variation failures
 ```
 
-The resulting failure distribution directly guides **targeted real-world egocentric data collection**. Rather than collecting more random footage, Lunch Robotics can deliberately seek real experiences in the regimes where the model's synthetic imagination is weakest. If the model generates convincing drawer-opening behavior but consistently fails on deformable bags, then the next real-data campaign should prioritize egocentric videos containing deformable-object manipulation. If the failure is specifically bimanual coordination under occlusion, data collection can target exactly those conditions.
+The resulting failure distribution directly guides **targeted real-world egocentric data collection**. Rather than collecting more random footage, Lunch Robotics can deliberately seek real experiences in the regimes where the model's synthetic imagination is weakest. If the model generates convincing drawer-opening behavior but consistently fails on deformable bags, then the next real-data campaign should prioritize egocentric videos containing deformable-object manipulation. If the failure is specifically bimanual coordination under occlusion, data collection can target exactly those conditions. If the image-editing branch repeatedly fails to produce plausible variations of particular object configurations, that can also reveal regions of the data distribution that require direct real-world collection rather than further synthetic augmentation.
 
 This creates an active data-acquisition loop:
 
@@ -536,22 +579,32 @@ Real Egocentric Data
 Foundation World Model
         ↓
 Synthetic Egocentric Generation
-        ↓
-Human / Learned Filtering
-        ↓
-Failure Analysis
-        ↓
-Identify Foundation Weaknesses
-        ↓
-Targeted Real Data Collection
-        ↓
-Improved Foundation World Model
-        ↺
+        │
+        ├── New generations from the World Model
+        │
+        └── Real-video initial frames
+                ↓
+          Image editing
+                ↓
+          Controlled variations
+        │
+        └──────────────┐
+                       ▼
+                Human / Learned Filtering
+                       ↓
+                 Failure Analysis
+                       ↓
+              Identify Weaknesses
+                       ↓
+          Targeted Real Data Collection
+                       ↓
+              Improved Foundation WM
+                       ↺
 ```
 
-The purpose of this loop is therefore broader than synthetic-data augmentation. The World Model becomes both a **data generator and a diagnostic model of its own uncertainty and blind spots**. Synthetic experience expands the action-conditioned training distribution, while the pattern of synthetic failures tells the organization where real data acquisition has the highest expected value.
+The purpose of this loop is therefore broader than synthetic-data augmentation. The World Model becomes both a **data generator and a diagnostic model of its own uncertainty and blind spots**. Synthetic experience expands the action-conditioned training distribution, real-video-seeded augmentation provides controlled neighborhoods around genuine observations, and the pattern of synthetic failures tells the organization where real data acquisition has the highest expected value.
 
-Importantly, synthetic training should remain anchored to real data rather than becoming an unconstrained self-training loop. Real egocentric observations continue to supply the external grounding signal, while synthetic trajectories are used selectively for scaling action supervision, curriculum generation, counterfactual coverage, and capability diagnosis. The training system can therefore repeatedly alternate between broad real-data learning and synthetic probing without allowing the synthetic distribution to become the sole source of truth.
+Importantly, synthetic training should remain anchored to real data rather than becoming an unconstrained self-training loop. Real egocentric observations continue to supply the external grounding signal, while synthetic trajectories are used selectively for scaling action supervision, curriculum generation, counterfactual coverage, controlled scene variation, and capability diagnosis. The training system can therefore repeatedly alternate between broad real-data learning and synthetic probing without allowing the synthetic distribution to become the sole source of truth.
 
 ---
 
@@ -1976,7 +2029,7 @@ flowchart TD
 
     A1["MASSIVE<br/>Human Egocentric Video"]
     A2["LARGE<br/>Human Video + VLM Pose Waypoints"]
-    A3["VERY LARGE<br/>World Model-Generated Human Egocentric Data"]
+    A3["VERY LARGE<br/>Synthetic Human Egocentric Data"]
     A4["MEDIUM<br/>Human + Data-Collecting Gripper"]
     A5["SMALL<br/>Teleoperation"]
 
@@ -1989,69 +2042,73 @@ flowchart TD
     B --> D["ACTION-CONDITIONED WORLD MODEL"]
     C --> D
 
-    D --> E["GLOBAL WORLD MODEL + VLA"]
+    E["Real Video Initial Frames"]
+    --> F["Image Editing Variations"]
+    F --> A3
 
-    A3 --> F["Synthetic Failure Analysis"]
-    F --> G["Targeted Real Egocentric Collection"]
-    G --> B
+    D --> E2["GLOBAL WORLD MODEL + VLA"]
 
-    E --> H["REASONING SFT"]
-    H --> I["REASONING RL"]
-    I --> J["REASONING-CAPABLE LAB SYSTEM"]
+    A3 --> G["Synthetic Failure Analysis"]
+    G --> H["Targeted Real Egocentric Collection"]
+    H --> B
 
-    J --> K["REAL-TO-SIM AGENT"]
+    E2 --> I["REASONING SFT"]
+    I --> J["REASONING RL"]
+    J --> K["REASONING-CAPABLE LAB SYSTEM"]
 
-    K --> L["CALIBRATED DIGITAL TWIN"]
-    L --> M["SURROGATE SIMULATOR"]
+    K --> L["REAL-TO-SIM AGENT"]
 
-    M --> N["ENVIRONMENT-SPECIFIC RL"]
+    L --> M["CALIBRATED DIGITAL TWIN"]
+    M --> N["SURROGATE SIMULATOR"]
 
-    N --> O["ENVIRONMENT-SPECIFIC VLA"]
+    N --> O["ENVIRONMENT-SPECIFIC RL"]
 
-    O --> P["REASONING"]
+    O --> P["ENVIRONMENT-SPECIFIC VLA"]
 
-    P --> Q["LOW-FREQUENCY TARGET GENERATION"]
+    P --> Q["REASONING"]
 
-    Q --> R["3 TARGET FUTURES"]
+    Q --> R["LOW-FREQUENCY TARGET GENERATION"]
 
-    R --> S["VLM TARGET SELECTION"]
+    R --> S["3 TARGET FUTURES"]
 
-    S --> T["SELECTED TARGET"]
+    S --> T["VLM TARGET SELECTION"]
 
-    T --> U["HIGH-FREQUENCY ACTION LOOP"]
+    T --> U["SELECTED TARGET"]
 
-    U --> V["3 CANDIDATE ACTIONS"]
+    U --> V["HIGH-FREQUENCY ACTION LOOP"]
 
-    V --> W["WORLD MODEL"]
+    V --> W["3 CANDIDATE ACTIONS"]
 
-    W --> X["3 PREDICTED FUTURES"]
+    W --> X["WORLD MODEL"]
 
-    X --> Y["VLM FUTURE COMPARISON"]
+    X --> Y["3 PREDICTED FUTURES"]
 
-    Y --> Z["SELECT ACTION"]
+    Y --> Z["VLM FUTURE COMPARISON"]
 
-    Z --> AA["REAL DEPLOYMENT"]
+    Z --> AA["SELECT ACTION"]
 
-    AA --> AB["RUNTIME MONITORING"]
+    AA --> AB["REAL DEPLOYMENT"]
 
-    AB --> AC["SUCCESSFUL EXPERIENCE"]
-    AB --> AD["FAILURE EPISODES"]
+    AB --> AC["RUNTIME MONITORING"]
 
-    AD --> AE["TARGETED LOCAL SIMULATION"]
-    AE --> N
+    AC --> AD["SUCCESSFUL EXPERIENCE"]
+    AC --> AE["FAILURE EPISODES"]
 
-    AD --> AF["LUNCH ROBOTICS ERROR-MODE ANALYSIS"]
+    AE --> AF["TARGETED LOCAL SIMULATION"]
+    AF --> O
 
-    AF --> AG["CURATED GLOBAL DATA"]
+    AE --> AG["LUNCH ROBOTICS ERROR-MODE ANALYSIS"]
 
-    AG --> AH["NEW LAB VLA / WORLD MODEL / VLM"]
+    AG --> AH["CURATED GLOBAL DATA"]
 
-    AH --> AI["WEIGHT MIXING"]
-    O --> AI
+    AH --> AI["NEW LAB VLA / WORLD MODEL / VLM"]
 
-    AI --> AJ["MIXED VLA"]
+    AI --> AJ["WEIGHT MIXING"]
+    P --> AJ
 
-    AJ --> K
+    AJ --> AK["MIXED VLA"]
+
+    AK --> L
 ```
 
 The local environment lifecycle is:
@@ -2119,7 +2176,19 @@ The foundation-model lifecycle is:
 \rightarrow
 \text{Passive Foundation World Model}
 \rightarrow
-\text{Synthetic Egocentric Generation}
+\left[
+\begin{array}{c}
+\text{New Synthetic Egocentric Generation}
+\\
++
+\\
+\text{Real-Video Initial Frames}
+\rightarrow
+\text{Image Editing}
+\rightarrow
+\text{Controlled Variations}
+\end{array}
+\right]
 \rightarrow
 \text{Filtering + Action Extraction}
 \rightarrow
@@ -2134,7 +2203,7 @@ The foundation-model lifecycle is:
 \text{Repeat}
 ```
 
-The resulting architecture is not a one-way pipeline. It is a **closed learning system** in which the foundation model learns from reality, the World Model generates synthetic hypotheses about reality, synthetic data expands action-conditioned training, model failures identify missing knowledge, targeted real-world collection corrects those weaknesses, reasoning training teaches the model how to use its predictive machinery, target imagination defines the medium-horizon objective, VLM target selection determines which future is desirable, the VLA generates multiple local action alternatives, the World Model predicts their consequences, VLM comparison selects the best local action, environments provide the physical context required for specialization, deployments expose the weaknesses of those policies, and the company converts the most generalizable weaknesses into improvements to the shared brain.
+The resulting architecture is not a one-way pipeline. It is a **closed learning system** in which the foundation model learns from reality, the World Model generates synthetic hypotheses about reality, real-video-seeded image editing creates controlled variations around genuine observations, synthetic data expands action-conditioned training, model failures identify missing knowledge, targeted real-world collection corrects those weaknesses, reasoning training teaches the model how to use its predictive machinery, target imagination defines the medium-horizon objective, VLM target selection determines which future is desirable, the VLA generates multiple local action alternatives, the World Model predicts their consequences, VLM comparison selects the best local action, environments provide the physical context required for specialization, deployments expose the weaknesses of those policies, and the company converts the most generalizable weaknesses into improvements to the shared brain.
 
 ---
 
@@ -2174,10 +2243,22 @@ The Foundation Model Data Funnel solves the first problem: **how do we learn bro
 \text{Global World Model + VLA}
 ```
 
-The generative egocentric-data flywheel solves the next problem: **how do we scale action-conditioned experience and determine which missing parts of reality are most important to collect?** The answer is to let the trained World Model generate large volumes of hypothetical human manipulation video, filter those trajectories with humans and learned critics, extract approximate actions with pose-estimation models, and use the resulting data to expand action-conditioned training. The same generation process is simultaneously treated as a diagnostic benchmark, revealing where the World Model consistently produces implausible or incomplete behavior.
+The generative egocentric-data flywheel solves the next problem: **how do we scale action-conditioned experience and determine which missing parts of reality are most important to collect?** The answer is to let the trained World Model generate large volumes of hypothetical human manipulation video, both from scratch and from real-video initial frames modified by an image-editing model. Humans and learned critics filter those trajectories, pose-estimation models extract approximate actions, and the resulting data expands action-conditioned training. The same generation process is simultaneously treated as a diagnostic benchmark, revealing where the World Model consistently produces implausible or incomplete behavior.
 
 ```math
 \text{Foundation World Model}
+\rightarrow
+\left[
+\begin{array}{c}
+\text{New Human Video Generation}
+\\
++
+\\
+\text{Real Initial Frames}
+\rightarrow
+\text{Image-Edited Variations}
+\end{array}
+\right]
 \rightarrow
 \text{Synthetic Human Videos}
 \rightarrow
@@ -2319,7 +2400,7 @@ The most important architectural principle is therefore:
 
 > **The robots specialize locally, while Lunch Robotics learns globally.**
 
-A deployed robot is not merely a consumer of a fixed model. It is an autonomous learning agent operating inside a particular physical environment and a sensor collecting valuable evidence about what the shared brain still does not understand. At the foundation level, the World Model itself also acts as a data-generation and diagnosis engine: it produces hypothetical human experiences, exposes its own blind spots, and directs the organization toward the real-world data needed to improve its understanding of physical reality. The centralized Lunch Robotics team then acts as the intelligence filter that determines which discoveries should become part of the universal model and which should remain local.
+A deployed robot is not merely a consumer of a fixed model. It is an autonomous learning agent operating inside a particular physical environment and a sensor collecting valuable evidence about what the shared brain still does not understand. At the foundation level, the World Model itself also acts as a data-generation and diagnosis engine: it produces hypothetical human experiences, uses real observations as seeds for controlled variations, exposes its own blind spots, and directs the organization toward the real-world data needed to improve its understanding of physical reality. The centralized Lunch Robotics team then acts as the intelligence filter that determines which discoveries should become part of the universal model and which should remain local.
 
 This creates a compounding learning system:
 
@@ -2383,7 +2464,7 @@ and across the fleet:
 }
 ```
 
-The fundamental insight is that **deployment is not merely inference at the edge**. Deployment is where the system discovers what intelligence, prediction, semantic evaluation, target planning, and reasoning are still missing, while the foundation-model loop uses synthetic imagination to discover which aspects of reality the model itself still fails to represent.
+The fundamental insight is that **deployment is not merely inference at the edge**. Deployment is where the system discovers what intelligence, prediction, semantic evaluation, target planning, and reasoning are still missing, while the foundation-model loop uses synthetic imagination and real-video-seeded variation to discover which aspects of reality the model itself still fails to represent.
 
 ---
 
@@ -2558,6 +2639,6 @@ The robot understands the task, retrieves the relevant skill, determines how muc
 
 When the robot encounters something it does not understand, the system does not simply record a failure and move on. It captures the entire event, learns locally from the failure, and sends the information back to the Lunch Robotics lab. The team determines whether the failure reveals a broader capability, reasoning, target-imagination, prediction, VLM-ranking, or action-selection gap, curates the appropriate training data, improves the global VLA and/or World Model and/or VLM, mixes the new global knowledge with the knowledge accumulated by specialized deployments, and redistributes the resulting system across the fleet.
 
-At the foundation level, the same philosophy applies before deployment. Real egocentric video teaches the World Model how the physical world behaves; the World Model then generates large quantities of hypothetical human manipulation experience; humans and learned critics identify where those generations are implausible; pose-estimation models turn the surviving generations into action supervision; and the resulting failure patterns determine which real-world experiences should be collected next. The system therefore uses its own generative model to **ask questions about reality**, while real observations provide the evidence needed to answer and correct those questions.
+At the foundation level, the same philosophy applies before deployment. Real egocentric video teaches the World Model how the physical world behaves; the World Model then generates large quantities of hypothetical human manipulation experience and can also use real video initial frames as seeds for an image-editing model that creates controlled scene variations and slight task variations; humans and learned critics identify where those generations are implausible; pose-estimation models turn the surviving generations into action supervision; and the resulting failure patterns determine which real-world experiences should be collected next. The system therefore uses its own generative model to **ask questions about reality**, while real observations provide the evidence needed to answer and correct those questions.
 
-The long-term objective is not to build another robot-specific policy. It is to build a **universal brain that can be installed into any robot, adapted to any physical environment, reason at the appropriate level for any task, learn broad physical intelligence from massive real-world experience, use its World Model to generate and interrogate synthetic human experience, identify the limits of its own understanding, guide targeted real-world data collection, periodically imagine multiple possible desirable futures, select the best target future, generate multiple candidate action chunks at high frequency, simulate their consequences through the World Model, use a VLM to choose the action whose predicted outcome best matches the currently selected future, and continuously improve through the collective experience of every robot running it.**
+The long-term objective is not to build another robot-specific policy. It is to build a **universal brain that can be installed into any robot, adapted to any physical environment, reason at the appropriate level for any task, learn broad physical intelligence from massive real-world experience, use its World Model to generate and interrogate synthetic human experience, use real video as a seed for controlled synthetic variation, identify the limits of its own understanding, guide targeted real-world data collection, periodically imagine multiple possible desirable futures, select the best target future, generate multiple candidate action chunks at high frequency, simulate their consequences through the World Model, use a VLM to choose the action whose predicted outcome best matches the currently selected future, and continuously improve through the collective experience of every robot running it.**
