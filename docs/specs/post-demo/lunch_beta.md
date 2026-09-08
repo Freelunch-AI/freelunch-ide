@@ -1,4 +1,4 @@
-# Lunch Alpha
+# Lunch Beta
 
 Besides the core platform team of Freelunch that builds the platforms, there will be another core team who's job is to just **beta test new prod deployments of Freelunch Comapanies**, pretending to be their their target user.
 
