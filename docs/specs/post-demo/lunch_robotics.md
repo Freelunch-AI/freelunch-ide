@@ -2,7 +2,7 @@
 
 ## The Vision
 
-We are building a **universal robot brain** that can turn a general-purpose robot into an autonomous worker inside an arbitrary physical environment. The fundamental problem in robotics is not simply making robots capable of moving or manipulating objects, but giving them enough general intelligence to understand an unfamiliar world, reason about what should be done, predict the consequences of possible actions, adapt to the specific physics and embodiment of that world, and continuously improve as they encounter situations that were not represented in their original training data. Lunch Robotics separates this problem into **general physical intelligence, world simulation, adaptive reasoning, environment-specific intelligence, pre-deployment robustness, and continual fleet learning**, with each layer contributing a distinct capability to the overall system.
+We are building a **universal robot brain** that can turn a general-purpose robot into an autonomous worker inside an arbitrary physical environment. The fundamental problem in robotics is not simply making robots capable of moving or manipulating objects, but giving them enough general intelligence to understand an unfamiliar world, reason about what should be done, predict the consequences of possible actions, adapt to the specific physics and embodiment of that world, dynamically decompose and replan long-horizon tasks, and continuously improve as they encounter situations that were not represented in their original training data. Lunch Robotics separates this problem into **general physical intelligence, world simulation, adaptive reasoning, hierarchical task planning, environment-specific intelligence, pre-deployment robustness, and continual fleet learning**, with each layer contributing a distinct capability to the overall system.
 
 General robot intelligence is learned offline through a **Foundation Model Data Funnel** that combines massive amounts of human video with progressively more robot-relevant forms of supervision. Massive human video provides broad knowledge about the physical world, a generative World Model can then be used to produce large quantities of synthetic egocentric human manipulation experience that is filtered and action-annotated, human action supervision connects that knowledge to purposeful behavior, manipulation data collected with a data-collecting gripper introduces contact and embodiment information, and a smaller amount of teleoperation data provides direct grounding in robot control. The World Model itself is trained in two complementary phases: first, it learns the structure and evolution of the physical world from massive passive video through future and spatial prediction; second, it is further fine-tuned with **action-conditioned training**, where actions are explicitly provided as inputs and the model learns to predict what will happen after those actions. This transforms the World Model from a passive predictor into a learned **action-conditioned simulator** capable of evaluating hypothetical robot behaviors.
 
@@ -10,34 +10,43 @@ The synthetic egocentric-data stage is deliberately positioned between passive f
 
 These datasets are not treated as isolated sequential stages in which each dataset replaces the previous one. They jointly train a shared **World Model + VLA foundation brain**, with the training distribution becoming increasingly robot-relevant while retaining the broad coverage of the lower-fidelity datasets. Once this foundation model has learned to perceive, predict, and act, it undergoes a reasoning stage in which the VLA is supervised on high-quality reasoning trajectories and then optimized with reinforcement learning so that it learns how to arrive at an action through useful reasoning rather than relying only on direct reactive mappings. Crucially, the amount of reasoning is not fixed: at inference time, the reasoning budget can be selected according to the task, uncertainty, and available compute.
 
-After the global reasoning-capable brain has been built, it is adapted to a particular robot and environment through a final **agentic simulation RL stage** before deployment. A VLM agent acts as an autonomous curriculum and scenario-generation manager, deciding which tasks to train, how difficult they should be, how the environment should be varied, and from which initial states the robot should start. The curriculum progresses from small, simple tasks toward increasingly complex and long-horizon tasks while simultaneously varying the environment and initial state. This teaches the policy not only to solve the expected tasks, but to remain robust when objects, geometry, physics, clutter, or other agents differ from the nominal environment, and when the robot encounters a partially completed, degraded, or otherwise unexpected task state that requires recovery.
+After the global reasoning-capable brain has been built, it is adapted to a particular robot and environment through a final **agentic simulation RL stage** before deployment. A VLM agent acts as an autonomous curriculum and scenario-generation manager, deciding which tasks and subtasks to train, how difficult they should be, how the environment should be varied, and from which initial states the robot should start. The curriculum progresses from small, simple tasks toward increasingly complex and long-horizon tasks while simultaneously varying the environment and initial state. This teaches the policy not only to solve the expected tasks, but to remain robust when objects, geometry, physics, clutter, or other agents differ from the nominal environment, and when the robot encounters a partially completed, degraded, or otherwise unexpected task state that requires recovery.
 
-The final action-selection mechanism is therefore not a simple VLA-to-robot mapping. The system operates on **two nested timescales**. At a **lower frequency**, the World Model imagines three possible medium-horizon future trajectories representing different ways the current task could successfully progress, and a VLM scores those three imagined futures and selects the most desirable one as the current **target future**. At a **higher frequency**, the VLA generates three candidate action chunks, each candidate is passed once through the action-conditioned World Model to produce one predicted future trajectory, and a VLM compares those three predicted futures against the currently selected target future and chooses the candidate whose consequence best matches the target. The selected action chunk is then executed, and the high-frequency action-selection loop repeats several times before the target future is recomputed.
+At runtime, the system is **hierarchical and dynamically replanning**. A high-level VLM planner maintains a structured plan for the user’s task, identifies the current subtask, and continuously updates the plan as new observations arrive. It can keep the current subtask, modify it, reorder subtasks, remove obsolete steps, or **create entirely new subtasks dynamically** when execution reveals that an intermediate action or recovery step is required. This planner operates at a slower semantic timescale than the physical control loop. Under the current subtask, the World Model imagines desirable target futures, the VLM selects one, and the VLA repeatedly proposes action chunks whose consequences are simulated and scored against that target.
+
+The final action-selection mechanism is therefore not a simple VLA-to-robot mapping. The system operates on **three nested timescales**. At the **highest level**, the VLM planner maintains and dynamically replans the hierarchical task structure and can create new subtasks online. At a **lower frequency**, the World Model imagines three possible medium-horizon future trajectories representing different ways the current subtask could successfully progress, and a VLM scores those three imagined futures and selects the most desirable one as the current **target future**. At a **higher frequency**, the VLA generates three candidate action chunks, each candidate is passed once through the action-conditioned World Model to produce one predicted future trajectory, and a VLM compares those three predicted futures against the currently selected target future and chooses the candidate whose consequence best matches the target. The selected action chunk is then executed, and the high-frequency action-selection loop repeats while the selected target remains active.
 
 Conceptually, the architecture is:
 
 ```text
-LOW-FREQUENCY TARGET PLANNING
-────────────────────────────────────────
+HIGHEST-LEVEL: DYNAMIC TASK PLANNING
+─────────────────────────────────────
+User Task
+   ↓
+High-Level VLM Planner
+   ↓
+Hierarchical Task / Subtask Plan
+   ↓
+Current Subtask
+   ↓
 
-Observation + Task
-        ↓
+LOW-FREQUENCY TARGET PLANNING
+──────────────────────────────
 World Model
-        ↓
+   ↓
 3 Imagined Target Futures
-        ↓
+   ↓
 VLM Target Scoring
-        ↓
+   ↓
 Best Target Future
-        │
-        │ remains active for multiple
-        │ high-frequency action decisions
-        │
-        ▼
+   │
+   │ remains active for multiple
+   │ high-frequency action decisions
+   │
+   ▼
 
 HIGH-FREQUENCY ACTION SELECTION
-────────────────────────────────────────
-
+────────────────────────────────
 VLA
  ↓
 3 Candidate Action Chunks
@@ -57,9 +66,10 @@ New Observation
 Repeat
 
         │
-        │ periodically
+        │ periodically or when execution
+        │ invalidates the current plan/target
         ▼
-Recompute Target Future
+Dynamic Replanning
 ```
 
 The target-selection stage is:
@@ -74,7 +84,7 @@ z_{\mathrm{target}}^{(3)}(t:t+H)
 \mathrm{WM}
 \left(
 s_t,
-T
+T_{\mathrm{subtask}}
 \right)
 ```
 
@@ -87,7 +97,7 @@ r_j^{\mathrm{target}}
 \left(
 z_{\mathrm{target}}^{(j)},
 s_t,
-T
+T_{\mathrm{subtask}}
 \right)
 ```
 
@@ -122,7 +132,7 @@ a_t^{(3)}
 a_t
 \mid
 o_t,
-T,
+T_{\mathrm{subtask}},
 r_{1:k},
 z_{\mathrm{target}},
 S_{\mathrm{tutorial}}
@@ -151,7 +161,7 @@ r_i
 z_{\mathrm{pred}}^{(i)},
 z_{\mathrm{target}},
 s_t,
-T
+T_{\mathrm{subtask}}
 \right)
 ```
 
@@ -175,6 +185,10 @@ a_t^{(i^*)}
 The important distinction is therefore:
 
 ```text
+Dynamic high-level plan
+        ↓
+Current subtask
+        ↓
 3 target futures
         ↓
 VLM
@@ -190,11 +204,11 @@ VLM
 1 selected action
 ```
 
-There are **three candidate futures at the action-selection stage, not nine**. The VLA proposes what could be done, the World Model predicts what would happen, and the VLM determines both which imagined future is desirable and which proposed action most closely produces that future. This gives Lunch Robotics a closed perception-reasoning-imagination-action loop in which the VLA does not need to perfectly predict the optimal action in a single forward pass; it only needs to generate a small set of plausible candidates, after which the World Model and VLM evaluate those candidates against a selected imagined target.
+There are **three candidate futures at the action-selection stage, not nine**. The VLA proposes what could be done, the World Model predicts what would happen, and the VLM determines both which imagined future is desirable and which proposed action most closely produces that future. The high-level planner adds another semantic layer: it determines **what should be accomplished next**, can dynamically decompose a task into subtasks, and can change that decomposition whenever execution reveals new information.
 
 The reasoning-capable foundation brain is then adapted to a specific robot and physical environment by an autonomous **Real-to-Sim Agent**. Given a walkthrough of the environment, tactile probing data, task context, demonstrations, and the robot's hardware specification, the agent constructs and calibrates a digital twin, performs system identification, determines which aspects of the environment should be represented through explicit physics and which should be handled by learned dynamics, and trains a fast surrogate simulator. The resulting calibrated simulator becomes the training environment for Stage 7 agentic RL, where a VLM agent constructs the task curriculum and generates environment and initial-state variations. The output is an **environment-specific VLA** specialized to the particular robot and expected operating world.
 
-The system does not stop learning after deployment. Each deployed robot continuously improves locally through simulation, while the platform monitors real-world execution for mistakes. A failure may be identified explicitly by the human user or automatically by a VLM observing the robot through cameras installed in the environment. Every detected mistake is captured as a rich episode containing the task and subtask being executed, the robot state and action trajectories, the reasoning context, the three target trajectories sampled during the most recent target update, the VLM scores used to select the target, the three candidate actions considered by the VLA, the World Model's predicted future for each candidate, the VLM scores used to rank those predicted futures against the target, the selected action, the actual execution, the corresponding decoded imagined videos, and the relevant simulator state and environment parameters.
+The system does not stop learning after deployment. Each deployed robot continuously improves locally through simulation, while the platform monitors real-world execution for mistakes. A failure may be identified explicitly by the human user or automatically by a VLM observing the robot through cameras installed in the environment. Every detected mistake is captured as a rich episode containing the task and subtask being executed, the robot state and action trajectories, the reasoning context, the active hierarchical plan and planner state, any dynamically generated subtasks, the three target trajectories sampled during the most recent target update, the VLM scores used to select the target, the three candidate actions considered by the VLA, the World Model's predicted future for each candidate, the VLM scores used to rank those predicted futures against the target, the selected action, the actual execution, the corresponding decoded imagined videos, and the relevant simulator state and environment parameters.
 
 These failures are **not automatically used to update the global model**. Instead, they are sent back to the Lunch Robotics team, where we analyze error modes across deployments and determine which failures are genuinely generalizable. Environment-specific quirks remain local, while problems that reveal broader capability gaps become the basis for carefully curated training datasets. Those curated datasets are then used to improve a new version of the **global lab VLA**, with the central training process applying additional supervised fine-tuning, reasoning supervision, reinforcement learning, World Model training, VLM training, or a combination of them depending on the identified capability gap. The updated lab model is then combined with knowledge accumulated in the environment-specific VLAs through continual weight mixing, producing a new mixed VLA that is redistributed to every deployment, after which each environment performs its own local RL again starting from this stronger initialization.
 
@@ -240,9 +254,55 @@ The key product idea is therefore simple:
 
 # 1. The Architecture
 
-The Lunch Robotics architecture is built around four nested learning systems operating on top of a shared reasoning-capable foundation model. The first is the **global foundation model**, which learns broad physical, manipulation, predictive, and reasoning intelligence. The second is the **environment-specific adaptation system**, which takes the shared model and specializes it to a particular robot and physical environment. The third is the **pre-deployment robustness system**, which uses VLM-guided curriculum generation and massive simulation RL to prepare that specialized model for the expected conditions and recover from unexpected initial states. The fourth is the **fleet learning system**, which turns deployment failures into curated global training data and feeds the resulting improvements back into the shared brain. At the center of the architecture is the interaction between the VLA, the World Model, and the VLM evaluator.
+The Lunch Robotics architecture is built around four nested learning systems operating on top of a shared reasoning-capable foundation model. The first is the **global foundation model**, which learns broad physical, manipulation, predictive, and reasoning intelligence. The second is the **environment-specific adaptation system**, which takes the shared model and specializes it to a particular robot and physical environment. The third is the **pre-deployment robustness system**, which uses VLM-guided curriculum generation and massive simulation RL to prepare that specialized model for the expected conditions and recover from unexpected initial states. The fourth is the **fleet learning system**, which turns deployment failures into curated global training data and feeds the resulting improvements back into the shared brain. At the center of the architecture is the interaction between the VLA, the World Model, the VLM evaluator, and the persistent high-level planner.
 
-The World Model provides two distinct capabilities. First, it can imagine multiple possible desirable futures for the current task. Second, because it is action-conditioned, it can predict the consequence of each proposed action. The architecture operates at two different frequencies: the **target-future generation and target-future VLM scoring loop runs at lower frequency** and establishes a medium-horizon objective, while the **VLA action generation, World Model prediction, and candidate VLM scoring loop runs at higher frequency** and repeatedly selects short-horizon actions that move the robot toward the currently selected target.
+The **high-level VLM planner** is a persistent agent rather than a one-shot task decomposer. It maintains a hierarchical representation of the current task, chooses which subtask should be attempted next, and continually replans when new observations invalidate assumptions. The planner can **create new subtasks dynamically**, not just execute a predefined list. This is essential for physical autonomy because important intermediate objectives often become apparent only after the robot interacts with the world.
+
+For example, a request such as `Clean the table` may initially produce:
+
+```text
+1. Identify objects on table
+2. Collect objects
+3. Wipe table
+4. Return objects
+```
+
+During execution, the robot may discover that an object blocks the cleaning area. The planner can dynamically insert:
+
+```text
+3a. Move obstructing object
+```
+
+Or it may discover that the object is fragile:
+
+```text
+3a. Identify safe grasp region
+3b. Move fragile object to safe location
+3c. Resume cleaning
+```
+
+Or it may discover that the original route is impossible:
+
+```text
+Original:
+    Pick object → place in drawer
+
+Observation:
+    Drawer blocked
+
+Replan:
+    Move blocker
+        ↓
+    Open drawer
+        ↓
+    Pick object
+        ↓
+    Place object
+```
+
+The planner therefore operates as an **online hierarchical controller over semantic state**, while the lower-level loops operate over physical state.
+
+The World Model provides two distinct capabilities. First, it can imagine multiple possible desirable futures for the current subtask. Second, because it is action-conditioned, it can predict the consequence of each proposed action. The architecture operates at two physical-control frequencies plus one semantic-planning frequency: the **high-level planner** updates when the task structure needs revision, the **target-future generation and target-future VLM scoring loop runs at lower frequency**, and the **VLA action generation, World Model prediction, and candidate VLM scoring loop runs at higher frequency**.
 
 The VLA therefore does not need to directly solve:
 
@@ -255,7 +315,11 @@ a_t^*
 Instead, the overall system decomposes the problem into:
 
 ```math
-(o_t, T)
+(T, s_t, h_t)
+\rightarrow
+\text{Dynamic Plan}
+\rightarrow
+T_{\mathrm{subtask}}
 \rightarrow
 \{z_{\mathrm{target}}^{(1)},z_{\mathrm{target}}^{(2)},z_{\mathrm{target}}^{(3)}\}
 \rightarrow
@@ -271,42 +335,53 @@ a_t^*
 The complete nested control loop is:
 
 ```text
-                 LOW-FREQUENCY LOOP
-        ┌────────────────────────────────┐
-        │                                │
-Observation + Task                       │
-        ↓                                │
-World Model                              │
-        ↓                                │
-3 Target Future Samples                  │
-        ↓                                │
-VLM Target Scoring                       │
-        ↓                                │
-Selected Target Future                  │
-        │                                │
-        ▼                                │
-              HIGH-FREQUENCY LOOP        │
-                     │                   │
-                  VLA                    │
-                     ↓                   │
-             3 Candidate Actions         │
-                     ↓                   │
-             World Model × 3            │
-                     ↓                   │
-             3 Predicted Futures        │
-                     ↓                   │
-             VLM Comparison             │
-                     ↓                   │
-              Best Action               │
-                     ↓                   │
-              Execute Chunk             │
-                     ↓                   │
-               Observation              │
-                     │                   │
-                     └───────────────────┘
+                    HIGHEST-LEVEL LOOP
+        ┌────────────────────────────────────────┐
+        │                                        │
+User Task → High-Level VLM Planner               │
+                  ↓                             │
+       Dynamic Hierarchical Plan                │
+                  ↓                             │
+            Current Subtask                     │
+                  │                             │
+                  ▼                             │
+               LOW-FREQUENCY LOOP               │
+                  │                             │
+             World Model                        │
+                  ↓                             │
+          3 Target Futures                      │
+                  ↓                             │
+          VLM Target Scoring                    │
+                  ↓                             │
+         Selected Target Future                 │
+                  │                             │
+                  ▼                             │
+            HIGH-FREQUENCY LOOP                 │
+                  │                             │
+                  VLA                            │
+                  ↓                             │
+         3 Candidate Actions                    │
+                  ↓                             │
+          World Model × 3                      │
+                  ↓                             │
+         3 Predicted Futures                    │
+                  ↓                             │
+          VLM Comparison                        │
+                  ↓                             │
+            Best Action                          │
+                  ↓                             │
+          Execute Action Chunk                  │
+                  ↓                             │
+             Observation                         │
+                  │                             │
+                  └─────────────────────────────┘
+                         │
+                         │ replan when needed
+                         ▼
+                Updated Task / Subtask Plan
 ```
 
-A target can therefore remain fixed over several action-chunk decisions:
+A target can remain fixed over several action-chunk decisions:
 
 ```math
 z_{\mathrm{target}}^{(j)}
@@ -316,7 +391,7 @@ z_{\mathrm{target}}^{(j)}
 k_j \leq k < k_{j+1}
 ```
 
-where \(j\) indexes target updates and \(k\) indexes the higher-frequency action decisions. This prevents the system from unnecessarily regenerating and semantically rescoring a new target future after every small action chunk. The target is recomputed when the robot has progressed sufficiently, when the current target becomes inconsistent with the observed state, when the environment changes materially, or when uncertainty rises enough to justify replanning.
+where `j` indexes target updates and `k` indexes the higher-frequency action decisions. This prevents the system from unnecessarily regenerating and semantically rescoring a new target future after every small action chunk. The target is recomputed when the robot has progressed sufficiently, when the current target becomes inconsistent with the observed state, when the environment changes materially, when uncertainty rises enough to justify replanning, or when the high-level planner changes the active subtask.
 
 ---
 
@@ -389,19 +464,19 @@ The seven stages are:
 
 The first six stages form the **global foundation training system**:
 
-| Stage | Data                                         |      Scale | Supervision                       | Primary Capability                           |
-| ----- | -------------------------------------------- | ---------: | --------------------------------- | -------------------------------------------- |
-| **1** | Massive human egocentric video               |    Massive | Self-supervised                   | World representation and physical prediction |
-| **2** | Human video + VLM pose waypoints             |      Large | Approximate action supervision    | Human action understanding                   |
-| **3** | Synthetic human egocentric data              | Very Large | Synthetic action supervision      | Action-conditioned physical prediction       |
-| **4** | Human manipulation + data-collecting gripper |     Medium | Robot-relevant action supervision | Contact and manipulation                     |
-| **5** | Teleoperation data                           |      Small | Direct robot action supervision   | Robot control and embodiment                 |
-| **6** | Reasoning traces + RL rollouts               |   Targeted | SFT + outcome-driven RL           | Adaptive reasoning and action selection      |
+| Stage | Data | Scale | Supervision | Primary Capability |
+| --- | --- | ---: | --- | --- |
+| **1** | Massive human egocentric video | Massive | Self-supervised | World representation and physical prediction |
+| **2** | Human video + VLM pose waypoints | Large | Approximate action supervision | Human action understanding |
+| **3** | Synthetic human egocentric data | Very Large | Synthetic action supervision | Action-conditioned physical prediction |
+| **4** | Human manipulation + data-collecting gripper | Medium | Robot-relevant action supervision | Contact and manipulation |
+| **5** | Teleoperation data | Small | Direct robot action supervision | Robot control and embodiment |
+| **6** | Reasoning traces + RL rollouts | Targeted | SFT + outcome-driven RL | Adaptive reasoning and action selection |
 
 Stage 7 is different because its data is **generated specifically for the expected deployment**:
 
-| Stage | Data                                                                    |   Scale | Supervision                      | Primary Capability                                        |
-| ----- | ----------------------------------------------------------------------- | ------: | -------------------------------- | --------------------------------------------------------- |
+| Stage | Data | Scale | Supervision | Primary Capability |
+| --- | --- | ---: | --- | --- |
 | **7** | Agentic RL across curriculum + environment and initial-state variations | Massive | Environment reward + interaction | Environment-specific competence, robustness, and recovery |
 
 The distinction is fundamental:
@@ -603,7 +678,7 @@ V_{\mathrm{synthetic}}
 A_{\mathrm{human}}
 ```
 
-where \(A_{\mathrm{human}}\) can contain hand pose, wrist motion, body pose, temporal waypoints, and other available action representations.
+where `A_human` can contain hand pose, wrist motion, body pose, temporal waypoints, and other available action representations.
 
 The resulting synthetic demonstrations are then mixed with real human action data and increasingly grounded manipulation data to train the World Model and VLA.
 
@@ -738,7 +813,7 @@ A purely reactive mapping from observation directly to action is therefore often
 ```math
 (o_t, T)
 \rightarrow
-r_{1:k}
+a_{1:k}
 \rightarrow
 \{a_t^{(1)},a_t^{(2)},a_t^{(3)}\}
 ```
@@ -768,7 +843,7 @@ Calibrated Digital Twin
         ↓
 VLM Training Agent
         ↓
-Task Selection
+Task / Subtask Selection
         +
 Environment Variation
         +
@@ -792,7 +867,8 @@ Conceptually, the VLM agent chooses:
 \left(
 T,
 E,
-s_0
+s_0,
+h_0
 \right)
 \sim
 \mathcal{G}_{\mathrm{VLM}}
@@ -806,29 +882,36 @@ E_{\mathrm{real}},
 
 where:
 
-* \(T\) is the selected task or subtask,
-* \(E\) is the environment configuration,
-* \(s_0\) is the initial physical state,
-* \(E_{\mathrm{real}}\) is the calibrated deployment environment,
-* \(\mathcal{T}\) is the available task set,
-* \(\Pi\) represents the current policy and its performance,
-* \(\mathcal{F}\) represents known failure modes.
+- `T` is the selected task or task family,
+- `E` is the environment configuration,
+- `s_0` is the initial physical state,
+- `h_0` represents the initial hierarchical task state or plan context,
+- `E_real` is the calibrated deployment environment,
+- `T` is the available task set,
+- `Pi` represents the current policy and its performance,
+- `F` represents known failure modes.
 
-The VLM agent therefore controls three dimensions of the training distribution:
+The VLM agent therefore controls four dimensions of the training distribution:
 
 ```text
 1. WHAT should the robot learn?
         ↓
-   Task / subtask
+   Task / capability
 
-2. WHAT WORLD should it learn it in?
+2. WHAT should it accomplish next?
+        ↓
+   Current subtask / decomposition
+
+3. WHAT WORLD should it learn it in?
         ↓
    Environment configuration / variation
 
-3. FROM WHAT STATE should it start?
+4. FROM WHAT STATE should it start?
         ↓
    Initial-state variation / recovery scenario
 ```
+
+The planner itself is also trained to handle **dynamic decomposition**. It does not need the entire subtask tree to be specified in advance. During a training episode it may discover that a new intermediate objective is necessary, and the scenario is scored partly on whether the agent can recognize and recover from such situations.
 
 ---
 
@@ -874,7 +957,92 @@ The curriculum is therefore adaptive rather than a fixed script. The VLM agent r
 
 ---
 
-# 2.11 Environment Variation
+# 2.11 Dynamic Hierarchical Planning and Subtask Creation
+
+The high-level VLM planner maintains a hierarchical task state rather than a frozen sequence of instructions. Given the task objective and the current world state, it proposes an initial plan, selects the active subtask, and monitors execution against the expected state transitions.
+
+```math
+P_t
+=
+\mathrm{Planner}
+\left(
+T,
+S_t,
+H_t,
+\mathcal{K},
+F_t
+\right)
+```
+
+where `P_t` is the current plan, `T` is the task, `S_t` is the current world state, `H_t` is execution history, `K` is available skill knowledge, and `F_t` is the set of known failures or constraints.
+
+The planner does not merely choose the next pre-authored subtask. It can update the plan:
+
+```text
+Current Plan
+   ↓
+New Observation / Outcome
+   ↓
+VLM Planner
+   ↓
+┌──────────────────────────────┐
+│ Keep current subtask         │
+│ Modify current subtask       │
+│ Reorder subtasks             │
+│ Remove obsolete subtask      │
+│ Insert a new subtask         │
+│ Create a new recovery plan   │
+│ Replace the remaining plan   │
+└──────────────────────────────┘
+   ↓
+Updated Plan
+```
+
+A dynamically created subtask can itself become a complete mini-task with its own target-future and action-selection loops. For example:
+
+```text
+Main Task: Prepare dinner
+
+Initial plan:
+1. Gather ingredients
+2. Prepare food
+3. Cook food
+4. Plate food
+
+New observation:
+Ingredient is inside sealed package
+
+Dynamic subtask inserted:
+2a. Find safe opening point
+2b. Open package
+2c. Transfer ingredient
+
+Continue with:
+2d. Prepare food
+```
+
+This makes the architecture explicitly **hierarchical and open-loop at the semantic level but closed-loop through continuous replanning**. The robot can discover what needs to be done rather than assuming that every useful intermediate action was known beforehand.
+
+Replanning can be triggered by:
+
+```text
+├── New object or obstacle discovered
+├── Expected object state not observed
+├── Action failure
+├── Unexpected contact
+├── Another agent changes the environment
+├── Current subtask becomes impossible
+├── Current subtask is already completed
+├── A new prerequisite is discovered
+├── Safety constraint becomes active
+└── Uncertainty rises beyond a threshold
+```
+
+The high-level planner therefore changes **what the robot is trying to accomplish**, while the lower-frequency target planner changes **which desirable future it is trying to reach**, and the high-frequency action loop changes **how it moves toward that future right now**.
+
+---
+
+# 2.12 Environment Variation
 
 For every curriculum level, the VLM agent creates multiple variations of the expected deployment environment. The objective is to prevent the environment-specific VLA from simply memorizing the exact configuration reconstructed by the Real-to-Sim system.
 
@@ -952,26 +1120,9 @@ DYNAMIC CONDITIONS
 
 The system does not randomize everything uniformly. The VLM agent reasons about what variations are relevant to the actual deployment environment and generates them accordingly.
 
-The objective is:
-
-```math
-E^*
-=
-\arg\max_E
-\mathrm{Relevance}(E)
-\cdot
-\mathrm{Risk}(E)
-\cdot
-\mathrm{TransferValue}(E)
-```
-
-so that simulation compute is concentrated on plausible and valuable conditions.
-
-Environment variation is applied **throughout the curriculum**, not only at the end. The robot therefore learns the task while simultaneously learning that the physical environment can change.
-
 ---
 
-# 2.12 Initial-State Variation and Recovery Training
+# 2.13 Initial-State Variation and Recovery Training
 
 Environment variation alone is not sufficient for robust autonomy. A robot can be trained across many different scenes while still implicitly assuming that every task begins from a clean, ideal state.
 
@@ -1029,42 +1180,44 @@ Continue from there
 
 The purpose is to teach the robot that **it is not always starting from scratch**.
 
-Initial-state variation can include:
-
-```text
-├── Object displaced from its expected position
-├── Object in a different orientation
-├── Failed or partial grasp
-├── Task partially completed
-├── Robot starting from an unusual pose
-├── Object already moved
-├── Missing expected object
-├── Unexpected clutter
-├── Obstruction introduced
-└── Environment state altered by another agent
-```
-
-The robot therefore learns both **task execution** and **task recovery**.
-
 ---
 
-# 2.13 Curriculum Over Task Complexity, Environment, and Initial State
+# 2.14 Curriculum Over Task Complexity, Environment, and Initial State
 
-The complete Stage 7 curriculum has **three simultaneous axes**:
+The complete Stage 7 curriculum has **four simultaneous axes**:
 
 ```text
                          STAGE 7 CURRICULUM
                                 │
-             ┌──────────────────┼──────────────────┐
-             │                  │                  │
-             ▼                  ▼                  ▼
-        TASK COMPLEXITY   ENVIRONMENT STATE   INITIAL STATE
-             │                  │                  │
-       small → large       nominal → varied    nominal → degraded
-             │                  │                  │
-             └──────────────────┼──────────────────┘
-                                ↓
+       ┌────────────────────────┼────────────────────────┐
+       │                        │                        │
+       ▼                        ▼                        ▼
+  TASK COMPLEXITY         ENVIRONMENT STATE       INITIAL STATE
+       │                        │                        │
+ small → large            nominal → varied       nominal → degraded
+       │                        │                        │
+       └────────────────────────┼────────────────────────┘
+                                │
+                         DYNAMIC PLANNING
+                                │
+                        static → adaptive
+                                │
+                                ▼
                            AGENTIC RL
+```
+
+The planner dimension teaches the robot that the task structure itself can change:
+
+```text
+Fixed decomposition
+        ↓
+State-dependent decomposition
+        ↓
+Dynamic subtask insertion
+        ↓
+Dynamic recovery planning
+        ↓
+Open-ended hierarchical autonomy
 ```
 
 This produces training scenarios such as:
@@ -1074,26 +1227,31 @@ Level 1
 Simple task
 + nominal environment
 + clean initial state
++ fixed/simple decomposition
 
 Level 2
 Simple task
 + environment variation
 + clean initial state
++ modest replanning
 
 Level 3
 Multi-step task
 + environment variation
 + mildly perturbed initial state
++ dynamic subtask creation
 
 Level 4
 Long-horizon task
 + broad environment variation
 + partially completed task
++ recovery planning
 
 Level 5
 Full deployment task
 + broad environment variation
-+ recovery from unexpected states
++ unexpected states
++ open-ended subtask generation
 ```
 
 The robot is progressively taught:
@@ -1104,13 +1262,17 @@ then:
 
 > **Solve the task under different environmental conditions.**
 
-and eventually:
+then:
 
 > **Solve the task even when the world is not in the state you expected.**
 
+and ultimately:
+
+> **Figure out what needs to be done next when the original plan is no longer sufficient.**
+
 ---
 
-# 2.14 VLM Agent as Scenario Generator
+# 2.15 VLM Agent as Scenario Generator
 
 The VLM agent is responsible for constructing the complete training scenario rather than merely providing a reward.
 
@@ -1130,10 +1292,12 @@ and decides:
 
 ```text
 What task next?
+What subtask structure is appropriate?
 What environment configuration?
 What initial state?
 How difficult should it be?
 What variation should be introduced?
+Should a new subtask be inserted during execution?
 Should the curriculum advance or remain at the current level?
 ```
 
@@ -1150,6 +1314,7 @@ VLM Agent decides:
     increase task complexity slightly
     introduce object displacement
     initialize from partially completed states
+    create recovery subtasks during execution
     maintain realistic environment variation
 ```
 
@@ -1157,7 +1322,7 @@ The next batch of simulation episodes is then specifically designed around that 
 
 ---
 
-# 2.15 Agentic RL
+# 2.16 Agentic RL
 
 Once the VLM agent constructs a scenario, the robot operates autonomously inside the simulator using the same complete architecture that will be used during deployment.
 
@@ -1166,7 +1331,9 @@ Scenario Generated by VLM Agent
         ↓
 Observation
         ↓
-Reasoning
+High-Level Planning
+        ↓
+Dynamic Subtask Selection
         ↓
 Target-Future Generation
         ↓
@@ -1176,13 +1343,15 @@ Candidate Action Generation
         ↓
 World Model Prediction
         ↓
-VLM Candidate Evaluation
+VLM Evaluation
         ↓
-Action Execution
+Action Selection
+        ↓
+Execution
         ↓
 New Observation
         ↓
-Continue / Recover / Replan
+Continue / Recover / Replan / Create New Subtask
 ```
 
 The agentic RL objective can be expressed conceptually as:
@@ -1204,6 +1373,10 @@ where the policy is optimized over a distribution of tasks, environment configur
 The learning process therefore trains the complete decision system:
 
 ```text
+Planning
+    ↓
+Subtask Creation
+    ↓
 Reasoning
     ↓
 Target Selection
@@ -1219,13 +1392,15 @@ Action Selection
 Execution
     ↓
 Outcome
+    ↓
+Replanning / Recovery
 ```
 
-This is important because an eventual deployment failure may originate in the VLA's reasoning, candidate generation, World Model prediction, VLM ranking, target replanning, or recovery behavior rather than in the low-level policy alone.
+This is important because an eventual deployment failure may originate in the high-level plan, dynamic subtask decomposition, VLA reasoning, candidate generation, World Model prediction, VLM ranking, target replanning, or recovery behavior rather than in the low-level policy alone.
 
 ---
 
-# 2.16 Simulation Curriculum Feedback
+# 2.17 Simulation Curriculum Feedback
 
 The VLM training agent receives feedback from the outcome of simulation episodes and uses that feedback to continuously update the curriculum.
 
@@ -1256,18 +1431,18 @@ Good      Poor
  │         │
  ↓         ↓
 Harder    More practice
-tasks     at current level
+Tasks     at current level
  │         │
  └────┬────┘
       ↓
  Next Episodes
 ```
 
-This creates a self-adjusting curriculum rather than a fixed sequence of manually authored training stages.
+At the same time, the agent tracks where dynamic replanning is required. If failures cluster around incomplete plans or missing intermediate actions, it can generate episodes specifically designed to require **online subtask creation**.
 
 ---
 
-# 2.17 Learning Robustness, Not Memorization
+# 2.18 Learning Robustness, Not Memorization
 
 The purpose of environment-specific RL is not to memorize the exact geometry observed during calibration. It is to learn the invariances and recovery strategies that remain valid across the expected deployment distribution.
 
@@ -1285,7 +1460,7 @@ This makes Stage 7 a form of **environment-specific robustness learning**: the r
 
 ---
 
-# 2.18 Simulation-to-Real Validation Gate
+# 2.19 Simulation-to-Real Validation Gate
 
 Before deployment, the environment-specific VLA must pass a final validation process across both the nominal digital twin and the generated robustness distribution.
 
@@ -1298,6 +1473,8 @@ Variation Evaluation
       ↓
 Recovery Evaluation
       ↓
+Replanning Evaluation
+      ↓
 Long-Horizon Evaluation
       ↓
 Safety Evaluation
@@ -1309,37 +1486,9 @@ Deployment
 
 The robot should only move toward real deployment once performance is robust across the relevant distribution rather than merely strong on the original reconstructed scene.
 
-The high-fidelity simulator can also act as a final validation layer for policies trained in the faster surrogate:
-
-```math
-\pi_{\mathrm{surrogate}}
-\rightarrow
-\text{Surrogate Evaluation}
-\rightarrow
-\text{High-Fidelity Twin Evaluation}
-\rightarrow
-\text{Real Deployment}
-```
-
-The resulting hierarchy is:
-
-```math
-\text{Real Environment}
-\rightarrow
-\text{Calibrated Twin}
-\rightarrow
-\text{Surrogate}
-\rightarrow
-\text{Massive Agentic RL}
-\rightarrow
-\text{High-Fidelity Validation}
-\rightarrow
-\text{Real Robot}
-```
-
 ---
 
-# 2.19 Why Stage 7 Is Separate From Real Deployment
+# 2.20 Why Stage 7 Is Separate From Real Deployment
 
 The purpose of Stage 7 is to move as much of the **learning burden as possible into simulation before the robot encounters the real environment**.
 
@@ -1360,9 +1509,13 @@ Sensor noise
 +
 Task variation
 +
+Dynamic replanning
++
 Unexpected disturbances
 +
 Partial task states
++
+Dynamic subtask creation
 +
 Recovery
 +
@@ -1371,44 +1524,9 @@ Long-horizon execution
 
 Real deployment then becomes primarily a process of **validation, calibration, and discovering residual gaps**, rather than the first time the robot experiences meaningful variation.
 
-This changes the role of deployment:
-
-```text
-WITHOUT STAGE 7
-
-Global Model
-    ↓
-Specific Environment
-    ↓
-Real Robot
-    ↓
-Learn robustness through expensive failures
-
-
-WITH STAGE 7
-
-Global Model
-    ↓
-Specific Environment
-    ↓
-VLM-Generated Curriculum
-    ↓
-Environment + Initial-State Variations
-    ↓
-Massive Agentic Simulation RL
-    ↓
-Robustness + Recovery Training
-    ↓
-High-Fidelity Validation
-    ↓
-Real Robot
-```
-
-The real world therefore becomes the **final source of truth and error discovery**, rather than the primary place where basic environment-specific robustness must first be learned.
-
 ---
 
-# 2.20 Why Co-Training Instead of Sequential Fine-Tuning?
+# 2.21 Why Co-Training Instead of Sequential Fine-Tuning?
 
 The different global data layers contain complementary information, and sequential fine-tuning risks allowing the final, smallest dataset to dominate the model. Massive human video provides diversity and broad physical knowledge, synthetic human demonstrations provide large-scale action-conditioned coverage and a mechanism for probing current model weaknesses, teleoperation provides highly accurate grounding in robot embodiment, action-conditioned training teaches the World Model the relationship between actions and physical consequences, and reasoning training teaches the VLA how to use these capabilities effectively.
 
@@ -1417,26 +1535,19 @@ A simplified objective is:
 ```math
 \mathcal{L}
 =
-\lambda_{\mathrm{WM}}
-\mathcal{L}_{\mathrm{WM}}
+\lambda_{\mathrm{WM}}\mathcal{L}_{\mathrm{WM}}
 +
-\lambda_{\mathrm{WM-action}}
-\mathcal{L}_{\mathrm{WM-action}}
+\lambda_{\mathrm{WM-action}}\mathcal{L}_{\mathrm{WM-action}}
 +
-\lambda_{\mathrm{human}}
-\mathcal{L}_{\mathrm{human}}
+\lambda_{\mathrm{human}}\mathcal{L}_{\mathrm{human}}
 +
-\lambda_{\mathrm{synthetic}}
-\mathcal{L}_{\mathrm{synthetic}}
+\lambda_{\mathrm{synthetic}}\mathcal{L}_{\mathrm{synthetic}}
 +
-\lambda_{\mathrm{gripper}}
-\mathcal{L}_{\mathrm{gripper}}
+\lambda_{\mathrm{gripper}}\mathcal{L}_{\mathrm{gripper}}
 +
-\lambda_{\mathrm{teleop}}
-\mathcal{L}_{\mathrm{teleop}}
+\lambda_{\mathrm{teleop}}\mathcal{L}_{\mathrm{teleop}}
 +
-\lambda_{\mathrm{reason}}
-\mathcal{L}_{\mathrm{reason}}
+\lambda_{\mathrm{reason}}\mathcal{L}_{\mathrm{reason}}
 ```
 
 The fundamental principle is:
@@ -1445,7 +1556,7 @@ The fundamental principle is:
 
 ---
 
-# 2.21 Active Real-World Data Collection
+# 2.22 Active Real-World Data Collection
 
 The synthetic egocentric-data stage creates an explicit mechanism for deciding what additional real-world data should be acquired. Instead of assuming that more random video is always beneficial, Lunch Robotics can compare the foundation model's performance across generated tasks, measure generation quality, and identify the categories in which the model consistently produces implausible or incomplete behavior.
 
@@ -1461,7 +1572,7 @@ p(c)
 \mathrm{TransferValue}(c)
 ```
 
-where \(c\) denotes a capability or interaction category.
+where `c` denotes a capability or interaction category.
 
 This creates a continually updated **data acquisition frontier** describing where additional reality-grounded video is most valuable.
 
@@ -1543,7 +1654,8 @@ The goal is not to create a visually perfect replica of the environment. It is t
 Visual reconstruction alone cannot reveal many physical quantities that matter for manipulation. The system may need to estimate object mass, friction, compliance, damping, restitution, actuator response, and other parameters.
 
 ```math
-\theta =
+\theta
+=
 \begin{bmatrix}
 m \\
 \mu_s \\
@@ -1653,7 +1765,7 @@ There are therefore two simulation mechanisms in the architecture. The high-fide
 
 # 8. Training the Environment-Specific VLA
 
-The environment-specific VLA begins from the current **global or mixed VLA**, rather than being trained from scratch. It is conditioned on the current observation, the task specification, the selected World Model target imagination, and retrieved tutorial context:
+The environment-specific VLA begins from the current **global or mixed VLA**, rather than being trained from scratch. It is conditioned on the current observation, the current subtask, the selected World Model target imagination, and retrieved tutorial context:
 
 ```math
 \pi_{\theta}
@@ -1661,7 +1773,7 @@ The environment-specific VLA begins from the current **global or mixed VLA**, ra
 a_t
 \mid
 o_t,
-T,
+T_{\mathrm{subtask}},
 z_{\mathrm{target}},
 S_{\mathrm{tutorial}}
 \right)
@@ -1677,7 +1789,7 @@ The VLA generates three candidate action chunks:
 a_t
 \mid
 o_t,
-T,
+T_{\mathrm{subtask}},
 z_{\mathrm{target}},
 S_{\mathrm{tutorial}}
 \right)
@@ -1694,7 +1806,7 @@ Calibrated Environment
         ↓
 VLM Curriculum Agent
         ↓
-Task + Environment + Initial-State Generation
+Task + Subtask + Environment + Initial-State Generation
         ↓
 Agentic RL
         ↓
@@ -1717,7 +1829,7 @@ z_{\mathrm{target}}^{(3)}(t:t+H)
 \right\}
 ```
 
-The three target trajectories represent different plausible ways the world could be heading if the task is progressing successfully. They do not need to prescribe an exact robot trajectory, because two very different physical motions may lead to essentially the same successful state.
+The three target trajectories represent different plausible ways the world could be heading if the current subtask is progressing successfully. They do not need to prescribe an exact robot trajectory, because two very different physical motions may lead to essentially the same successful state.
 
 The VLM evaluates these possibilities:
 
@@ -1728,7 +1840,7 @@ r_j^{\mathrm{target}}
 \left(
 z_{\mathrm{target}}^{(j)},
 s_t,
-T
+T_{\mathrm{subtask}}
 \right)
 ```
 
@@ -1764,7 +1876,7 @@ z_{\mathrm{target}}^{(2)},
 z_{\mathrm{target}}^{(3)}
 \right\}
 \sim
-\mathrm{WM}(s_t,T)
+\mathrm{WM}(s_t,T_{\mathrm{subtask}})
 ```
 
 The VLM scores them and selects:
@@ -1814,7 +1926,7 @@ r_i
 z_{\mathrm{pred}}^{(i)},
 z_{\mathrm{target}},
 s_t,
-T
+T_{\mathrm{subtask}}
 \right)
 ```
 
@@ -1841,7 +1953,7 @@ The architecture therefore has exactly:
 1 selected action
 ```
 
-The **target-imagination process happens at lower frequency**, while the **action-chunk generation, World Model simulation, and VLM candidate-scoring process happens at higher frequency**.
+The **target-imagination process happens at lower frequency**, while the **action-chunk generation, World Model simulation, and VLM candidate-scoring process happens at higher frequency**. The high-level VLM planner sits above both and can invalidate the current target by changing the active subtask.
 
 ---
 
@@ -1853,6 +1965,8 @@ The stage follows the same learning philosophy as online local RL:
 
 ```text
 Task Curriculum
++
+Dynamic Subtask Structure
 +
 Environment Variation
 +
@@ -1875,12 +1989,12 @@ The VLM agent creates the scenario, while the robot agent learns inside it.
 OUTER AGENT
 VLM
     ↓
-chooses task + environment + initial state
+chooses task + subtask opportunities + environment + initial state
 
 INNER AGENT
 Robot VLA
     ↓
-reasons + imagines + acts + evaluates + recovers
+plans + reasons + imagines + acts + evaluates + recovers
 ```
 
 This creates a nested optimization loop:
@@ -1890,7 +2004,8 @@ This creates a nested optimization loop:
                          │
             ┌────────────┼────────────┐
             │            │            │
-         Task      Environment   Initial State
+         Task /      Environment   Initial State
+         Subtasks     Variations    Variations
             │            │            │
             └────────────┼────────────┘
                          ↓
@@ -1934,9 +2049,11 @@ The local post-deployment loop uses the same mechanism as Stage 7:
 VLM Training Agent
         ↓
 Task Curriculum
-        +
++
+Dynamic Subtask Generation
++
 Environment Variations
-        +
++
 Initial-State Variations
         ↓
 Local Simulation RL
@@ -1955,7 +2072,9 @@ The system captures the complete decision context:
 ```text
 Failure Episode
 ├── Task being executed
-├── Subtask being executed
+├── Hierarchical plan at time of failure
+├── Current subtask
+├── Dynamically generated subtasks
 ├── Environment and task context
 ├── Robot state trajectory
 ├── Reasoning trajectory / decision context
@@ -1993,7 +2112,7 @@ A single failure should not remain a single training example. Once a failure is 
 flowchart TD
     A["Real-World Failure"] --> B["Failure Episode"]
 
-    B --> C["Task + Subtask"]
+    B --> C["Task + Plan + Subtask"]
     B --> D["Reasoning Context"]
     B --> E["3 Target Futures"]
     B --> F["VLM Target Scores"]
@@ -2016,12 +2135,14 @@ flowchart TD
     L --> M["VLM Curriculum Agent"]
 
     M --> N["Task Variation"]
-    M --> O["Environment Variation"]
-    M --> P["Initial-State Variation"]
+    M --> O["Subtask Variation"]
+    M --> P["Environment Variation"]
+    M --> Q["Initial-State Variation"]
 
-    N --> Q["Local Agentic RL"]
-    O --> Q
-    P --> Q
+    N --> R["Local Agentic RL"]
+    O --> R
+    P --> R
+    Q --> R
 ```
 
 The objective is not to memorize the original mistake. It is to train the policy on the surrounding state distribution so that similar failures become less likely.
@@ -2041,6 +2162,7 @@ VLM training agent generates:
 ├── different object orientations
 ├── partially completed manipulation
 ├── alternative recovery states
+├── recovery subtask creation opportunities
 └── nearby environmental variations
 
         ↓
@@ -2058,7 +2180,7 @@ The raw failure stream is also sent back to the Lunch Robotics lab, but **raw de
 
 The central dataset pipeline begins with human-led error-mode analysis because different deployments produce different kinds of mistakes and not all failures represent deficiencies in the universal brain.
 
-Some failures are caused by local geometry, local objects, local task conventions, or environment-specific calibration. Others reveal genuine limitations in general robot intelligence, World Model prediction, target imagination, candidate generation, reasoning, VLM evaluation, or action selection.
+Some failures are caused by local geometry, local objects, local task conventions, local planner behavior, or local environment calibration. Others reveal genuine limitations in general robot intelligence, World Model prediction, target imagination, candidate generation, reasoning, VLM evaluation, dynamic planning, or action selection.
 
 The Lunch Robotics team analyzes failure episodes across deployments to identify **systematic, recurring, and generalizable error modes**.
 
@@ -2082,7 +2204,7 @@ Once a generalizable error mode has been identified, the Lunch Robotics team cre
 \right)
 ```
 
-The curated dataset can combine selected real-world failures with successful examples, counterfactual successful trajectories, targeted simulation rollouts, adversarial near-failure scenarios, World Model imagined trajectories, decoded imagined videos, reasoning traces, candidate action sets, target-future alternatives, VLM rankings, and relevant examples from the original foundation datasets.
+The curated dataset can combine selected real-world failures with successful examples, counterfactual successful trajectories, targeted simulation rollouts, adversarial near-failure scenarios, World Model imagined trajectories, decoded imagined videos, reasoning traces, candidate action sets, target-future alternatives, VLM rankings, dynamic subtask plans, replan decisions, and relevant examples from the original foundation datasets.
 
 The central question is:
 
@@ -2284,7 +2406,7 @@ The **pre-deployment environment loop** specializes the global brain:
 \rightarrow
 \text{VLM Curriculum Agent}
 \rightarrow
-\text{Task + Environment + Initial-State Variation}
+\text{Task + Dynamic Subtasks + Environment + Initial-State Variation}
 \rightarrow
 \text{Agentic RL}
 \rightarrow
@@ -2334,7 +2456,7 @@ The **global fleet loop** turns collective experience into improvements to the s
 }
 ```
 
-Together, these loops create a system in which **reality grounds the model, the model generates hypotheses, synthetic data expands training, simulation builds robustness, deployment discovers residual failures, and curated experience improves the shared brain**.
+Together, these loops create a system in which **reality grounds the model, the model generates hypotheses, synthetic data expands training, simulation builds robustness, VLM agents construct curricula and task structure, deployment discovers residual failures, and curated experience improves the shared brain**.
 
 ---
 
@@ -2349,6 +2471,13 @@ Second, at inference time, an additional **VLM safety checker** evaluates the ca
 The target futures can be safety-checked before one is selected as the desired future, while the three predicted candidate futures can also be safety-checked before the final candidate is selected:
 
 ```text
+HIGHEST LEVEL
+High-Level VLM Planner
+  ↓
+Task / Subtask Plan
+  ↓
+Replanning + Safety Constraints
+
 LOW FREQUENCY
 World Model
   ↓
@@ -2381,7 +2510,7 @@ Select Safe Best Candidate
 Robot
 ```
 
-The safety mechanism therefore sits directly inside the target-selection and action-selection loops rather than relying only on the policy to have learned safe behavior.
+The safety mechanism therefore sits directly inside the planning, target-selection, and action-selection loops rather than relying only on the policy to have learned safe behavior.
 
 ---
 
@@ -2389,7 +2518,7 @@ The safety mechanism therefore sits directly inside the target-selection and act
 
 The Robot SDK is the final hardware abstraction layer between the policy and the physical robot.
 
-The robot should interact with the user through natural language while the underlying system translates those instructions into task specifications, retrieves the appropriate skill context, determines the required reasoning budget, generates target futures, evaluates them, generates VLA candidate actions, evaluates their possible consequences through the World Model and VLM, and converts the selected action into a hardware-safe trajectory.
+The robot should interact with the user through natural language while the underlying system translates those instructions into task specifications, builds and revises a hierarchical task plan, retrieves the appropriate skill context, determines the required reasoning budget, generates target futures for the current subtask, evaluates them, generates VLA candidate actions, evaluates their possible consequences through the World Model and VLM, and converts the selected action into a hardware-safe trajectory.
 
 ```mermaid
 flowchart LR
@@ -2399,8 +2528,8 @@ flowchart LR
     B --> C["Task Specification"]
     C --> D["Tutorial Skill Retrieval"]
 
-    D --> E["3D VLM Planner"]
-    E --> F["Reasoning Budget"]
+    D --> E["High-Level VLM Planner"]
+    E --> F["Current Subtask"]
 
     F --> G["Environment-Specific VLA"]
 
@@ -2420,6 +2549,9 @@ flowchart LR
     N --> O["Motion Smoother"]
     O --> P["Hardware Controller"]
     P --> Q["Robot"]
+
+    Q --> R["New Observation"]
+    R --> E
 ```
 
 ---
@@ -2461,9 +2593,9 @@ At runtime, the experience should be intentionally simple. The user can say:
 
 > **"Clean the table."**
 
-The system converts the request into a task specification, retrieves the relevant tutorial, uses the planner to determine the task structure and difficulty, selects an appropriate reasoning budget, and passes the execution problem to the environment-specific VLA.
+The system converts the request into a task specification, retrieves the relevant tutorial, and hands the problem to the high-level VLM planner. The planner constructs an initial hierarchical plan, selects the first subtask, and continuously revises the plan as execution proceeds.
 
-The runtime system then operates on two nested timescales.
+The runtime system then operates on three nested timescales.
 
 ```mermaid
 flowchart TD
@@ -2473,40 +2605,42 @@ flowchart TD
     B --> C["Task Specification"]
     C --> D["Retrieve Table-Cleaning Tutorial"]
 
-    D --> E["3D VLM Planner"]
-    E --> F["Reasoning Budget"]
+    D --> E["High-Level VLM Planner"]
+    E --> F["Hierarchical Plan + Current Subtask"]
 
-    F --> G["Environment-Specific VLA"]
+    F --> G["LOW FREQUENCY: World Model"]
 
-    G --> H["LOW FREQUENCY: World Model"]
+    G --> H["3 Target Future Trajectories"]
 
-    H --> I["3 Target Future Trajectories"]
+    H --> I["VLM Target Selection"]
 
-    I --> J["VLM Target Selection"]
+    I --> J["Selected Target Future"]
 
-    J --> K["Selected Target Future"]
+    J --> K["HIGH-FREQUENCY LOOP"]
 
-    K --> L["HIGH FREQUENCY LOOP"]
+    K --> L["VLA Samples 3 Candidate Actions"]
 
-    L --> M["VLA Samples 3 Candidate Actions"]
+    L --> M["World Model Predicts 3 Futures"]
 
-    M --> N["World Model Predicts 3 Futures"]
+    M --> N["VLM Compares 3 Futures to Target"]
 
-    N --> O["VLM Compares 3 Futures to Target"]
+    N --> O["Select Best Candidate"]
 
-    O --> P["Select Best Candidate"]
+    O --> P["Safety Validation"]
 
-    P --> Q["Safety Validation"]
+    P --> Q["Robot SDK"]
 
-    Q --> R["Robot SDK"]
+    Q --> R["Robot"]
 
-    R --> S["Robot"]
+    R --> S["New Observation"]
 
-    S --> T["Runtime Monitoring"]
+    S --> T["High-Level Planner Re-evaluates"]
 
-    T --> L
+    T --> U{ "Plan Still Valid?" }
 
-    T --> H
+    U -->|"Yes"| K
+    U -->|"No"| V["Replan / Create New Subtask"]
+    V --> F
 ```
 
 The high-frequency loop repeatedly executes:
@@ -2532,7 +2666,7 @@ Repeat
 The lower-frequency loop periodically executes:
 
 ```text
-Current Observation
+Current Observation + Current Subtask
  ↓
 World Model
  ↓
@@ -2545,7 +2679,23 @@ Selected Target
 Return to High-Frequency Loop
 ```
 
-The target therefore remains active across multiple action chunks. It is recomputed when the robot has made sufficient progress, when the current target has become stale, when the observed state diverges from the expected state, when the environment changes materially, or when uncertainty increases sufficiently to justify replanning.
+The highest-level loop periodically or eventfully executes:
+
+```text
+Current Observation + Execution History
+ ↓
+High-Level VLM Planner
+ ↓
+Check Current Plan
+ ↓
+Keep / Modify / Reorder / Remove / Create Subtask
+ ↓
+Updated Plan
+ ↓
+Select Current Subtask
+```
+
+The target therefore remains active across multiple action chunks. It is recomputed when the robot has made sufficient progress, when the current target has become stale, when the observed state diverges from the expected state, when the environment changes materially, when uncertainty increases sufficiently to justify replanning, or when the high-level planner switches to a different subtask.
 
 ---
 
@@ -2572,8 +2722,7 @@ flowchart TD
     B --> D["ACTION-CONDITIONED WORLD MODEL"]
     C --> D
 
-    E["Real Video Initial Frames"]
-    --> F["Image Editing Variations"]
+    E["Real Video Initial Frames"] --> F["Image Editing Variations"]
     F --> A3
 
     D --> G["GLOBAL WORLD MODEL + VLA"]
@@ -2594,62 +2743,52 @@ flowchart TD
     O --> P["VLM TRAINING AGENT"]
 
     P --> Q["TASK CURRICULUM"]
-    P --> R["ENVIRONMENT VARIATIONS"]
-    P --> S["INITIAL-STATE VARIATIONS"]
+    P --> R["DYNAMIC SUBTASK GENERATION"]
+    P --> S["ENVIRONMENT VARIATIONS"]
+    P --> T["INITIAL-STATE VARIATIONS"]
 
-    Q --> T["AGENTIC SIMULATION RL"]
-    R --> T
-    S --> T
+    Q --> U["AGENTIC SIMULATION RL"]
+    R --> U
+    S --> U
+    T --> U
 
-    T --> U["ENVIRONMENT-SPECIFIC VLA"]
+    U --> V["ENVIRONMENT-SPECIFIC VLA"]
 
-    U --> V["LOW-FREQUENCY TARGET GENERATION"]
+    V --> W["HIGH-LEVEL DYNAMIC PLANNER"]
+    W --> X["CURRENT SUBTASK"]
+    X --> Y["LOW-FREQUENCY TARGET IMAGINATION"]
 
-    V --> W["3 TARGET FUTURES"]
+    Y --> Z["3 TARGET FUTURES"]
+    Z --> AA["VLM TARGET SELECTION"]
+    AA --> AB["SELECTED TARGET"]
 
-    W --> X["VLM TARGET SELECTION"]
+    AB --> AC["HIGH-FREQUENCY ACTION LOOP"]
+    AC --> AD["3 CANDIDATE ACTIONS"]
+    AD --> AE["WORLD MODEL"]
+    AE --> AF["3 PREDICTED FUTURES"]
+    AF --> AG["VLM FUTURE COMPARISON"]
+    AG --> AH["SAFETY CHECK"]
+    AH --> AI["SELECT ACTION"]
+    AI --> AJ["REAL DEPLOYMENT"]
 
-    X --> Y["SELECTED TARGET"]
+    AJ --> AK["RUNTIME MONITORING"]
+    AK --> AL["SUCCESSFUL EXPERIENCE"]
+    AK --> AM["FAILURE EPISODES"]
 
-    Y --> Z["HIGH-FREQUENCY ACTION LOOP"]
+    AM --> AN["VLM TARGETED LOCAL CURRICULUM"]
+    AN --> AO["LOCAL SIMULATION RL"]
+    AO --> V
 
-    Z --> AA["3 CANDIDATE ACTIONS"]
+    AM --> AP["LUNCH ROBOTICS ERROR-MODE ANALYSIS"]
+    AP --> AQ["CURATED GLOBAL DATA"]
+    AQ --> AR["NEW LAB VLA / WORLD MODEL / VLM"]
 
-    AA --> AB["WORLD MODEL"]
+    AR --> AS["WEIGHT MIXING"]
+    V --> AS
+    AS --> AT["MIXED VLA"]
+    AT --> M
 
-    AB --> AC["3 PREDICTED FUTURES"]
-
-    AC --> AD["VLM FUTURE COMPARISON"]
-
-    AD --> AE["SAFETY CHECK"]
-
-    AE --> AF["SELECT ACTION"]
-
-    AF --> AG["REAL DEPLOYMENT"]
-
-    AG --> AH["RUNTIME MONITORING"]
-
-    AH --> AI["SUCCESSFUL EXPERIENCE"]
-    AH --> AJ["FAILURE EPISODES"]
-
-    AJ --> AK["VLM TARGETED LOCAL CURRICULUM"]
-
-    AK --> AL["LOCAL SIMULATION RL"]
-
-    AL --> U
-
-    AJ --> AM["LUNCH ROBOTICS ERROR-MODE ANALYSIS"]
-
-    AM --> AN["CURATED GLOBAL DATA"]
-
-    AN --> AO["NEW LAB VLA / WORLD MODEL / VLM"]
-
-    AO --> AP["WEIGHT MIXING"]
-    U --> AP
-
-    AP --> AQ["MIXED VLA"]
-
-    AQ --> M
+    AK --> W
 ```
 
 The local environment lifecycle is:
@@ -2665,13 +2804,23 @@ The local environment lifecycle is:
 \rightarrow
 \text{VLM Curriculum Agent}
 \rightarrow
-\text{Task + Environment + Initial-State Variation}
+\left[
+\begin{array}{c}
+\text{Task Curriculum} \\
++ \\
+\text{Dynamic Subtask Generation} \\
++ \\
+\text{Environment Variations} \\
++ \\
+\text{Initial-State Variations}
+\end{array}
+\right]
 \rightarrow
 \text{Agentic RL}
 \rightarrow
 \text{Environment-Specific VLA}
 \rightarrow
-\text{Reasoning}
+\text{Dynamic Task Planning}
 \rightarrow
 \text{3 Target Futures}
 \rightarrow
@@ -2687,7 +2836,7 @@ The local environment lifecycle is:
 \rightarrow
 \text{Repeated High-Frequency Control}
 \rightarrow
-\text{Target Replanning}
+\text{Dynamic Replanning}
 \rightarrow
 \text{Real Deployment}
 \rightarrow
@@ -2725,10 +2874,8 @@ The foundation-model lifecycle is:
 \rightarrow
 \left[
 \begin{array}{c}
-\text{New Synthetic Egocentric Generation}
-\\
-+
-\\
+\text{New Synthetic Egocentric Generation} \\
++ \\
 \text{Real Initial Frames}
 \rightarrow
 \text{Image Editing}
@@ -2763,14 +2910,12 @@ The pre-deployment environment-training lifecycle is:
 \rightarrow
 \left[
 \begin{array}{c}
-\text{Task Curriculum}
-\\
-+
-\\
-\text{Environment Variations}
-\\
-+
-\\
+\text{Task Curriculum} \\
++ \\
+\text{Dynamic Subtasks} \\
++ \\
+\text{Environment Variations} \\
++ \\
 \text{Initial-State Variations}
 \end{array}
 \right]
@@ -2784,7 +2929,7 @@ The pre-deployment environment-training lifecycle is:
 \text{Real Deployment}
 ```
 
-The resulting architecture is not a one-way pipeline. It is a **closed learning system** in which the foundation model learns from reality, the World Model generates synthetic hypotheses about reality, real-video-seeded image editing creates controlled variations around genuine observations, synthetic data expands action-conditioned training, model failures identify missing knowledge, targeted real-world collection corrects those weaknesses, reasoning training teaches the model how to use its predictive machinery, the Real-to-Sim system constructs the expected deployment world, a VLM agent constructs the curriculum and variation distribution, agentic RL trains competence and recovery, target imagination defines the medium-horizon objective, VLM target selection determines which future is desirable, the VLA generates multiple local action alternatives, the World Model predicts their consequences, VLM comparison selects the best local action, environments provide the physical context required for specialization, deployments expose the residual weaknesses of those policies, and the company converts the most generalizable weaknesses into improvements to the shared brain.
+The resulting architecture is not a one-way pipeline. It is a **closed learning system** in which the foundation model learns from reality, the World Model generates synthetic hypotheses about reality, real-video-seeded image editing creates controlled variations around genuine observations, synthetic data expands action-conditioned training, model failures identify missing knowledge, targeted real-world collection corrects those weaknesses, reasoning training teaches the model how to use its predictive machinery, the Real-to-Sim system constructs the expected deployment world, a VLM agent constructs the curriculum and variation distribution, the high-level VLM planner dynamically decomposes and replans the task, agentic RL trains competence and recovery, target imagination defines the medium-horizon objective, VLM target selection determines which future is desirable, the VLA generates multiple local action alternatives, the World Model predicts their consequences, VLM comparison selects the best local action, environments provide the physical context required for specialization, deployments expose the residual weaknesses of those policies, and the company converts the most generalizable weaknesses into improvements to the shared brain.
 
 ---
 
@@ -2805,6 +2950,8 @@ The central thesis of Lunch Robotics is that universal robot intelligence should
 \text{Agentic Real-to-Sim}
 +
 \text{VLM-Agentic Environment RL}
++
+\text{Dynamic Hierarchical Planning}
 +
 \text{Curated Fleet Learning}
 }
@@ -2835,10 +2982,8 @@ The generative egocentric-data flywheel solves the next problem: **how do we sca
 \rightarrow
 \left[
 \begin{array}{c}
-\text{New Human Video Generation}
-\\
-+
-\\
+\text{New Human Video Generation} \\
++ \\
 \text{Real Initial Frames}
 \rightarrow
 \text{Image-Edited Variations}
@@ -2880,12 +3025,12 @@ The Action-Conditioned World Model solves the next problem: **how does the robot
 \text{Predicted Future Trajectory}
 ```
 
-Target future imagination solves the next problem: **how does the robot decide what future it should be moving toward when there are multiple valid ways to solve a task?**
+Target future imagination solves the next problem: **how does the robot decide what future it should be moving toward when there are multiple valid ways to solve the current subtask?**
 
 ```math
 \text{Current State}
 +
-\text{Task}
+\text{Current Subtask}
 \rightarrow
 \text{3 Target Futures}
 \rightarrow
@@ -2899,7 +3044,7 @@ Reasoning SFT and RL solve the next problem: **how do we teach the model to use 
 ```math
 \text{Observation}
 +
-\text{Task}
+\text{Task / Subtask}
 +
 \text{World Model}
 \rightarrow
@@ -2907,6 +3052,26 @@ Reasoning SFT and RL solve the next problem: **how do we teach the model to use 
 \rightarrow
 \text{Candidate Actions}
 ```
+
+Dynamic hierarchical planning solves another key problem: **how do we make long-horizon task execution adaptive when the necessary subtask sequence is not fully known in advance?**
+
+```math
+\text{Task}
++
+\text{Current State}
+\rightarrow
+\text{Plan}
+\rightarrow
+\text{Subtask}
+\rightarrow
+\text{Observation}
+\rightarrow
+\text{Replan}
+\rightarrow
+\text{New / Modified Subtask}
+```
+
+The planner can therefore discover intermediate objectives at runtime rather than relying on a static plan generated once at the beginning.
 
 The Real-to-Sim system solves the next problem: **how do we adapt that general intelligence to an arbitrary robot operating in an arbitrary physical environment?**
 
@@ -2929,6 +3094,8 @@ The answer is to put the model into a calibrated simulation and have a VLM agent
 ```text
 Task Curriculum
 +
+Dynamic Subtasks
++
 Environment Variations
 +
 Initial-State Variations
@@ -2940,6 +3107,8 @@ and optimize the robot through agentic RL:
 \text{Calibrated Environment}
 +
 \text{Curriculum}
++
+\text{Dynamic Planning}
 +
 \text{Variations}
 +
@@ -2954,14 +3123,18 @@ The crucial distinction is:
 
 > **Stage 7 is the pre-deployment version of local online RL.**
 
-It teaches the robot progressively harder tasks while continuously varying the physical environment and initial task state. This gives the policy both **robustness to environmental variation** and **the ability to recover when it does not start from the expected state**.
+It teaches the robot progressively harder tasks while continuously varying the physical environment and initial task state. It also teaches the planner to adapt the task decomposition when unexpected intermediate conditions arise. This gives the policy both **robustness to environmental variation**, **the ability to recover when it does not start from the expected state**, and **the ability to dynamically create intermediate subtasks when the original plan is insufficient**.
 
-The VLM agent therefore operates one level above the policy:
+The VLM agent therefore operates above the policy:
 
 ```text
 VLM Training Agent
         ↓
 chooses what the robot should experience
+
+High-Level VLM Planner
+        ↓
+chooses what the robot should accomplish next
 
 Robot VLA
         ↓
@@ -3031,7 +3204,9 @@ A deployed robot is not merely a consumer of a fixed model. It is an autonomous 
 
 At the foundation level, the World Model itself also acts as a data-generation and diagnosis engine: it produces hypothetical human experiences, uses real observations as seeds for controlled variations, exposes its own blind spots, and directs the organization toward the real-world data needed to improve its understanding of physical reality.
 
-At the deployment level, the VLM training agent performs the analogous role for environment-specific learning: it constructs the curriculum, varies the environment, varies the initial state, and continually adapts the training distribution to the current policy.
+At the environment-training level, the VLM training agent performs the analogous role for deployment-specific learning: it constructs the curriculum, varies the environment, varies the initial state, creates scenarios requiring dynamic replanning, and continually adapts the training distribution to the current policy.
+
+At runtime, the high-level planner performs the analogous role for execution: it turns an abstract goal into a living hierarchy of subtasks, observes what actually happens, and rewrites the plan whenever reality invalidates the current assumptions.
 
 This creates a compounding learning system:
 
@@ -3048,6 +3223,8 @@ This creates a compounding learning system:
 \text{Better World Model}
 \rightarrow
 \text{Better Reasoning}
+\rightarrow
+\text{Better Planning}
 \rightarrow
 \text{Better Target Imagination}
 \rightarrow
@@ -3078,6 +3255,8 @@ and across the fleet:
 \text{Better Lab VLA}
 \rightarrow
 \text{Better World Model}
+\rightarrow
+\text{Better Planning}
 \rightarrow
 \text{Better Target Imagination}
 \rightarrow
@@ -3154,7 +3333,7 @@ The end state is **zero-to-hero robot autonomy**. The user provides a robot, an 
 &\qquad\qquad\downarrow
 \\
 &
-\text{Task + Environment + Initial-State Variation}
+\text{Task + Dynamic Subtasks + Environment + Initial-State Variation}
 \\
 &\qquad\qquad\downarrow
 \\
@@ -3169,7 +3348,12 @@ The end state is **zero-to-hero robot autonomy**. The user provides a robot, an 
 &\qquad\qquad\downarrow
 \\
 &
-\text{Reasoning}
+\text{Dynamic Hierarchical Planning}
+\\
+&\qquad\qquad\downarrow
+\\
+&
+\text{Current Subtask}
 \\
 &\qquad\qquad\downarrow
 \\
@@ -3276,19 +3460,21 @@ At deployment, the user can simply say:
 
 > **"Clean the table."**
 
-The robot understands the task, retrieves the relevant skill, determines how much reasoning is required, enters its environment-specific policy, and operates through the nested target/action decision loop. It periodically imagines three possible medium-horizon target futures, uses a VLM to select the best target, generates three plausible action chunks, predicts one future for each through the World Model, compares those three imagined futures against the target using the VLM, selects the action associated with the best future, executes it through a hardware-safe control stack, and monitors the result.
+The robot understands the task, retrieves the relevant skill, creates an initial hierarchical plan, determines how much reasoning is required, enters its environment-specific policy, and operates through the nested planning and control loops. It periodically imagines three possible medium-horizon target futures, uses a VLM to select the best target, generates three plausible action chunks, predicts one future for each through the World Model, compares those three imagined futures against the target using the VLM, selects the action associated with the best future, executes it through a hardware-safe control stack, and monitors the result.
 
-The selected target is not regenerated for every individual action chunk. The robot repeatedly performs the fast action-selection loop against that target and periodically generates a new set of target futures as the task progresses.
+Meanwhile, the high-level planner watches the execution state and can dynamically replan. It can discover an unexpected prerequisite, create a new subtask, abandon an invalid branch, reorder remaining subtasks, or switch to a recovery sequence without requiring a new human instruction.
+
+The selected target is not regenerated for every individual action chunk. The robot repeatedly performs the fast action-selection loop against that target and periodically generates a new set of target futures as the subtask progresses. The high-level planner sits above this loop and can invalidate the current target by changing the active subtask.
 
 Before reaching this deployment point, however, the robot has already undergone a dedicated environment-specific curriculum. A VLM agent has generated progressively more difficult tasks, varied the physical environment around the calibrated deployment world, and initialized tasks from different states, including partially completed and degraded states. The policy therefore enters reality having already learned not only how to perform the expected tasks, but how to operate under the kinds of variation and recovery conditions it is expected to encounter.
 
-When the robot encounters something it does not understand, the system does not simply record a failure and move on. It captures the entire event, uses the local VLM training agent to generate targeted simulation scenarios, and learns locally from the failure. The information also goes back to the Lunch Robotics lab, where the team determines whether the failure reveals a broader capability, reasoning, target-imagination, prediction, VLM-ranking, or action-selection gap.
+When the robot encounters something it does not understand, the system does not simply record a failure and move on. It captures the entire event, uses the local VLM training agent to generate targeted simulation scenarios, and learns locally from the failure. The information also goes back to the Lunch Robotics lab, where the team determines whether the failure reveals a broader capability, reasoning, planning, target-imagination, prediction, VLM-ranking, or action-selection gap.
 
 The team then curates the appropriate training data, improves the global VLA and/or World Model and/or VLM, mixes the new global knowledge with the knowledge accumulated by specialized deployments, and redistributes the resulting system across the fleet.
 
 At the foundation level, the same philosophy applies before deployment. Real egocentric video teaches the World Model how the physical world behaves; the World Model then generates large quantities of hypothetical human manipulation experience and can also use real video initial frames as seeds for an image-editing model that creates controlled scene variations and slight task variations; humans and learned critics identify where those generations are implausible; pose-estimation models turn the surviving generations into action supervision; and the resulting failure patterns determine which real-world experiences should be collected next.
 
-The long-term objective is not to build another robot-specific policy. It is to build a **universal brain that can be installed into any robot, adapted to any physical environment, reason at the appropriate level for any task, learn broad physical intelligence from massive real-world experience, use its World Model to generate and interrogate synthetic human experience, use real video as a seed for controlled synthetic variation, identify the limits of its own understanding, guide targeted real-world data collection, adapt itself to an expected deployment environment through VLM-guided curriculum learning, become robust through large-scale simulation RL across environmental and initial-state variations, recover from unexpected states, periodically imagine multiple possible desirable futures, select the best target future, generate multiple candidate action chunks at high frequency, simulate their consequences through the World Model, use a VLM to choose the action whose predicted outcome best matches the currently selected future, and continuously improve through the collective experience of every robot running it.**
+The long-term objective is not to build another robot-specific policy. It is to build a **universal brain that can be installed into any robot, adapted to any physical environment, reason at the appropriate level for any task, dynamically decompose and replan long-horizon tasks, learn broad physical intelligence from massive real-world experience, use its World Model to generate and interrogate synthetic human experience, use real video as a seed for controlled synthetic variation, identify the limits of its own understanding, guide targeted real-world data collection, adapt itself to an expected deployment environment through VLM-guided curriculum learning, become robust through large-scale simulation RL across environmental and initial-state variations, recover from unexpected states, periodically imagine multiple possible desirable futures, select the best target future, generate multiple candidate action chunks at high frequency, simulate their consequences through the World Model, use a VLM to choose the action whose predicted outcome best matches the currently selected future, continuously revise its high-level plan and create new subtasks when needed, and continuously improve through the collective experience of every robot running it.**
 
 The complete philosophy can be summarized as:
 
@@ -3309,6 +3495,8 @@ Real-to-Sim
    ↓
 VLM-Generated Curriculum
    ↓
+Dynamic Subtask Training
+   ↓
 Environment Variations
    +
 Initial-State Variations
@@ -3316,6 +3504,12 @@ Initial-State Variations
 Agentic Simulation RL
    ↓
 Robust Environment-Specific Robot
+   ↓
+Dynamic Hierarchical Planning
+   ↓
+Target-Future Selection
+   ↓
+Action Selection
    ↓
 Real Deployment
    ↓
@@ -3332,4 +3526,5 @@ All Robots
 
 The fundamental insight is:
 
-> **Reality provides the grounding. World Models generate hypotheses. VLM agents decide what to learn. RL learns how to act. Simulation provides scale. Deployment provides new evidence. Lunch Robotics turns the most generalizable evidence into a better universal brain.**
+> **Reality provides the grounding. World Models generate hypotheses. VLM agents decide what to learn and what to accomplish. RL learns how to act. Simulation provides scale. Deployment provides new evidence. Lunch Robotics turns the most generalizable evidence into a better universal brain.**
+
