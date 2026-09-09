@@ -16,7 +16,7 @@ Given a long egocentric video trajectory,
 V = \{I_1, I_2, \ldots, I_T\},
 ```
 
-a specialized 3D reconstruction model processes the entire sequence, or incrementally updates a persistent scene representation, to produce an initial reconstruction
+A specialized real-time, monocular-based 3D reconstruction system (e.g., LingBot-Map) incrementally updates a persistent representation, to produce an initial reconstruction
 
 ```math
 S_0 = R(V).
@@ -24,7 +24,7 @@ S_0 = R(V).
 
 The reconstruction may contain camera poses, depth, point clouds, Gaussian splats, meshes, object-level representations, semantic features, and uncertainty estimates. Importantly, this stage is allowed to use arbitrarily long temporal context. It is optimized primarily for geometric consistency rather than video generation.
 
-The resulting reconstruction is then passed to a pretrained video world model, which serves as a **learned prior over physical scenes**. Rather than asking the world model to reconstruct the scene directly from thousands of frames, we condition it on the compact output of the reconstruction system and ask it to identify inconsistencies, infer missing structure, and refine the scene toward a representation that is more consistent with the distribution of real-world environments learned during large-scale video pretraining:
+The resulting reconstruction is then passed to a pretrained video world model, which serves as a **learned prior over physical s**. Rather than asking the world model to reconstruct the scene directly from thousands of frames, we condition it on the compact output of the reconstruction system and ask it to identify inconsistencies, infer missing structure, and refine the scene toward a representation that is more consistent with the distribution of real-world environments learned during large-scale video pretraining:
 
 ```math
 S^* = W(S_0, V_{\mathrm{local}}),
