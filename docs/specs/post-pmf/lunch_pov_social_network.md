@@ -5,8 +5,8 @@ A TikTok-like social network built entirely around egocentric (POV) video, desig
 ## Vision & Core Product Experience
 The POV Social Network functions as a TikTok-style feed on the surface, while strategically building the world’s largest egocentric dataset for physical AI.
 *   **POV-Only Content:** Viewers experience activities directly through the creator's eyes, fundamentally shifting the media from observation to immersion.
-*   **High-Velocity Hybrid Feed:** A fast-discovery feed optimized for instant switching between uploads, AI-clipped moments, and pre-fetched live streams.
-*   **Automatic Clipping:** AI extracts viral short-form clips from long streams, driving a funnel: Short Clip → Creator → Long-Form POV → Live Experience.
+*   **High-Velocity Hybrid Feed:** A fast-discovery feed optimized for instant switching between clips and live streams.
+*   **Automatic Clipping:** AI extracts viral short-form clips from long streams and post them automatically.
 *   **Audio & Accessibility:** Video is silent by default for public browsing, with optional audio, auto-transcription, and translation.
 *   **World Search:** The network acts as a searchable, immersive window into global physical activities.
 
@@ -15,10 +15,10 @@ The POV Social Network functions as a TikTok-style feed on the surface, while st
 ## Architecture, Safety & Creator Strategy
 The platform utilizes a robust asynchronous pipeline to balance real-time engagement with intense processing needs.
 *   **The 1–2 Minute Buffer:** Live streams run on an architectural delay pipeline: Capture → Ingestion → Chunking → AI Processing → CDN → Viewer.
-*   **Real-Time Processing:** The buffer enables AI to handle moderation, face blurring, clipping, and physical-world data extraction before distribution.
+*   **Real-Time Processing:** The buffer enables AI to remove NSFW content, do face blurring and clipping,.
 *   **Creator Interaction:** Creators manage live chat natively on their phones while streaming, with the broadcast delay remaining largely invisible to viewers.
 *   **Targeted Seeding:** Growth is kickstarted by subsidizing hardware for established creators to migrate their existing audiences.
-*   **Algorithmic Data Bounties:** The platform incentivizes the capture of scarce real-world activities (e.g., repairs, construction) via algorithmic reach rather than direct payouts.
+*   **Data Bounties:** The platform incentivizes the capture of scarce real-world activities (e.g., repairs, construction) via algorithmic reach, direct payouts and hardware subsidiation.
 
 ---
 
