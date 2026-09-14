@@ -468,9 +468,9 @@ The first six stages form the **global foundation training system**:
 | --- | --- | ---: | --- | --- |
 | **1** | Massive human egocentric video | Massive | Self-supervised | World representation and physical prediction |
 | **2** | Human video + VLM pose waypoints | Large | Approximate action supervision | Human action understanding |
-| **3** | Synthetic human egocentric data | Very Large | Synthetic action supervision | Action-conditioned physical prediction |
-| **4** | Human manipulation + data-collecting gripper | Medium | Robot-relevant action supervision | Contact and manipulation |
-| **5** | Teleoperation data | Small | Direct robot action supervision | Robot control and embodiment |
+| **3** | Synthetic human egocentric data | Very Large | Synthetic Approximate action supervision | Action-conditioned physical prediction |
+| **4** | Human manipulation + data-collecting gripper | Medium | Human Manipulation action supervision | Contact and manipulation |
+| **5** | Teleoperation data | Small | Direct Robot action supervision | Robot control and embodiment |
 | **6** | Reasoning traces + RL rollouts | Targeted | SFT + outcome-driven RL | Adaptive reasoning and action selection |
 
 Stage 7 is different because its data is **generated specifically for the expected deployment**:
