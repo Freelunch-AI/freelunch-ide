@@ -4,7 +4,7 @@
 
 We are building a **universal robot brain** that can turn a general-purpose robot into an autonomous worker inside an arbitrary physical environment. The fundamental problem in robotics is not simply making robots capable of moving or manipulating objects, but giving them enough general intelligence to understand an unfamiliar world, reason about what should be done, predict the consequences of possible actions, adapt to the specific physics and embodiment of that world, dynamically decompose and replan long-horizon tasks, and continuously improve as they encounter situations that were not represented in their original training data. Lunch Robotics separates this problem into **general physical intelligence, world simulation, adaptive reasoning, hierarchical task planning, environment-specific intelligence, pre-deployment robustness, and continual fleet learning**, with each layer contributing a distinct capability to the overall system.
 
-General robot intelligence is learned offline through a **Foundation Model Data Funnel** that combines massive amounts of human video with progressively more robot-relevant forms of supervision. Massive human video provides broad knowledge about the physical world, a generative World Model can then be used to produce large quantities of synthetic egocentric human manipulation experience that is filtered and action-annotated, human action supervision connects that knowledge to purposeful behavior, manipulation data collected with a data-collecting gripper introduces contact and embodiment information, and a smaller amount of teleoperation data provides direct grounding in robot control. The World Model itself is trained in two complementary phases: first, it learns the structure and evolution of the physical world from massive passive video through future and spatial prediction; second, it is further fine-tuned with **action-conditioned training**, where actions are explicitly provided as inputs and the model learns to predict what will happen after those actions. This transforms the World Model from a passive predictor into a learned **action-conditioned simulator** capable of evaluating hypothetical robot behaviors.
+General robot intelligence is learned offline through a **Foundation Model Data Funnel** that combines massive amounts of human video with progressively more robot-relevant forms of supervision. Massive human video provides broad knowledge about the physical world, a generative World Model can then be used to produce large quantities of synthetic egocentric human manipulation experience that is filtered and action-annotated, human action supervision connects that knowledge to purposeful behavior, manipulation data collected with a data-collecting gripper introduces contact and embodiment information, and a smaller amount of teleoperation data provides direct grounding in robot control. The World Model itself is trained through three complementary phases: first, it learns the structure and evolution of the physical world from massive passive video through future and spatial prediction; second, it is fine-tuned on synthetic multi-environment data to learn **3D-conditioned temporal prediction**, allowing it to use explicit scene geometry and noisy 3D observations when available; third, it is further fine-tuned with **action-conditioned training**, where actions are explicitly provided as inputs and the model learns to predict what will happen after those actions. This progressively transforms the World Model from a passive predictor, into a 3D-conditioned temporal model, and finally into a learned **action-conditioned simulator** capable of evaluating hypothetical robot behaviors.
 
 The synthetic egocentric-data stage is deliberately positioned between passive foundation-model pretraining and dense action-conditioned training. Once the foundation World Model is sufficiently capable, it can generate large numbers of hypothetical human manipulation episodes covering tasks, objects, viewpoints, and physical situations that are expensive to collect in the real world. It can do this both by generating completely new egocentric trajectories and by taking real human videos and modifying their initial frames with an image-editing model to create controlled variations of the scene, object configuration, or task. Humans and learned critics filter these generations for plausibility and usefulness, while pose-estimation models recover approximate hand and body actions from the surviving videos. These generated examples become an additional source of action-conditioned supervision, allowing the model to learn controllable physical dynamics at much greater scale than direct real-world collection alone would permit. Crucially, this is not treated as a closed synthetic-data loop: **real egocentric data remains the grounding source**, and the synthetic generation process is simultaneously used to discover where the foundation model is weak and determine which new real-world experiences should be collected to correct those weaknesses.
 
@@ -206,7 +206,7 @@ VLM
 
 There are **three candidate futures at the action-selection stage, not nine**. The VLA proposes what could be done, the World Model predicts what would happen, and the VLM determines both which imagined future is desirable and which proposed action most closely produces that future. The high-level planner adds another semantic layer: it determines **what should be accomplished next**, can dynamically decompose a task into subtasks, and can change that decomposition whenever execution reveals new information.
 
-The reasoning-capable foundation brain is then adapted to a specific robot and physical environment by an autonomous **Real-to-Sim Agent**. Given a walkthrough of the environment, tactile probing data, task context, demonstrations, and the robot's hardware specification, the agent constructs and calibrates a digital twin, performs system identification, determines which aspects of the environment should be represented through explicit physics and which should be handled by learned dynamics, and trains a fast surrogate simulator. The resulting calibrated simulator becomes the training environment for Stage 7 agentic RL, where a VLM agent constructs the task curriculum and generates environment and initial-state variations. The output is an **environment-specific VLA** specialized to the particular robot and expected operating world.
+The reasoning-capable foundation brain is then adapted to a specific robot and physical environment by an autonomous **Real-to-Sim Agent**. Given a walkthrough of the environment, tactile probing data, task context, demonstrations, and the robot's hardware specification, the agent constructs and calibrates a digital twin, performs system identification, determines which aspects of the environment should be represented through explicit physics and which should be handled by learned dynamics, and trains a fast surrogate simulator. The resulting calibrated simulator becomes the training environment for Stage 8 agentic RL, where a VLM agent constructs the task curriculum and generates environment and initial-state variations. The output is an **environment-specific VLA** specialized to the particular robot and expected operating world.
 
 The system does not stop learning after deployment. Each deployed robot continuously improves locally through simulation, while the platform monitors real-world execution for mistakes. A failure may be identified explicitly by the human user or automatically by a VLM observing the robot through cameras installed in the environment. Every detected mistake is captured as a rich episode containing the task and subtask being executed, the robot state and action trajectories, the reasoning context, the active hierarchical plan and planner state, any dynamically generated subtasks, the three target trajectories sampled during the most recent target update, the VLM scores used to select the target, the three candidate actions considered by the VLA, the World Model's predicted future for each candidate, the VLM scores used to rank those predicted futures against the target, the selected action, the actual execution, the corresponding decoded imagined videos, and the relevant simulator state and environment parameters.
 
@@ -221,6 +221,8 @@ This creates a compounding global-local learning system:
 \text{World Model}
 \rightarrow
 \text{Synthetic Egocentric Action Data}
+\rightarrow
+\text{3D-Conditioned World Model}
 \rightarrow
 \text{Action-Conditioned World Model}
 \rightarrow
@@ -397,34 +399,40 @@ where `j` indexes target updates and `k` indexes the higher-frequency action dec
 
 # 2. Foundation Model Data Funnel
 
-The foundation model and pre-deployment training process is organized as a **seven-stage data and learning funnel** in which the amount of available data decreases as fidelity, action grounding, reasoning, and environment specificity increase. The first six stages build a globally capable reasoning robot brain from massive human video through increasingly direct action supervision. The seventh stage takes that general brain into a calibrated simulation of the specific environment and robot in which it is expected to operate, where **agentic reinforcement learning exposes it to a curriculum of increasingly complex tasks, systematic environment variations, and varied initial states that teach the robot both robustness and recovery before real-world deployment**.
+The foundation model and pre-deployment training process is organized as an **eight-stage data and learning funnel** in which the amount of available data decreases as fidelity, action grounding, reasoning, and environment specificity increase. The first seven stages build a globally capable reasoning robot brain from massive human video through increasingly direct action supervision. The eighth stage takes that general brain into a calibrated simulation of the specific environment and robot in which it is expected to operate, where **agentic reinforcement learning exposes it to a curriculum of increasingly complex tasks, systematic environment variations, and varied initial states that teach the robot both robustness and recovery before real-world deployment**.
 
-The seven stages are:
+The eight stages are:
 
 ```text
                          ┌────────────────────────────┐
-                         │ STAGE 7                    │
+                         │ STAGE 8                    │
                          │ AGENTIC ENVIRONMENT RL     │
                          │ Curriculum + robustness   │
                          │ + recovery before reality  │
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────┴──────────────┐
-                         │ STAGE 6                    │
+                         │ STAGE 7                    │
                          │ REASONING SFT + RL         │
                          │ Adaptive reasoning         │
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────┴──────────────┐
-                         │ STAGE 5                    │
+                         │ STAGE 6                    │
                          │ TELEOPERATION              │
                          │ Direct robot actions       │
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────┴──────────────┐
-                         │ STAGE 4                    │
+                         │ STAGE 5                    │
                          │ HUMAN + GRIPPER DATA       │
                          │ Manipulation + contact     │
+                         └─────────────┬──────────────┘
+                                       │
+                         ┌─────────────┴──────────────┐
+                         │ STAGE 4                    │
+                         │ 3D-CONDITIONED WORLD MODEL │
+                         │ Synthetic multi-env data   │
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────┴──────────────┐
@@ -439,41 +447,42 @@ The seven stages are:
                          │ Approximate action data    │
                          └─────────────┬──────────────┘
                                        │
-                    ┌──────────────────┴──────────────────┐
-                    │ STAGE 1                             │
-                    │ MASSIVE HUMAN EGOCENTRIC VIDEO      │
-                    │ Broadest world coverage             │
-                    └─────────────────────────────────────┘
+                  ┌────────────────────┴──────────────────┐
+                  │ STAGE 1                             │
+                  │ MASSIVE HUMAN EGOCENTRIC VIDEO      │
+                  │ Broadest world coverage             │
+                  └─────────────────────────────────────┘
 
-                         ↓    ↓    ↓    ↓    ↓    ↓
+                         ↓    ↓    ↓    ↓    ↓    ↓    ↓
 
                     GLOBAL FOUNDATION TRAINING
 
-                         ↓
+                              ↓
 
-                 WORLD MODEL + VLA BRAIN
+                    WORLD MODEL + VLA BRAIN
 
-                         ↓
+                              ↓
 
-              STAGE 7 ENVIRONMENT SPECIALIZATION
+                   STAGE 8 ENVIRONMENT SPECIALIZATION
 
-                         ↓
+                              ↓
 
-                  REAL-WORLD DEPLOYMENT
+                    REAL-WORLD DEPLOYMENT
 ```
 
-The first six stages form the **global foundation training system**:
+The first seven stages form the **global foundation training system**:
 
 | Stage | Data | Scale | Supervision | Primary Capability |
 | --- | --- | ---: | --- | --- |
-| **1** | Massive human egocentric video | Massive | Self-supervised | World representation and physical prediction |
+| **1** | Massive human egocentric video | Massive | Next-video-latent prediction | World representation and physical prediction |
 | **2** | Human video + VLM pose waypoints | Large | Approximate action supervision | Human action understanding |
-| **3** | Synthetic human egocentric data | Very Large | Synthetic Approximate action supervision | Action-conditioned physical prediction |
-| **4** | Human manipulation + data-collecting gripper | Medium | Human Manipulation action supervision | Contact and manipulation |
-| **5** | Teleoperation data | Small | Direct Robot action supervision | Robot control and embodiment |
-| **6** | Reasoning traces + RL rollouts | Targeted | SFT + outcome-driven RL | Adaptive reasoning and action selection |
+| **3** | Synthetic human egocentric data | Very Large | Synthetic approximate action supervision | Scalable action-conditioned coverage |
+| **4** | Synthetic multi-environment video + explicit 3D scene data + noise conditions | Large | 3D-conditioned next-video-latent prediction | 3D-conditioned world dynamics |
+| **5** | Human manipulation + data-collecting gripper | Medium | Human manipulation action supervision | Contact and manipulation |
+| **6** | Teleoperation data | Small | Direct robot action supervision | Robot control and embodiment |
+| **7** | Reasoning traces + RL rollouts | Targeted | SFT + outcome-driven RL | Adaptive reasoning and action selection |
 
-Stage 7 is different because its data is **generated specifically for the expected deployment**:
+Stage 8 is different because its data is **generated specifically for the expected deployment**:
 
 | Stage | Data | Scale | Supervision | Primary Capability |
 | --- | --- | ---: | --- | --- |
@@ -482,11 +491,11 @@ Stage 7 is different because its data is **generated specifically for the expect
 The distinction is fundamental:
 
 ```text
-Stages 1–6
+Stages 1–7
         ↓
 GLOBAL ROBOT BRAIN
 
-Stage 7
+Stage 8
         ↓
 ENVIRONMENT-SPECIFIC ROBOT BRAIN
 
@@ -495,7 +504,7 @@ Real Deployment
 CONTINUAL LOCAL + GLOBAL LEARNING
 ```
 
-Stage 7 is therefore not another foundation-data layer in the same sense as human video or teleoperation. It is the **final pre-deployment specialization stage** in which the global model is turned into a policy that is competent and robust in the particular robot and physical world where it is expected to operate.
+Stage 8 is therefore not another foundation-data layer in the same sense as human video or teleoperation. It is the **final pre-deployment specialization stage** in which the global model is turned into a policy that is competent and robust in the particular robot and physical world where it is expected to operate.
 
 ---
 
@@ -523,9 +532,9 @@ The data funnel has both a **scale dimension** and a **grounding dimension**. Da
                     LOW FIDELITY / HIGH SCALE
 ```
 
-The critical addition is that the synthetic stage is **generated using both the foundation World Model and real-video seeds**. This creates a controlled bridge between broad passive world knowledge and dense action supervision without pretending that generated data contains novel grounding equivalent to real observations.
+The critical addition is that the synthetic human stage is **generated using both the foundation World Model and real-video seeds**, while the next stage adds explicit 3D conditioning through synthetic multi-environment temporal prediction. Together these create a controlled bridge from broad passive world knowledge to increasingly structured physical prediction and dense action supervision without pretending that generated data contains novel real-world grounding.
 
-Stage 7 then sits orthogonally above this pyramid as the **environment-specific specialization layer**:
+Stage 8 then sits orthogonally above this pyramid as the **environment-specific specialization layer**:
 
 ```text
 GLOBAL DATA PYRAMID
@@ -721,14 +730,98 @@ The purpose of this loop is therefore broader than synthetic-data augmentation. 
 
 ---
 
-# 2.5 Action-Conditioned World Model Training
+# 2.5 Stage 4 — 3D-Conditioned World Model Fine-Tuning
 
-The passive World Model from Stage 1 is now exposed to increasingly large collections of action-labelled trajectories from real human video, synthetic human video, manipulation datasets, and teleoperation. Instead of learning only:
+Stage 4 adds an explicit **3D-conditioned learning capability** to the foundation World Model. The model is fine-tuned on large amounts of synthetic video generated from multiple types of simulated environments, where every training example can provide both the recent visual history and an explicit 3D representation of the environment. The objective remains temporal prediction: given previous frames, predict the next frame, but now the World Model can also condition its prediction on structured 3D information when that information is available.
+
+The synthetic environments should cover diverse geometries, object configurations, interaction layouts, viewpoints, and physical conditions so that the model learns a general relationship between visual observations, explicit 3D scene state, and temporal evolution rather than memorizing one simulator.
+
+```text
+Previous Frames
+      +
+3D Environment Representation
+      +
+Noise / Observation Condition
+      ↓
+3D-Conditioned World Model
+      ↓
+Predicted Next Frame
+```
+
+The 3D input can contain whatever explicit scene information is available from the simulator and later from real-world perception, such as geometry, depth, point clouds, object poses, spatial relationships, or other structured representations of the scene. The important capability is not dependence on a single 3D format, but learning that **explicit geometric state can be used as an additional conditioning signal for temporal prediction**.
+
+The training objective can be expressed conceptually as:
+
+```math
+\hat{o}_{t+1}
+\sim
+P_{\phi}
+\left(
+o_{t-k:t},
+G_t,
+n_t
+\right)
+
+
+where `o_{t-k:t}` denotes the recent sequence of observed frames, `G_t` is the available 3D representation of the environment, and `n_t` is a noise or observation-condition variable describing the rendering or sensing conditions under which the sequence was generated.
+
+The **noise factor** is deliberately varied during training to prevent the model from learning only clean simulator dynamics. The simulation can introduce controlled visual and sensing imperfections such as sensor noise, depth corruption, missing observations, motion blur, lighting variation, rendering artifacts, imperfect reconstruction, or other disturbances that approximate the conditions encountered by a real perception stack. The World Model therefore learns to use 3D information without assuming that either the video or the explicit scene representation is perfectly clean.
+
+A crucial property of this stage is that **3D conditioning is optional**. Training can mix examples where the 3D representation is available with examples where it is absent or degraded. This teaches the World Model to exploit explicit geometry when it exists while retaining the ability to predict from visual history alone.
+
+```mermaid
+flowchart TD
+    A["Synthetic Simulated Environments"] --> B["Rendered Frame Sequences"]
+    A --> C["Explicit 3D Scene State"]
+    A --> D["Noise / Sensor Conditions"]
+
+    B --> E["3D-Conditioned World Model"]
+    C --> E
+    D --> E
+
+    E --> F["Predicted Next Frame / Future Latents"]
+    F --> G["Temporal Prediction Loss"]
+
+    H["3D Available"] --> E
+    I["3D Missing / Degraded"] --> E
+```
+
+This stage is intentionally **not yet action-conditioned**. The model is still learning to predict how the observed world evolves from one frame to the next. The new capability is that it can now use explicit 3D scene state to disambiguate geometry, occlusion, spatial relationships, and other aspects of the physical world that may be difficult to infer from a short visual history alone.
+
+The role of Stage 4 is therefore to establish the progression:
+
+```text
+Passive Video Understanding
+        ↓
+Synthetic Human Action Coverage
+        ↓
+3D-Conditioned Temporal Prediction
+        ↓
+Action-Conditioned Prediction
+        ↓
+Contact + Robot Action Grounding
+```
+
+The same capability can later be used by the action-conditioned World Model. Once actions become inputs, the model can combine **visual history + explicit 3D state + action** when available, giving the simulator a stronger representation of the physical configuration in which an action is being evaluated.
+
+---
+
+# 2.6 Action-Conditioned World Model Training
+
+The World Model, now strengthened by the Stage 4 3D-conditioned temporal prediction objective, is exposed to increasingly large collections of action-labelled trajectories from real human video, synthetic human video, manipulation datasets, and teleoperation. The action-conditioned model can continue to use explicit 3D scene state when it is available, while remaining capable of operating from visual state alone. Instead of learning only:
 
 ```math
 z_{t+1}
 \sim
-P_{\phi}(z_{t+1} \mid s_t)
+P_{\phi}
+\left(
+z_{t+1}
+\mid
+s_t,
+G_t,
+a_t
+
+ight)
 ```
 
 the model learns:
@@ -769,7 +862,7 @@ This transforms the World Model into a learned **action-conditioned simulator**.
 
 ---
 
-# 2.6 Stage 4 — Human Manipulation + Data-Collecting Gripper
+# 2.7 Stage 5 — Human Manipulation + Data-Collecting Gripper
 
 The fourth layer introduces substantially more direct information about manipulation and contact. Humans perform manipulation tasks using a **data-collecting gripper** that records end-effector motion and interaction signals, giving the model access to information that is difficult to recover from ordinary video alone, including grasping, pushing, pulling, contact transitions, deformation, slip, and other manipulation dynamics.
 
@@ -785,7 +878,7 @@ This dataset is useful for both sides of the system: for the VLA, it provides be
 
 ---
 
-# 2.7 Stage 5 — Teleoperation
+# 2.8 Stage 6 — Teleoperation
 
 Teleoperation provides the highest-fidelity foundation-model supervision because demonstrations are generated directly by real robots. It provides true robot action distributions, embodiment-specific kinematics, actuator constraints, interaction dynamics, temporal structure, and realistic observation-action correlations, making it the most direct source of robot-specific grounding in the foundation model.
 
@@ -802,13 +895,13 @@ The same teleoperation trajectories therefore serve two complementary purposes: 
 
 ---
 
-# 2.8 Stage 6 — Reasoning SFT + RL
+# 2.9 Stage 7 — Reasoning SFT + RL
 
 The earlier stages teach the VLA **what the world looks like, how it evolves, how humans manipulate it, how robot actions affect it, and how to simulate those effects**. The sixth stage teaches the VLA **how to reason before proposing an action**.
 
 At this point, the model already has access to an action-conditioned World Model capable of evaluating candidate behaviors, but many real tasks still require reasoning about long-horizon goals, object affordances, safety constraints, task ordering, uncertainty, tool selection, other agents, and possible future outcomes.
 
-A purely reactive mapping from observation directly to action is therefore often insufficient. Stage 6 turns the VLA into a **reasoning-capable action proposal model**. The first part is supervised fine-tuning on high-quality reasoning trajectories paired with successful actions, teaching the VLA how to decompose tasks, identify relevant constraints, reason about the physical state, retrieve relevant skills, and determine what kinds of actions are worth considering.
+A purely reactive mapping from observation directly to action is therefore often insufficient. Stage 7 turns the VLA into a **reasoning-capable action proposal model**. The first part is supervised fine-tuning on high-quality reasoning trajectories paired with successful actions, teaching the VLA how to decompose tasks, identify relevant constraints, reason about the physical state, retrieve relevant skills, and determine what kinds of actions are worth considering.
 
 ```math
 (o_t, T)
@@ -824,17 +917,17 @@ The model therefore learns not merely to reason, but to reason in a way that pro
 
 ---
 
-# 2.9 Stage 7 — Agentic RL in the Expected Environment
+# 2.10 Stage 8 — Agentic RL in the Expected Environment
 
 After the global reasoning-capable brain has been trained, the model is specialized to the particular robot and environment through **massive agentic reinforcement learning inside the calibrated deployment simulator**.
 
-Stage 7 follows the same fundamental mechanism as the local online RL loop used after deployment. The robot learns through interaction, task complexity is increased through curriculum learning, and the training environment is continuously varied. The key difference is that Stage 7 happens **before real-world deployment**, allowing the robot to acquire environment-specific competence, robustness, and recovery ability in simulation.
+Stage 8 follows the same fundamental mechanism as the local online RL loop used after deployment. The robot learns through interaction, task complexity is increased through curriculum learning, and the training environment is continuously varied. The key difference is that Stage 8 happens **before real-world deployment**, allowing the robot to acquire environment-specific competence, robustness, and recovery ability in simulation.
 
 The central idea is:
 
 > **The VLM agent constructs the worlds and situations the robot learns in; the robot agent learns how to operate within them.**
 
-The Stage 7 architecture is:
+The Stage 8 architecture is:
 
 ```text
 Global Reasoning-Capable VLA
@@ -915,9 +1008,9 @@ The planner itself is also trained to handle **dynamic decomposition**. It does 
 
 ---
 
-# 2.10 VLM-Generated Curriculum
+# 2.11 VLM-Generated Curriculum
 
-The Stage 7 curriculum follows the same basic principle as online local RL: the robot progresses from **small tasks to increasingly larger and more complex tasks**.
+The Stage 8 curriculum follows the same basic principle as online local RL: the robot progresses from **small tasks to increasingly larger and more complex tasks**.
 
 ```text
 Simple Primitive
@@ -957,7 +1050,7 @@ The curriculum is therefore adaptive rather than a fixed script. The VLM agent r
 
 ---
 
-# 2.11 Dynamic Hierarchical Planning and Subtask Creation
+# 2.12 Dynamic Hierarchical Planning and Subtask Creation
 
 The high-level VLM planner maintains a hierarchical task state rather than a frozen sequence of instructions. Given the task objective and the current world state, it proposes an initial plan, selects the active subtask, and monitors execution against the expected state transitions.
 
@@ -1042,7 +1135,7 @@ The high-level planner therefore changes **what the robot is trying to accomplis
 
 ---
 
-# 2.12 Environment Variation
+# 2.13 Environment Variation
 
 For every curriculum level, the VLM agent creates multiple variations of the expected deployment environment. The objective is to prevent the environment-specific VLA from simply memorizing the exact configuration reconstructed by the Real-to-Sim system.
 
@@ -1122,11 +1215,11 @@ The system does not randomize everything uniformly. The VLM agent reasons about 
 
 ---
 
-# 2.13 Initial-State Variation and Recovery Training
+# 2.14 Initial-State Variation and Recovery Training
 
 Environment variation alone is not sufficient for robust autonomy. A robot can be trained across many different scenes while still implicitly assuming that every task begins from a clean, ideal state.
 
-Stage 7 therefore also varies the **initial task state**.
+Stage 8 therefore also varies the **initial task state**.
 
 The VLM agent can intentionally initialize the environment and robot in states that are partially completed, unusual, degraded, or inconsistent with the nominal demonstration.
 
@@ -1182,12 +1275,12 @@ The purpose is to teach the robot that **it is not always starting from scratch*
 
 ---
 
-# 2.14 Curriculum Over Task Complexity, Environment, and Initial State
+# 2.15 Curriculum Over Task Complexity, Environment, and Initial State
 
-The complete Stage 7 curriculum has **four simultaneous axes**:
+The complete Stage 8 curriculum has **four simultaneous axes**:
 
 ```text
-                         STAGE 7 CURRICULUM
+                         STAGE 8 CURRICULUM
                                 │
        ┌────────────────────────┼────────────────────────┐
        │                        │                        │
@@ -1272,7 +1365,7 @@ and ultimately:
 
 ---
 
-# 2.15 VLM Agent as Scenario Generator
+# 2.16 VLM Agent as Scenario Generator
 
 The VLM agent is responsible for constructing the complete training scenario rather than merely providing a reward.
 
@@ -1322,7 +1415,7 @@ The next batch of simulation episodes is then specifically designed around that 
 
 ---
 
-# 2.16 Agentic RL
+# 2.17 Agentic RL
 
 Once the VLM agent constructs a scenario, the robot operates autonomously inside the simulator using the same complete architecture that will be used during deployment.
 
@@ -1400,7 +1493,7 @@ This is important because an eventual deployment failure may originate in the hi
 
 ---
 
-# 2.17 Simulation Curriculum Feedback
+# 2.18 Simulation Curriculum Feedback
 
 The VLM training agent receives feedback from the outcome of simulation episodes and uses that feedback to continuously update the curriculum.
 
@@ -1442,7 +1535,7 @@ At the same time, the agent tracks where dynamic replanning is required. If fail
 
 ---
 
-# 2.18 Learning Robustness, Not Memorization
+# 2.19 Learning Robustness, Not Memorization
 
 The purpose of environment-specific RL is not to memorize the exact geometry observed during calibration. It is to learn the invariances and recovery strategies that remain valid across the expected deployment distribution.
 
@@ -1456,11 +1549,11 @@ It should learn:
 
 The simulator therefore deliberately perturbs variables that should **not** change the underlying task strategy.
 
-This makes Stage 7 a form of **environment-specific robustness learning**: the robot is trained against the variations that are expected to occur around its deployment environment rather than being overfit to one deterministic simulator state.
+This makes Stage 8 a form of **environment-specific robustness learning**: the robot is trained against the variations that are expected to occur around its deployment environment rather than being overfit to one deterministic simulator state.
 
 ---
 
-# 2.19 Simulation-to-Real Validation Gate
+# 2.20 Simulation-to-Real Validation Gate
 
 Before deployment, the environment-specific VLA must pass a final validation process across both the nominal digital twin and the generated robustness distribution.
 
@@ -1488,9 +1581,9 @@ The robot should only move toward real deployment once performance is robust acr
 
 ---
 
-# 2.20 Why Stage 7 Is Separate From Real Deployment
+# 2.21 Why Stage 8 Is Separate From Real Deployment
 
-The purpose of Stage 7 is to move as much of the **learning burden as possible into simulation before the robot encounters the real environment**.
+The purpose of Stage 8 is to move as much of the **learning burden as possible into simulation before the robot encounters the real environment**.
 
 The system should therefore enter deployment having already experienced:
 
@@ -1526,9 +1619,9 @@ Real deployment then becomes primarily a process of **validation, calibration, a
 
 ---
 
-# 2.21 Why Co-Training Instead of Sequential Fine-Tuning?
+# 2.22 Why Co-Training Instead of Sequential Fine-Tuning?
 
-The different global data layers contain complementary information, and sequential fine-tuning risks allowing the final, smallest dataset to dominate the model. Massive human video provides diversity and broad physical knowledge, synthetic human demonstrations provide large-scale action-conditioned coverage and a mechanism for probing current model weaknesses, teleoperation provides highly accurate grounding in robot embodiment, action-conditioned training teaches the World Model the relationship between actions and physical consequences, and reasoning training teaches the VLA how to use these capabilities effectively.
+The different global data layers contain complementary information, and sequential fine-tuning risks allowing the final, smallest dataset to dominate the model. Massive human video provides diversity and broad physical knowledge, synthetic human demonstrations provide large-scale action-conditioned coverage and a mechanism for probing current model weaknesses, the 3D-conditioned stage teaches the World Model to exploit explicit geometric scene state under realistic observation conditions, teleoperation provides highly accurate grounding in robot embodiment, action-conditioned training teaches the World Model the relationship between actions and physical consequences, and reasoning training teaches the VLA how to use these capabilities effectively.
 
 A simplified objective is:
 
@@ -1536,6 +1629,8 @@ A simplified objective is:
 \mathcal{L}
 =
 \lambda_{\mathrm{WM}}\mathcal{L}_{\mathrm{WM}}
++
+\lambda_{\mathrm{WM-3D}}\mathcal{L}_{\mathrm{WM-3D}}
 +
 \lambda_{\mathrm{WM-action}}\mathcal{L}_{\mathrm{WM-action}}
 +
@@ -1552,11 +1647,11 @@ A simplified objective is:
 
 The fundamental principle is:
 
-> **Low-fidelity real data provides scale and broad world knowledge; synthetic data expands action-conditioned coverage and reveals model weaknesses; high-fidelity data provides grounding in manipulation and robot control; action-conditioned training turns prediction into simulation; reasoning training teaches the model how to use all of this intelligence effectively; environment-specific agentic RL turns that global intelligence into robust deployment behavior.**
+> **Low-fidelity real data provides scale and broad world knowledge; synthetic data expands action-conditioned coverage and reveals model weaknesses; 3D-conditioned training teaches the World Model to use explicit geometry under realistic observation conditions; high-fidelity data provides grounding in manipulation and robot control; action-conditioned training turns prediction into simulation; reasoning training teaches the model how to use all of this intelligence effectively; environment-specific agentic RL turns that global intelligence into robust deployment behavior.**
 
 ---
 
-# 2.22 Active Real-World Data Collection
+# 2.23 Active Real-World Data Collection
 
 The synthetic egocentric-data stage creates an explicit mechanism for deciding what additional real-world data should be acquired. Instead of assuming that more random video is always beneficial, Lunch Robotics can compare the foundation model's performance across generated tasks, measure generation quality, and identify the categories in which the model consistently produces implausible or incomplete behavior.
 
@@ -1797,7 +1892,7 @@ S_{\mathrm{tutorial}}
 
 The World Model then predicts one future for each candidate, and the VLM selects the candidate whose predicted future best matches the selected target.
 
-The **training** of this VLA occurs through Stage 7 agentic RL:
+The **training** of this VLA occurs through Stage 8 agentic RL:
 
 ```text
 Global / Mixed VLA
@@ -1959,7 +2054,7 @@ The **target-imagination process happens at lower frequency**, while the **actio
 
 # 11. Environment-Specific Agentic RL
 
-Stage 7 is the core **pre-deployment learning stage**. The VLM curriculum agent continuously constructs simulation episodes, while the environment-specific VLA learns through RL.
+Stage 8 is the core **pre-deployment learning stage**. The VLM curriculum agent continuously constructs simulation episodes, while the environment-specific VLA learns through RL.
 
 The stage follows the same learning philosophy as online local RL:
 
@@ -1981,7 +2076,7 @@ New Evaluation
 Updated Curriculum
 ```
 
-The difference is that Stage 7 can perform this learning at massive scale before exposing the policy to physical hardware.
+The difference is that Stage 8 can perform this learning at massive scale before exposing the policy to physical hardware.
 
 The VLM agent creates the scenario, while the robot agent learns inside it.
 
@@ -2043,7 +2138,7 @@ Simulation will inevitably differ from reality, so deployment creates a continua
 \text{Updated Environment-Specific VLA}
 ```
 
-The local post-deployment loop uses the same mechanism as Stage 7:
+The local post-deployment loop uses the same mechanism as Stage 8:
 
 ```text
 VLM Training Agent
@@ -3085,7 +3180,7 @@ The Real-to-Sim system solves the next problem: **how do we adapt that general i
 \text{Calibrated Simulation}
 ```
 
-Stage 7 then solves a separate but crucial problem:
+Stage 8 then solves a separate but crucial problem:
 
 > **How do we make the environment-specific robot robust before it ever enters the real world?**
 
@@ -3121,7 +3216,7 @@ and optimize the robot through agentic RL:
 
 The crucial distinction is:
 
-> **Stage 7 is the pre-deployment version of local online RL.**
+> **Stage 8 is the pre-deployment version of local online RL.**
 
 It teaches the robot progressively harder tasks while continuously varying the physical environment and initial task state. It also teaches the planner to adapt the task decomposition when unexpected intermediate conditions arise. This gives the policy both **robustness to environmental variation**, **the ability to recover when it does not start from the expected state**, and **the ability to dynamically create intermediate subtasks when the original plan is insufficient**.
 
