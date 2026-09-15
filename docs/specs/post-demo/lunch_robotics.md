@@ -1707,7 +1707,7 @@ Finally, the robot vendor provides the **robot SDK and hardware specification**,
 
 The system does not rely on a fixed, hand-engineered simulator-generation pipeline. Instead, an **RL-trained LLM agent acts as an autonomous simulation engineer and system-identification engineer**.
 
-Given the environment videos, tactile measurements, task descriptions, robot specifications, and World Model predictions, the agent uses specialized tools to construct the digital twin.
+Given the environment videos, tactile measurements, task descriptions, robot specifications, and World Model predictions, the agent uses specialized tools to construct the digital twin. Thee tools are mainly: (1) 3d reconstruction tool (e.g., lingbot map); (2) learnable simulator framework (differentiable physics engine) (e.g., genesis). The agent updates robot physicas via robot spec + random robot actions data initla data + streaming egocentric video in production; updates environment çhysics via the frameworks's differential learning support + streaming egocentric video in production; updates initial conditions via initla tour video + the output of the streaming 3d reconstruction tool; and updates materials, weight and weight distribution via inital video/tactile data of human playing with objects + streaming vidoe of human manipulating objects in production.
 
 ```mermaid
 flowchart TD
