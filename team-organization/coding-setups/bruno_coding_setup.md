@@ -336,14 +336,11 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
 
-- Agent-native Editor/Terminal: Orca ||||||||||
-|
-(only when tackling multiple issues in parallel)
+- Agent-native Editor/Terminal: Orca (only when tackling multiple issues in parallel)
 - Terminal Harnesses: OpenCode, open-code-review and openwiki
 - IDE (for better introspection + manual editing): VSCode (with language-specific linters and formatters plugins running continuosly on every file edit)
 - LLM Provider Subscription: **OpenCode Go
-- Coder Models: (0) Planning: Kimi K3 with medium resoning; (1) Spec, scaffold and Tests: Kimi K3 with high reasoning; (2) Core coding: DeepSeek V4 Flash with medium reasoning; (3) Independent Spec Review: Claude Opus 4.8 with high reasoning; (4) Plan Review: Kimi K3 with high reasoning; (5) Security Review: Claude Opus 4.8 with high reasoning; (6) end-to-end testing: Kimi K3 with high reasoning; (7) sub-agents model: Claude Opus 4.8; (8) Code Review: Opus4.6 (Model A) & Qwen3.7-Max (Model B) as cadidate generators and open-code-review using Qwen3.8-Max (Model C).
-- Grillme Model: DeepSeek V4 Flash
+- Models: (0) Planning: Current great coding model thats not so expensive with medium resoning; (1) Spec, scaffold and Tests: Current great coding model thats not so expensive with high reasoning; (2) Core coding: Best coding qualirty/price model with medium reasoning; (3) Independent Spec Review: Best Coding Model with high reasoning; (4) Plan Review: Current great coding model thats not so expensive with high reasoning; (5) Security Review: Best Review Model with high reasoning; (6) end-to-end testing: Current great coding model thats not so expensive with high reasoning; (7) sub-agents model: Best Coding Model with high reasoning; (8) Code Review: 2 not so correlated great Review Models that are not so expensive with high reasoning as cadidate generators and open-code-review using best review model with high reasoning as final decision maker; (9) Grillme: Best coding qualirty/price model with medium reasoning
 - Local Routing: opencode-model-router (opencode plugin)
     - Fast Model: qwen2.5-coder:7b
     - Medium Model: current coder model
