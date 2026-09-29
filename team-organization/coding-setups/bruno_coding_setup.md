@@ -34,7 +34,7 @@
   2. Reset the opencode context window and Change the OpenCode Coding Model (e.g., change from Kimi K3 to Opus 4.8) and increase it's reasoning if possible
   3. Reset the opencode context window and Take a fresh look at the problem. Try a different approach (if necessary you can update plan.md or core-implementaiton-tasks.md)
   4. Spawn the most approppriate sub-agent to help
-  5. Reset to the latest commit as your last resource and then reset the OpenCode context window.
+  5. Reset to the latest commit as your last resource, then reset the OpenCode context window, then try agian to solve the problem.
 - If you solve the problem you are stuck, delete ./.agent/session/problem_stuck.md immediatelly.
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
 - if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
@@ -501,7 +501,7 @@ Documents the purpose and organization of the `.agent/` directory itself. It sho
 The `.agent/` directory deliberately separates **ephemeral working state** from **durable project state**:
 
 * `session/` contains information needed only to continue the current session.
-* `session-persistence-candidate/` contains potentially reusable discoveries that have not yet been validated or promoted.
+* `session-persistence-candidate/` contains potentially reusable discoveries/feedback that have not yet been validated or promoted.
 * `persistent/` contains validated, durable knowledge and issue history.
 
 Within `persistent/`, `current-issue/` is the active issue's durable workspace, while `completed-issues/` preserves the historical record of issues that have already been completed.
