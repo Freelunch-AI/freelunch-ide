@@ -14,7 +14,7 @@
 - Before starting a task always read the global and issue-specific spec. Treat global spec as the main source of truth. If issue-specific spec differs from global spec, flag this issue for me to resolve (with your help). If implementation differs from issue-specific spec or global spec, flag this issue for me to resolve (with your help).
 - Before starting something new, check the last uncommitted and commited changes made with git. Only start this new thing if nothing seems suspicious (e.g., new code was written without correspinding tests, weird code changes, etc)
 - Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
-- every review document (in ./.agent/session/reviews/) created should contain in its initial metadata a reference to the exact version of what was reviewed which can be a file of specific commit (e.g., spec review and security spec review) or an entire commit (e.g., code review and security code review).
+- every review document (in ./.agent/session-persistence-candidate/reviews/) created should contain in its initial metadata a reference to the exact version of what was reviewed which can be a file of specific commit (e.g., spec review and security spec review) or an entire commit (e.g., code review and security code review).
 - log all mistakes you made in ./.agent/persistent/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
     - What counts as mistakes?
         - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
@@ -199,7 +199,7 @@ Notes for implementation:
 - when a new feature (tackling new issue) starts, first need search for any completed .agent/flow/issue_flow.md and store it in ./.agent/persistence/completed_issue_flows folder (inside .gitignore) in the form issue_flow_[i].md where i is the github issue number.
 - session summary hook: when a session ends store a summary of key things done/key problems encoutered/tips/learnings/todos in the session in the respective section of issue_flow.md that agent was in (e.g., under step 3 or step 12) in this json form {"key things done": "placeholder", "key problems encoutered": {"problem":" placeholder", "solved_or_not": placeholder, "tips for next agent working on this": "placeholder"}, "learnings": "", "todos": "placeholder"}
 - approval gates mean that either the user (developer) or a specific AI agent needs to give approval to continue the flow
-- "AI Review" menas the same AI thats coding reviews its own work
+- "AI Review" means the same AI thats coding reviews its own work
 - "Independent AI Reviewer" means that a different model with fresh context must be used
 - When a session starts, a hook must be called to: (1) empty all files inside .agent/session and (2) analyze all files recursevly in .agent/session-persistant-candidate to check if there is knowledge that is still true for the current state of the codebase, then transfer the usefull knowlegde to .agent/persistant/knowledge/non_obvious_conjectures_and_facts.md, then finally empty all files inside .agent/session-persistant-candidate
 - At the start of any slash command: a hook must be called to git add & commit if there were not commited changes made. If in a new session without context fo what was done: use .agent/persistent/current-issue/flow/issue_flow.md's last progress data to infer a good commit message.
@@ -219,7 +219,7 @@ A: Issue-specific Spec & Core Implementaion Tasks Plan
 
     ----<<separate terminal block (reset context) >>----
     
-    2. **/reviewspec** Review Spec with Indepedente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in global spec and problems in global spec. Incosistencies between both specs should be flagged to the user with recommendations. If you detect a problem in global, spec first modify global spec, then update issue-specific spec. Stores final spec review in .agent/session/reviews/final_sec_review_[timestamp].md [User Approval Gate]
+    2. **/reviewspec** Review Spec with Indepedente AI Reviewer, make shure to also check consistency with Global Spec (Founding Doc + Roadmap + Tech Stack), possibly catching things not specified in global spec and problems in global spec. Incosistencies between both specs should be flagged to the user with recommendations. If you detect a problem in global, spec first modify global spec, then update issue-specific spec. Stores final spec review in .agent/session-persistence-candidate/reviews/final_sec_review_[timestamp].md [User Approval Gate]
     3. **/specsecreview Specialized Spec Security Review** flagging critical problems & warnings. Stores final sec spec review in .agent/session/reviews/final_specsec_review_[timestamp].md
 
     ----<</separate terminal block >>----
@@ -248,7 +248,7 @@ B2: Tests & Logic
     2. [Make/Remake plan.md first & keep updating the plan as you progress]  [User Approval Gate with Indepedent AI Plan Reviewer Suggestions]**/feat Write feature code using only the allowed feature code dependencies & Review against Spec and Deisgn System if doing GUI work (issue-specific spec and global spec) catching inconsistencies with spec/design system, things not specified in specs/design system and problems in spec/design system that needed to be overruled**. Incosistencies between code/tests;issue-specific-spec/global-spec should be flagged to the user with recommendations. Important: should try to make multiple related tests pass at a time, always aim for the smallest coherent behavioral slice, as end-to-end as possible across the components) that produces a useful feedback signal  [User Approval Gate with AI Independent Reviewer Suggestions]
     3. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/test Build and Test feature code with the functional tests, generate testing & test coverage reports** & Review against Issue-specific & Global Spec, repeat this step until all tests pass
 
-11. [Make/Remake plan.md first & keep updating the plan as you progress] **/refact-coreimplementation-task-if-necessary evaluate refactoring opportunities just for the last core implementaion task just realizsed. These should be changes that maintian same functionality but improve code clarity, quality and maintanability, [Make plan first & keep updating the plan as you progress]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
+11. [Make/Remake plan.md first & keep updating the plan as you progress] **/refact-coreimplementation-task-if-necessary evaluate refactoring opportunities just for the last core implementaion task just realizsed. These should be changes that maintain same functionality but improve code clarity, quality and maintanability, [Make plan first & keep updating the plan as you progress]  [User Approval Gate] then implement the chossen refactoring bits one by one, after each one is done, evaluate if it actually is better than before (if not, just keep how it was before), only then move to the next** [AI Approval Gate]
 
  ----<<separate terminal block (reset context) >>----
 
@@ -271,8 +271,8 @@ B2: Tests & Logic
 C: Code Review
 
 16. Loop until 1 is sucessfull or go back to a previous step [User Approval Gate with AI Independent Reviewer Suggestions]
-    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/reviews/final_code_review_[timestamp].md file
-    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session/reviews/final_code_review_[timestamp].md [User Approval Gate with AI Reviewer Suggestions]
+    1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session-persistence-candidate/reviews/final_code_review_[timestamp].md file
+    2.  [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate]**/redo Make necessary code/test changes, build & test** & Review against Issue-specific & Global Spec. Note: code review is stored in .agent/session-persistence-candidate/reviews/final_code_review_[timestamp].md [User Approval Gate with AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
 
@@ -305,7 +305,7 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 22. Loop until 1 is sucessfull or go back to a previous step 
     1. (On PR Review or CI failure Notification manually checked by user) **/prreviews Read PR Reviews & CI Run from Github and write them locally on a dedicated folder**
     2. Loop until 1 is succesfull
-        1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session/reviews/final_code_review_[timestamp].md file
+        1. [Make/Remake plan.md first & keep updating the plan as you progress] **/review Independent Code Review: review maintanability, modularity, test coverage, file sizes, tests compliance to spec, possibile GUI compliance to Design Doc. The last thing you must do: run mutation testing** (also identify things not specified in spec/design system (if doing GUI work) and problems in spec/design system (if doing GUI work)). This step will generate a .agent/session-persistence-candidate/reviews/final_code_review_[timestamp].md file
         2. [Make/Remake plan.md first & keep updating the plan as you progress] [User Approval Gate] **/redo Make necessary code/test/docs changes** & Review against Issue-specific & Global Spec -- code, tests, specs should all be consistent with each other, if not flagg insconsistencies for the user to resolve [User Approval Gate with AI Indepentes Reviewer Suggestions]
 
     ---- New Session (reset context) ----
@@ -364,9 +364,9 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 ## How Code Review is Done
 
-1. Start a new session with opencode: do code review with Model A and store the review in .agent/session/reviews/[A]_code_review_[timestamp].md, where A is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
-2. Start a new session with opencode: do code review with Model B and store the review in .agent/session/reviews/[B]_code_review_[timestamp].md, where B is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
-3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session/reviews/ folder and store the resulting code review inside .agent/session/reviews/final_code_review_[timestamp].md
+1. Start a new session with opencode: do code review with Model A and store the review in .agent/session-persistence-candidate/reviews/[A]_code_review_[timestamp].md, where A is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
+2. Start a new session with opencode: do code review with Model B and store the review in .agent/session-persistence-candidate/reviews/[B]_code_review_[timestamp].md, where B is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
+3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session-persistence-candidate/reviews/ folder and store the resulting code review inside .agent/session-persistence-candidate/reviews/final_code_review_[timestamp].md
 
 ## Token Efficency Laws
 
@@ -426,17 +426,17 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 |   └── todos.md
 |   └── problem_stuck.md
 |   └── debug-logs/
-|   └── reviews/
-|       └── final_spec_review_[timestamp].md
-|       └── final_spec_sec_review_[timestamp].md
-|       └── final_code_review_[timestamp].md
-|       └── final_code_spec_review_[timestamp].md
 │
 ├── session-persistence-candidate/
 │   └── knowledge/
 │       └── non_obvious_conjectures.md
 │       └── exploration_findings/
 │           └── <name-of-exploration>_[timestamp].md
+|   └── reviews/
+|       └── final_spec_review_[timestamp].md
+|       └── final_spec_sec_review_[timestamp].md
+|       └── final_code_review_[timestamp].md
+|       └── final_code_spec_review_[timestamp].md
 │
 ```
 
