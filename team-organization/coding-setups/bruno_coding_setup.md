@@ -347,7 +347,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
     - Medium Model: current coder model
     - Heavy Model: current coder model
 - Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name.
-- OpenCode Plugins: graphify, rtk, opencode-quota, opencode-model-router
+- OpenCode Plugins: graphify, rtk, opencode-quota, opencode-model-router, opencode-trace
 - OpenCode MCPs: Github MCP
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Tip: Agency-agents repo provides some sub-agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
