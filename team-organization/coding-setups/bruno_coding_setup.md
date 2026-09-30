@@ -10,6 +10,7 @@ Run everyting inside a local developemnt docker container for safety reasons. VS
 - never read sensitive files (e.g., .env)
 - never run destructive commands without my permission. Always present me a dry run alternative if possible.
 - never try to extract extreme performance (speed, throughput) at the expense of making code complexity significantly higher, unless specifically prompted for extreme performance optimization
+- never try to bypass pre-commit hooks or ny other quality gate, unless explicitely asked to do so by me.
 
 ### Things you should always do
 
