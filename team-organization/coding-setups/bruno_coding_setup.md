@@ -1,5 +1,7 @@
 # Bruno's AI-assisted Coding Setup
 
+Run everyting inside a local developemnt docker container for safety reasons. VSCode connects easily via Remote Connection.
+
 ## Project Rules (AGENTS.md)
 
 ### Things you should NEVER do
