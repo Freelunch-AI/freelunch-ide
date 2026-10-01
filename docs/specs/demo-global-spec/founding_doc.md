@@ -8,7 +8,9 @@
 
 Our goal is to let small teams scale software-intensive businesses without having to build infra and hire experts; with full visibiity and control.
 
-Our core product is an **human-centric software factory for applications at scale**. In the future, we will also provide ERP, technical upskilling, offices, and other shared infrastructure startups use.
+Our core product is an **human-centric software factory for applications at scale**. 
+
+We are starting with just engineering, but have plans for ERP, technical upskilling, offices, and other shared infrastructure startups use.
 
 ## 1.2 Business Model
 
