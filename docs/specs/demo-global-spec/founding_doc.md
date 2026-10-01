@@ -8,7 +8,7 @@
 
 Similar Companies:
 - [NanoCorp](https://www.nanocorp.so/)
-- [Coofunder](https://cofounder.co/how-to/scale)
+- [Cofounder](https://cofounder.co/how-to/scale)
 - [Polsia](https://polsia.com/)
 
 But these companies don't support well applications at scale neither focus on human understanding/control. They use AI but forget platform engineering is fundamental for guardrails, predictability, reproducibility, lower cost and human control.
