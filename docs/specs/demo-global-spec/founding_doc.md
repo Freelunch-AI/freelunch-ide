@@ -4,44 +4,30 @@
 
 ## 1.1 What is FreeLunch?
 
-**FreeLunch is a venture studio/accelerator that provides scaleup infrastructure-as-a-service to the companies it builds and supports.**
+**FreeLunch is a business factory that provides to our comapanies all the infra they need so thay can just focus on business logic.**
 
-We partner with founders and pre-scale companies after they have reached, or are working toward, bootstrapped Product-Market Fit. Our goal is to let small teams scale software-intensive businesses without having to build large internal platform, DevOps, MLOps, and eventually other operational teams.
+Our goal is to let small teams scale software-intensive businesses without having to build infra and hire experts; with full visibiity and control.
 
-Our core product is an **AI-native developer platform for building and operating scalable applications**. Over time, FreeLunch may also provide ERP, technical upskilling, offices, and other shared infrastructure.
-
-The platforms are designed for **portability**:
-
-* Customers retain standard artifacts and GitOps workflows.
-* Infrastructure remains inspectable and directly operable.
-* Platforms can eventually be detached/ejected automatically.
-* Portfolio companies can fork the platform internally, creating an inner-source ecosystem.
-
-FreeLunch does **not** initially build its own coding agent or LLM. Instead, it turns existing coding agents such as Claude Code and OpenCode into complete software/AI engineering agents by giving them access to platform context, documentation, observability, and operational state.
+Our core product is an **human-centric software factory for applications at scale**. In the future, we will also provide ERP, technical upskilling, offices, and other shared infrastructure startups use.
 
 ## 1.2 Business Model
 
 ### Near Term
 
-FreeLunch monetizes through **platform engineering consulting** and custom developer-platform implementations for scaleups.
+- platform engineeerng consulting
+- software factory licensing
 
 ### Long Term
 
-FreeLunch becomes a **venture studio/accelerator**, using three main models:
-
-1. **Idea → company:** FreeLunch validates an idea with a founder, provides salary and infrastructure, and takes significant founding equity.
-2. **Pre-scale company:** Existing companies apply to join the accelerator in exchange for equity.
-3. **Co-building:** FreeLunch and a founder explore and validate an opportunity together before forming the company.
-
-FreeLunch also supports portfolio companies with fundraising through its VC network and participates in dilution alongside founders during future financing rounds.
+- spawn our own companies and scale the ones that had PMF
 
 ## 1.3 Product Vision
 
-FreeLunch is a **cloud-development IDE and internal developer platform** that combines application development, infrastructure, deployment, experimentation, and operations into one environment.
+FreeLunch is a **cloud-development IDE and internal developer platform** that combines application development, infrastructure, deployment, experimentation, and operations in a single place.
 
 The core analogy is:
 
-> **IDE + Internal Developer Platform as a single product**
+> **IDE + Internal Developer Platform as a single productwith AI Software Factory on top of it**
 
 Developers should be able to compose services and infrastructure visually, write application code, deploy through GitOps, observe the running system, and diagnose production issues without needing to become experts in the underlying Kubernetes/cloud-native ecosystem.
 
