@@ -4,13 +4,7 @@
 
 ## 1.1 What is FreeLunch?
 
-**FreeLunch is a business factory that provides to our comapanies all the infra they need so thay can just focus on business logic.**
-
-Our goal is to let small teams scale software-intensive businesses without having to build infra and hire experts; with full visibiity and control.
-
-Our core product is an **human-centric software factory for applications at scale**. 
-
-We are starting with just engineering, but have plans for ERP, technical upskilling, offices, and other shared infrastructure startups use.
+**FreeLunch is a business factory that provides to our comapanies all the infra they need so thay can just focus on business logic.** Our goal is to let small teams scale software-intensive businesses without having to build infra and hire experts; with full visibiity and control. Our core product is an **human-centric software factory for applications at scale**. We are starting with just engineering, but have plans for ERP, technical upskilling, offices, and other shared infrastructure startups use.
 
 ## 1.2 Business Model
 
