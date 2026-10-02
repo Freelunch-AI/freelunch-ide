@@ -341,7 +341,7 @@ E: Make fixes based on PR Reviews and/or CI failures until PR is merged
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
 
 - Agent-native Editor/Terminal: Orca (only when tackling multiple issues in parallel)
-- Terminal Harnesses: OpenCode, open-code-review and openwiki
+- Terminal Harnesses: OpenCode + failproofai + claude-tap, open-code-review and openwiki
 - IDE (for better introspection + manual editing): VSCode (with language-specific linters and formatters plugins running continuosly on every file edit)
 - LLM Provider Subscription: **OpenCode Go
 - Models: (0) Planning: Current great coding model thats not so expensive with medium resoning; (1) Spec, scaffold and Tests: Current great coding model thats not so expensive with high reasoning; (2) Core coding: Best coding qualirty/price model with medium reasoning; (3) Independent Spec Review: Best Coding Model with high reasoning; (4) Plan Review: Current great coding model thats not so expensive with high reasoning; (5) Security Review: Best Review Model with high reasoning; (6) end-to-end testing: Current great coding model thats not so expensive with high reasoning; (7) sub-agents model: Best Coding Model with high reasoning; (8) Code Review: 2 not so correlated great Review Models that are not so expensive with high reasoning as cadidate generators and open-code-review using best review model with high reasoning as final decision maker; (9) Grillme: Best coding qualirty/price model with medium reasoning
