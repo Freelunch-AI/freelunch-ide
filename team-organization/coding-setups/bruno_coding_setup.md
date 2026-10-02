@@ -357,7 +357,8 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
 - Dependency Docs: a dependency_docs.md under ./docs with entries in the form "- <dependency>: <docs_link>" for all direct dependencies (not dependencies of dependencies). Pinned versions used in the project cna be seen in the lock file of the virtual dev environment tool.
 - Skills: 
-    - Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over. Make these custom skills: 
+    - Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over. Make these custom skills:
+        - harness-eval (evalautes proposed harness changes on the current codebase, explained better in the end of this doc)
         - grill-my-understanding (continually ask questions of the latest changes to codebase to me, to see if i understand the codebase. Always give score my answers and give feedback to it. Only stop when you feel i understand the codebase. The user can also specifify specific files for you to grill him about instead of the entire codebase)
         - understand-external-codebase (1. Build a doc eplxianng in detail the characteristics and internals of an external github codebase; 2. Add to this doc an explanation of where and why this codebase can be helpfull as a reference for ideias/patterns for the current project being built)
         - update-fixed-context (1. Infers new usefull knowledge from ./.agent/persistant/knowledge/mistakes.jsonl and ./.agent/persistant/completed_issue_flows; 2. Add this new usefull knowledge to AGENTS.md if its not already there)
@@ -549,4 +550,1270 @@ Handling PR Comments and Reviews:
 - you should make appropriate changes according to what you think should be changed after reading the comments
 - if not shure what to change becasue of subjective/incosistent/ambiguous PR comments, then ask me clarifying questions.
 
+---
+
+---
+
+## Harness Eval Custom Skill (harness-eval.md)
+
+Use this skill to run controlled A/B evaluations of AI coding workflows.
+
+## When to Use This Skill
+
+Use this skill whenever you want empirical evidence about whether a change to an AI coding workflow affects its performance.
+
+Typical uses:
+
+* compare **Model A vs Model B**;
+* compare **harness setup A vs harness setup B**;
+* compare **a skill vs no skill**;
+* compare **Skill A vs Skill B**;
+* compare **Harness A vs Harness B**;
+* evaluate harness changes currently present in the working tree;
+* evaluate a harness change **before** making it;
+* investigate whether an `AGENTS.md`, skill, hook, rule, subagent, model, or other harness change actually helps on real repository tasks.
+
+The evaluation supports four task types:
+
+```text
+coding
+spec / architecture / design
+code review
+doc review
+```
+
+The caller must explicitly specify which eval type(s) to run.
+
+When `doc review` is included, the caller must specify the **exact document path(s)** to review.
+
+Do not invent missing eval types or document paths.
+
+---
+
+# 1. Determine the Two Options
+
+The evaluation always compares:
+
+```text
+Option A
+Option B
+```
+
+The options can be provided explicitly **or inferred from the current working tree**.
+
+## 1.1 Explicit Options
+
+When the user provides two configurations, use them directly.
+
+Examples:
+
+```text
+Model A vs Model B
+
+Skill A vs Skill B
+
+Harness setup before vs after
+
+Harness A vs Harness B
+```
+
+Determine exactly what differs between the options.
+
+---
+
+## 1.2 Infer Options From Current Changes
+
+When the user asks to evaluate their current harness changes without explicitly providing A and B, inspect the current working tree.
+
+Look for changes to:
+
+```text
+AGENTS.md
+CLAUDE.md
+.agent/
+.claude/
+skills/
+rules/
+hooks/
+subagents/
+commands/
+prompts/
+harness configuration
+model configuration
+tool configuration
+planning/review configuration
+```
+
+Also detect model changes represented by:
+
+* configuration files;
+* command arguments;
+* environment-driven configuration;
+* harness configuration.
+
+Construct:
+
+```text
+Option A = current configuration with the evaluated change reverted
+Option B = current configuration including the evaluated change
+```
+
+Preserve all unrelated user work in both options.
+
+For example, if the working tree contains:
+
+```text
+modified application code
+new skill
+modified AGENTS.md
+```
+
+and the current evaluation is the new skill:
+
+```text
+Option A:
+  current application changes
+  old skill
+  old AGENTS.md
+
+Option B:
+  current application changes
+  new skill
+  old AGENTS.md
+```
+
+The application changes are preserved in both options.
+
+---
+
+## 1.3 Infer Multiple Independent Evaluations
+
+If the user asks to evaluate the current harness changes generally, identify independent relevant changes and create a separate experiment for each when possible.
+
+For example:
+
+```text
+Change 1:
+new code-review skill
+
+Change 2:
+modified AGENTS.md
+
+Change 3:
+Model A → Model B
+```
+
+Construct:
+
+```text
+Evaluation 1:
+  A = no skill
+  B = new skill
+
+Evaluation 2:
+  A = old AGENTS.md
+  B = modified AGENTS.md
+
+Evaluation 3:
+  A = Model A
+  B = Model B
+```
+
+Do not combine independent changes into a single experiment.
+
+If one change depends on another and they cannot be meaningfully separated, evaluate them together and explicitly record the combined experimental variable.
+
+---
+
+# 2. Required Eval Input
+
+Determine:
+
+```text
+EVAL_TYPES =
+  one or more of:
+    coding
+    spec
+    review
+    doc-review
+```
+
+Also determine:
+
+```text
+DOCS =
+  exact document paths
+  required if doc-review is included
+```
+
+Option configuration may be:
+
+```text
+explicitly supplied
+or inferred from current changes
+```
+
+If the eval type is missing, stop and request it.
+
+If `doc-review` is selected without exact document paths, stop and request them.
+
+---
+
+# 3. FIRST: Isolate the Evaluation
+
+**Before modifying anything, create the isolated evaluation environment.**
+
+The user's current repository is the **main checkout**.
+
+Treat it as read-only.
+
+Do not:
+
+* create the mutation there;
+* install an evaluated harness there;
+* run an evaluated agent there;
+* modify harness files there;
+* create evaluation artifacts there;
+* modify `.agent/harness-evals/` while agents are running.
+
+The evaluation must execute in **two separate Docker containers**, with **one independent repository per option**.
+
+The main checkout is only the source from which the evaluation snapshot is created.
+
+---
+
+# 4. Snapshot the Current Working Tree
+
+Capture the user's actual current state.
+
+Do not use only `HEAD`.
+
+The snapshot must include:
+
+* committed files;
+* tracked modifications;
+* relevant untracked files;
+* current application changes;
+* current harness changes.
+
+Do not discard user changes.
+
+Exclude:
+
+```text
+.git/
+.agent/harness-evals/
+temporary evaluation state
+temporary caches
+credentials
+secrets
+```
+
+Never copy secrets into the evaluation repository.
+
+Record:
+
+```text
+HEAD commit
+working-tree state
+included untracked files
+excluded paths
+snapshot hash
+```
+
+---
+
+# 5. Create an Isolated Evaluation Repository
+
+Do not create evaluated repositories using a normal worktree from the original repository.
+
+The original repository's Git history may reveal the ground truth.
+
+Instead:
+
+1. copy the evaluation snapshot;
+2. create a new temporary Git repository;
+3. initialize it;
+4. add the snapshot;
+5. create a single root commit.
+
+The resulting repository must contain the exact snapshot state but **none of the original Git history**.
+
+The evaluated agents must not be able to recover hidden ground truth with commands such as:
+
+```bash
+git show <original-commit>
+git diff <original-history>
+git log <original-history>
+```
+
+---
+
+# 6. Determine Validation
+
+From the isolated repository:
+
+1. identify the normal test/build commands;
+2. identify repository-specific validation;
+3. run the known-good baseline validation;
+4. confirm the baseline passes.
+
+Record the exact commands.
+
+Do not invent a new correctness oracle unless the eval definition explicitly requires it.
+
+---
+
+# 7. Create One Mutation Per Trial
+
+For each trial, create **one mutation**.
+
+The mutation is shared by both options.
+
+Never independently generate a mutation for A and B.
+
+Use:
+
+```text
+known-good evaluation repository
+        ↓
+create mutation once
+        ↓
+validate mutation
+        ↓
+freeze mutation
+        ↓
+clone exact frozen state
+      ↙       ↘
+ Option A   Option B
+```
+
+Record:
+
+```text
+mutation_id
+seed
+eval_type
+target path(s)
+target region(s)
+mutation description
+ground-truth content
+known-good tree hash
+mutated tree hash
+```
+
+---
+
+# 8. Mutation Rules
+
+Mutations must never alter dependencies or evaluation infrastructure.
+
+## Never mutate dependencies
+
+Do not:
+
+* delete dependencies;
+* add dependencies;
+* remove dependencies;
+* downgrade dependencies;
+* upgrade dependencies;
+* modify lockfiles;
+* alter package manifests;
+* alter vendored dependencies.
+
+The dependency environment must remain identical for both options.
+
+If a mutation requires changing dependencies, reject that mutation.
+
+## Never mutate protected paths
+
+Protect:
+
+```text
+tests/
+.github/
+CI/CD infrastructure
+build infrastructure
+dependency configuration
+lockfiles
+pre-commit configuration
+evaluation infrastructure
+harness-evaluation infrastructure
+```
+
+Add repository-specific protected paths as required.
+
+---
+
+# 9. Coding Eval
+
+For a coding eval, delete application logic that is **covered by tests**.
+
+This is mandatory.
+
+Eligible targets include:
+
+* functions;
+* methods;
+* classes;
+* services;
+* controllers;
+* handlers;
+* algorithms;
+* business logic;
+* orchestration logic;
+* state transitions;
+* modules;
+* cross-module application logic.
+
+Do not delete:
+
+* tests;
+* dependencies;
+* dependency configuration;
+* lockfiles;
+* CI/CD;
+* build infrastructure;
+* evaluation infrastructure;
+* harness infrastructure;
+* generated/vendor code;
+* uncovered application code;
+* comments only;
+* formatting only;
+* trivial imports.
+
+Prefer AST/semantic region selection.
+
+Before accepting a mutation:
+
+```text
+known-good repository
+    → relevant tests PASS
+
+mutated repository
+    → relevant tests FAIL
+
+ground truth restored
+    → relevant tests PASS
+```
+
+If the deleted code is not covered by tests or the mutation does not cause the relevant tests to fail, reject the mutation.
+
+---
+
+# 10. Spec / Architecture / Design Eval
+
+Choose an existing technical specification, architecture, or design document.
+
+Remove a meaningful region.
+
+Possible targets:
+
+* architecture documentation;
+* design documents;
+* ADRs;
+* subsystem descriptions;
+* component descriptions;
+* interface descriptions;
+* data flows;
+* deployment architecture;
+* technical rationale.
+
+Do not modify application code or tests.
+
+The original removed content is the hidden ground truth.
+
+Give both agents the incomplete document.
+
+After they finish, compare the reconstructed region with the original removed region.
+
+The comparison is based on the original codebase document, not on a subjective judgment by the evaluator.
+
+Do not give either agent access to the original removed content.
+
+---
+
+# 11. Code Review Eval
+
+Start from the known-good application code.
+
+Inject one or more subtle bugs.
+
+A valid bug must:
+
+* compile;
+* be plausible;
+* change behavior;
+* be covered by tests;
+* cause deterministic validation failure.
+
+Examples:
+
+* wrong comparison;
+* boundary condition;
+* off-by-one;
+* wrong branch;
+* incorrect default;
+* stale state;
+* incorrect error propagation;
+* ordering;
+* state transition;
+* cleanup;
+* timeout;
+* mapping;
+* concurrency.
+
+Verify:
+
+```text
+known-good → PASS
+mutated    → FAIL
+```
+
+Do not modify tests.
+
+Do not tell the agents:
+
+* how many bugs exist;
+* where they are;
+* which files changed;
+* what type of bugs were injected.
+
+---
+
+# 12. Doc Review Eval
+
+The caller must provide the exact document path(s).
+
+For each specified document:
+
+1. verify it exists;
+2. read the document;
+3. inject concrete repository-grounded defects;
+4. preserve the original document as hidden ground truth;
+5. freeze the mutated document.
+
+Possible defects:
+
+* incorrect technical statement;
+* incorrect API description;
+* outdated command;
+* incorrect configuration;
+* contradiction with implementation;
+* incorrect example;
+* broken reference;
+* missing requirement;
+* incorrect architecture statement.
+
+Avoid subjective style-only issues.
+
+Do not tell the agent what was changed.
+
+After the agent finishes, compare the resulting document against the original.
+
+---
+
+# 13. Freeze the Mutation
+
+After mutation creation:
+
+1. run the required validation;
+2. confirm the intended mutation is present;
+3. confirm protected files are unchanged;
+4. confirm dependencies are unchanged;
+5. compute the mutated tree hash;
+6. freeze the mutation.
+
+The mutation must never change during the A/B comparison.
+
+---
+
+# 14. Create Two Separate Docker Containers
+
+Create exactly two independent execution environments for the trial:
+
+```text
+Container A
+Container B
+```
+
+They must be **separate Docker containers**.
+
+Each container must have its own:
+
+```text
+filesystem
+repository
+HOME
+agent state
+harness state
+temporary directory
+writable cache
+build directory
+```
+
+Do not use one container with two sequential agent sessions.
+
+Do not run both options in the same container.
+
+Do not mount one writable repository into both containers.
+
+Do not share writable agent state or caches.
+
+Use the same Docker image for A and B.
+
+Record the immutable Docker image digest.
+
+---
+
+# 15. Create Two Independent Repositories
+
+Create:
+
+```text
+option-a/repo
+option-b/repo
+```
+
+Initialize both from the **exact same frozen mutation tree**.
+
+Before applying the A/B difference:
+
+```text
+tree_hash(A) == tree_hash(B)
+```
+
+must be true.
+
+Also verify:
+
+```text
+mutation_id(A) == mutation_id(B)
+mutation_seed(A) == mutation_seed(B)
+dependencies(A) == dependencies(B)
+tests(A) == tests(B)
+```
+
+Do not start the agents until these checks pass.
+
+---
+
+# 16. Configure Option A and Option B
+
+Apply only the intended experimental difference.
+
+Examples:
+
+### Model
+
+```text
+A = Model A
+B = Model B
+```
+
+### Skill
+
+```text
+A = no skill
+B = skill
+```
+
+or:
+
+```text
+A = Skill A
+B = Skill B
+```
+
+### Setup
+
+```text
+A = original setup
+B = modified setup
+```
+
+### Harness
+
+```text
+A = Harness A
+B = Harness B
+```
+
+Keep everything else identical whenever possible.
+
+If an unavoidable difference exists, record it explicitly.
+
+---
+
+# 17. Verify the Environments Before Starting
+
+Immediately before sending the task to either agent, compute an environment fingerprint for each option.
+
+Verify equivalence of:
+
+```text
+Docker image digest
+OS/runtime versions
+compiler versions
+package-manager versions
+dependency versions
+tool versions
+CPU allocation
+memory allocation
+network policy
+environment variables
+filesystem permissions
+working directory
+repository tree hash
+mutation identity
+tests
+validation commands
+task text
+```
+
+The expected result is:
+
+```text
+A == B
++
+only intended experimental difference
+```
+
+If an unexpected difference exists, **do not start the agents**.
+
+Fix the environments first.
+
+This check is mandatory.
+
+---
+
+# 18. Give Both Agents the Same Task
+
+Use the same task text for A and B.
+
+Do not expose:
+
+* mutation patch;
+* deleted original code;
+* original document content;
+* bug locations;
+* number of bugs;
+* mutation generator;
+* ground truth;
+* other option's results;
+* other option's trace.
+
+### Coding
+
+> Some application logic in this repository is missing. Reconstruct the missing implementation using the surrounding code, interfaces, types, documentation, and tests as evidence.
+>
+> Do not modify tests, CI/CD, build infrastructure, dependency configuration, pre-commit configuration, evaluation infrastructure, or unrelated code.
+
+### Spec / Architecture / Design
+
+> Some technical specification, architecture, or design documentation in this repository is incomplete. Reconstruct the missing section using the surrounding documentation and repository as evidence.
+>
+> Do not modify application code, tests, CI/CD, build infrastructure, dependency configuration, pre-commit configuration, evaluation infrastructure, or unrelated files.
+
+### Code Review
+
+> Review this repository carefully and find the introduced application bugs. Fix them while preserving the intended behavior of the existing system.
+>
+> Do not modify tests, CI/CD, build infrastructure, dependency configuration, pre-commit configuration, evaluation infrastructure, or unrelated code.
+
+### Doc Review
+
+> Review the specified document against the repository and identify concrete correctness, consistency, and completeness issues. Fix the issues you find using the implementation and other repository documentation as evidence.
+>
+> Do not modify unrelated documents, application code, tests, CI/CD, build infrastructure, dependency configuration, pre-commit configuration, evaluation infrastructure, or unrelated files.
+
+---
+
+# 19. Start Fresh Agent Sessions
+
+Each option gets:
+
+* its own Docker container;
+* its own repository;
+* fresh agent state;
+* fresh session;
+* isolated HOME/config/cache.
+
+Do not reuse sessions.
+
+Do not allow the agents to communicate.
+
+---
+
+# 20. Measure Agent Task Time
+
+**Agent time means only the time the agent spends executing the task.**
+
+Start the timer immediately before giving the task to the agent.
+
+Stop the timer when the agent completes the task/session.
+
+Do not include:
+
+* Docker startup;
+* repository creation;
+* dependency installation;
+* harness installation;
+* mutation generation;
+* preflight checks;
+* post-agent validation.
+
+Record:
+
+```text
+agent_started_at
+agent_finished_at
+agent_duration_seconds
+```
+
+This is the task-time metric used in the comparison.
+
+Record setup and validation time separately if useful.
+
+---
+
+# 21. Record Token Usage
+
+After each agent finishes, retrieve actual usage.
+
+Record:
+
+```text
+model
+input tokens
+cached input tokens
+cache-write tokens
+output tokens
+reasoning tokens
+other billable categories
+```
+
+Record usage per model request when the harness may use:
+
+* planner models;
+* coding models;
+* review models;
+* subagent models;
+* fallback models.
+
+Record the effective model actually used.
+
+---
+
+# 22. Calculate Model Inference Cost
+
+For every model actually used:
+
+1. identify the exact model;
+2. retrieve the current applicable pricing;
+3. record the authoritative pricing source;
+4. record the pricing retrieval time;
+5. normalize the provider's actual billable usage categories;
+6. calculate estimated model inference cost.
+
+Do not assume cached tokens are excluded from `input_tokens`.
+
+Do not double-count tokens.
+
+If the provider reports an actual billable amount, prefer it.
+
+Otherwise calculate:
+
+```text
+estimated_model_inference_cost
+=
+actual billable token usage
+×
+applicable current token prices
+```
+
+Record:
+
+```text
+pricing_source
+pricing_retrieved_at
+model
+pricing_tier
+currency
+token prices
+billable categories
+estimated_model_inference_cost
+```
+
+If current pricing cannot be verified:
+
+```text
+cost_status = UNKNOWN
+```
+
+Do not invent a price.
+
+---
+
+# 23. Run Identical Validation
+
+After each agent finishes:
+
+1. inspect changed files;
+2. check protected paths;
+3. check dependency files;
+4. restore protected files if necessary;
+5. run the exact same validation commands for both options.
+
+Run:
+
+```text
+build
+tests
+repository-specific validation
+```
+
+Also run when applicable:
+
+```text
+lint
+typecheck
+integration tests
+documentation validation
+schema validation
+```
+
+Record:
+
+```text
+validation_started_at
+validation_finished_at
+validation_duration_seconds
+validation_output
+validation_exit_status
+```
+
+Keep validation time separate from agent time.
+
+---
+
+# 24. Check Protected Files and Dependencies
+
+An agent must not redefine the evaluation.
+
+After execution, check for changes to:
+
+```text
+tests
+CI/CD
+build configuration
+dependency manifests
+lockfiles
+evaluation scripts
+evaluation configuration
+ground-truth artifacts
+```
+
+If any were modified:
+
+1. record the violation;
+2. restore them from the frozen mutation;
+3. exclude those changes from the solution;
+4. rerun validation against the protected baseline;
+5. report the violation.
+
+---
+
+# 25. Evaluate Correctness
+
+### Coding
+
+Check whether the required tests pass after reconstruction.
+
+### Code Review
+
+Check whether the injected bugs were repaired and the original tests pass.
+
+### Spec / Architecture / Design
+
+Compare the reconstructed region with the original deleted region.
+
+### Doc Review
+
+Compare the repaired specified document with the original document.
+
+For documentation evaluations, preserve the original as hidden ground truth.
+
+Do not expose it to the agents.
+
+Do not replace ground-truth comparison with an LLM's subjective quality judgment.
+
+---
+
+# 26. Handle Invalid Runs Explicitly
+
+Use explicit statuses:
+
+```text
+PASS
+FAIL
+TIMEOUT
+HARNESS_ERROR
+INFRA_ERROR
+VALIDATION_ERROR
+PROTECTED_FILE_VIOLATION
+INVALID_MUTATION
+INVALID_ENVIRONMENT
+```
+
+Examples:
+
+```text
+mutation does not create the intended missing behavior
+→ INVALID_MUTATION
+
+A and B have different dependency versions
+→ INVALID_ENVIRONMENT
+
+Docker fails before the agent starts
+→ INFRA_ERROR
+
+agent exceeds timeout
+→ TIMEOUT
+
+agent completes but required tests fail
+→ FAIL
+```
+
+Do not interpret infrastructure failures as task-performance results.
+
+---
+
+# 27. Raw Evaluation Artifacts
+
+**Raw evaluation artifacts are the original evidence emitted by the evaluation, not a human-written summary.**
+
+Preserve them before interpreting or aggregating the results.
+
+For each option, collect the raw:
+
+```text
+agent transcript
+tool-call trace
+agent stdout/stderr
+harness stdout/stderr
+model/provider usage response
+timing data
+final repository diff
+changed-file list
+test output
+build output
+validation output
+container metadata
+environment fingerprint
+exit status
+```
+
+For each mutation, preserve:
+
+```text
+mutation metadata
+mutation seed
+target region
+ground-truth content
+mutated tree hash
+mutation patch
+baseline validation output
+mutation validation output
+```
+
+For documentation evaluations, preserve the original ground-truth document/region separately from the agent-visible repository.
+
+Raw artifacts must be:
+
+* collected from the actual execution;
+* stored without rewriting their contents;
+* associated with the exact trial and option;
+* timestamped where applicable;
+* sufficient to reconstruct what happened.
+
+Do not replace raw traces with only a summarized report.
+
+Do not expose raw ground-truth artifacts to evaluated agents.
+
+Do not expose Option A artifacts to Option B or vice versa.
+
+---
+
+# 28. Store Runtime Artifacts Outside the Repository
+
+During evaluation, store runtime artifacts under:
+
+```text
+/tmp/harness-eval/<run-id>/
+```
+
+Use:
+
+```text
+/tmp/harness-eval/<run-id>/
+├── manifest.json
+├── environment.json
+├── mutation/
+│   ├── mutation.json
+│   ├── ground-truth.patch
+│   └── validation/
+├── option-a/
+│   ├── repo/
+│   ├── container.json
+│   ├── trace/
+│   ├── stdout.log
+│   ├── stderr.log
+│   ├── diff.patch
+│   ├── usage.json
+│   └── validation/
+└── option-b/
+    ├── repo/
+    ├── container.json
+    ├── trace/
+    ├── stdout.log
+    ├── stderr.log
+    ├── diff.patch
+    ├── usage.json
+    └── validation/
+```
+
+Keep ground-truth artifacts separate from agent-visible repositories.
+
+---
+
+# 29. Destroy the Evaluation Environment
+
+After all raw artifacts have been collected:
+
+1. stop Container A;
+2. stop Container B;
+3. remove both containers;
+4. remove writable volumes;
+5. remove temporary repositories;
+6. remove temporary runtime state.
+
+Do not leave agent state or evaluation state behind.
+
+---
+
+# 30. Persist Results
+
+Only after the evaluation is complete and the containers are destroyed, copy the required artifacts into:
+
+```text
+.agent/harness-evals/<run-id>/
+```
+
+Do not expose this directory to the evaluated agents.
+
+When taking a future evaluation snapshot, always exclude:
+
+```text
+.agent/harness-evals/
+```
+
+so historical results cannot leak into future experiments.
+
+---
+
+# 31. Multiple Trials
+
+When `trials > 1`, repeat the full process.
+
+Each trial gets:
+
+```text
+fresh mutation
+fresh Docker container A
+fresh Docker container B
+fresh repository A
+fresh repository B
+fresh agent session A
+fresh agent session B
+```
+
+Use a new mutation seed per trial.
+
+Do not reuse agent state.
+
+Record every trial independently.
+
+---
+
+# 32. Final Results
+
+For every option report:
+
+| Metric                    |   Option A |   Option B |
+| ------------------------- | ---------: | ---------: |
+| Task result               |  PASS/FAIL |  PASS/FAIL |
+| Tests                     |     result |     result |
+| Agent time                |   duration |   duration |
+| Input tokens              |      count |      count |
+| Cached input              |      count |      count |
+| Output tokens             |      count |      count |
+| Model                     | identifier | identifier |
+| Model inference cost      |     amount |     amount |
+| Protected-file violations |      count |      count |
+| Dependency changes        |      count |      count |
+| Exit status               |       code |       code |
+
+Also provide the locations of the raw artifacts.
+
+For multiple trials, report each trial separately.
+
+Do not collapse the experiment into a subjective ranking or winner.
+
+---
+
+# 33. Final Invariants
+
+Before declaring an evaluation complete, verify all of these:
+
+```text
+[ ] main checkout was never used as an execution environment
+[ ] both options ran in separate Docker containers
+[ ] each option had its own repository
+[ ] both repositories started from the exact same frozen mutation
+[ ] the mutation was generated only once per trial
+[ ] A and B had identical environments before the intended difference
+[ ] dependencies were identical
+[ ] tests were identical
+[ ] validation was identical
+[ ] the task text was identical
+[ ] ground truth was inaccessible to both agents
+[ ] coding mutations only removed test-covered application code
+[ ] no protected evaluation files were used to redefine correctness
+[ ] agent time was measured separately from setup/validation
+[ ] actual token usage was recorded
+[ ] cost used the actual model and applicable current pricing
+[ ] raw artifacts were preserved
+[ ] containers and temporary environments were destroyed
+[ ] results were persisted under .agent/harness-evals/
+[ ] main checkout remains unchanged
+```
+
+The purpose of this skill is to turn harness development into a controlled experiment:
+
+```text
+harness change
+      ↓
+isolated A/B experiment
+      ↓
+same task + same mutation + same environment
+      ↓
+independent agents
+      ↓
+correctness + agent time + token usage + cost
+      ↓
+raw evidence + final report
+```
+
+Do not decide the outcome for the user.
 
