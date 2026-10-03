@@ -50,7 +50,7 @@ CI Execution (Group 3)
   └── ★ FIRST USABLE RUNTIME SLICE
        Sample Application deployed to Kubernetes
   ↓
-Progressive Delivery + Staging (Group 5)
+Progressive Delivery + Preview + Staging (Group 5)
   ↓
 Observability + Cost (Group 6)
   ↓
@@ -386,11 +386,27 @@ Connect identity, repository permissions, CI gates, and Kubernetes authorization
 
 ---
 
-# Group 5 — Progressive Delivery + Staging
+# Group 5 — Progressive Delivery + Preview & Staging
 
 *Depends on Group 4 and the deployed Sample Application.*
 
-## 5.1 Argo Rollouts Blue-Green Integration
+## 5.1 Ephemeral Preview Environments
+
+One isolated environment per PR.
+
+> **Story:** A PR that passes CI gets an isolated preview environment. The environment is deployed through the same GitOps machinery, smoke/e2e tests run against it, and it is removed after the PR is merged or closed.
+
+* Created only after CI succeeds.
+* Desired state is represented in Git and reconciled by ArgoCD.
+* Environment isolation uses namespaces or lightweight virtual clusters such as vcluster.
+* Multiple PRs can be tested in parallel.
+* Teardown removes the environment's GitOps resources as well as the runtime resources.
+
+## 5.2 Staging Environment
+
+The Staging environment mimicks production (with mock data and smaller default scale) and is always on running the head of the main branch. Engineers end-to-end test against it. At deploy days, a realease tag commit is made to main, and it goes through argo rollouts.
+
+## 5.3 Argo Rollouts Blue-Green Integration
 
 Controlled application promotion through standard Argo Rollouts resources.
 
@@ -403,19 +419,7 @@ Controlled application promotion through standard Argo Rollouts resources.
 * Rollback changes the Git desired state and lets ArgoCD reconcile it; the CLI must not directly mutate the cluster.
 * Stateful migrations and database/queue synchronization are outside Demo scope.
 
-## 5.2 Ephemeral Staging Environments
-
-One isolated environment per PR.
-
-> **Story:** A PR that passes CI gets an isolated staging environment. The environment is deployed through the same GitOps machinery, smoke/e2e tests run against it, and it is removed after the PR is merged or closed.
-
-* Created only after CI succeeds.
-* Desired state is represented in Git and reconciled by ArgoCD.
-* Environment isolation uses namespaces or lightweight virtual clusters such as vcluster.
-* Multiple PRs can be tested in parallel.
-* Teardown removes the environment's GitOps resources as well as the runtime resources.
-
-## 5.3 Demo Autoscaling
+## 5.4 Demo Autoscaling
 
 Basic workload autoscaling.
 
@@ -671,7 +675,8 @@ Group 4
 
 Groups 5–8
   → progressive delivery
-  → staging
+  - preview envs
+  → staging env
   → observability
   → cost
   → agent integration
@@ -714,7 +719,7 @@ PR criticality and selective test execution are optimization and governance feat
 | **Group 3**        | Pre-commit, Dagger, GitHub Actions, Act                                                                      | Groups 1–2                |
 | **★ Group 4**      | ArgoCD, basic GitOps deployment, GitHub/Kubernetes permission enforcement, first deployed Sample Application | Groups 1–3                |
 | **★ Milestone**    | **First Usable Runtime Slice**                                                                               | **Group 4**               |
-| **Group 5**        | Argo Rollouts blue-green, ephemeral staging, Demo HPA                                                        | Group 4                   |
+| **Group 5**        | Argo Rollouts blue-green, ephemeral preview, staging, Demo HPA                                                        | Group 4                   |
 | **Group 6**        | SigNoz telemetry, customer workload observability, OpenCost                                                  | Groups 4–5                |
 | **Group 7**        | Coding Agent API, OpenAPI contract, first-party Agent Skill                                                  | Groups 4–6                |
 | **Group 8**        | Policy Editor UI, declarative platform versioning                                                            | Group 2 + IDE Shell       |
@@ -798,7 +803,8 @@ Sample Application
 ```text
 PR
 → CI
-→ Ephemeral Staging
+→ Ephemeral Preview
+- Staging
 → Smoke/E2E
 → Approval
 → main
