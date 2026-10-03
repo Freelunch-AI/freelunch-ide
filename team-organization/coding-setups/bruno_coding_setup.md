@@ -554,13 +554,13 @@ Handling PR Comments and Reviews:
 
 ---
 
-## Harness Eval Custom Skill (harness-eval.md)
+## Harness Evaluation Custom Skill (harness-eval.md)
 
-Use this skill to run controlled A/B evaluations of AI coding workflows.
+Use this skill to run controlled A/B evaluations of AI coding setups.
 
 ## When to Use This Skill
 
-Use this skill whenever you want empirical evidence about whether a change to an AI coding workflow affects its performance.
+Use this skill whenever you want empirical evidence about whether a proposed change to an AI coding setup (harness change) is better or not than the baseline for the specific repo being worked on.
 
 Typical uses:
 
@@ -571,7 +571,7 @@ Typical uses:
 * compare **Harness A vs Harness B**;
 * evaluate harness changes currently present in the working tree;
 * evaluate a harness change **before** making it;
-* investigate whether an `AGENTS.md`, skill, hook, rule, subagent, model, or other harness change actually helps on real repository tasks.
+* investigate whether an `AGENTS.md`, skill, hook, rule, subagent, model, or other harness change actually helps on the actual repoository being worked on.
 
 The evaluation supports four task types:
 
