@@ -590,7 +590,7 @@ Do not invent missing eval types or document paths.
 
 ---
 
-# 1. Determine the Two Options
+## 1. Determine the Two Options
 
 The evaluation always compares:
 
