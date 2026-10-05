@@ -38,7 +38,8 @@ Run everyting inside a local dev docker container for safety reasons. VSCode con
   2. Reset the opencode context window and Change the OpenCode Coding Model (e.g., change from Kimi K3 to Opus 4.8) and increase it's reasoning if possible
   3. Reset the opencode context window and Take a fresh look at the problem. Try a different approach (if necessary you can update plan.md or core-implementaiton-tasks.md)
   4. Spawn the most approppriate sub-agent to help
-  5. Reset to the latest commit as your last resource, then reset the OpenCode context window, then try agian to solve the problem.
+  5. Spawn a codex session and prompt to to solve the problem (needs codex installed)
+  6. Reset to the latest commit as your last resource, then reset the OpenCode context window, then try agian to solve the problem.
 - If you solve the problem you are stuck, delete ./.agent/session/problem_stuck.md immediatelly.
 - Before creating a skill from scratch for a common thing (not project-specific, e.g., frontend design) search for existing skills in skills.sh which can be installed via npx skills add
 - if you encounter code-spec mismatch you should explain the mismatch, initiate a discussion with the user, which wil culminate in either code or spec change (or both). Spec should always be the goldern standard we look up to, so it can never be outdated.
@@ -47,7 +48,7 @@ Run everyting inside a local dev docker container for safety reasons. VSCode con
 - Before building any GUI, need to: (1) have a mock/prototype validated with the user; (2) write a design.md to standardize GUI components and patterns.
 - If I give you you a mock.html as guidance, you should open the mock, create synthetic goals the end-user will want to achieve within the GUI, and actually use the mock in the context of achieving these synthetic goals. In the end, write your improved understanding of the mock, i.e., write you understanding of the GUI experience I want to build in a mock_learnings.md at the same directory as mock.html. The you ask for my approval to use this mock as the implementation guide.
 - all core code of a project needs to be inside ./src directory at repo root
-- for grilling me, always look at Use .agent/persistant/user-codebase-questions.jsonl to know my comon weak uderstanding spots
+- for quizzing me, always look at Use .agent/persistant/user-codebase-questions.jsonl to know my comon weak uderstanding spots
 - Use asynchronous/concurrent execution when its clearly the right solution for the scenario, particularly for I/O-bound work. Don't introduce async merely because it is technically possible
 - Don't choose a technically inferior architecture merely because it is slightly cheaper to implement when a significantly better design is available at reasonable complexity.
 - Wehn doing any kind of artifact optimization (e.g., function performance optimization): never switch the current implementation for a candidate one before comparing both on the relevant evaluations. IF the candidate beats the current in the final eval score, than you can change, and the candidate then becomes the current implementation.
