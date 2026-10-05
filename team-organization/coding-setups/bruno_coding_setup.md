@@ -744,6 +744,30 @@ If `doc-review` is selected without exact document paths, stop and request them.
 
 ---
 
+# 2.1 Required A/B Trial Count
+
+Every A/B evaluation must be run for **exactly 3 independent trials** because model behavior is probabilistic.
+
+One trial consists of one independent execution of Option A and one independent execution of Option B against the same frozen mutation and task for that trial.
+
+Therefore, every A/B evaluation produces:
+
+```text
+3 trials
+×
+2 options
+=
+6 agent executions
+```
+
+Each trial must use fresh agent sessions and isolated execution environments. Trials must not reuse agent state, writable caches, repositories, or other execution state from previous trials.
+
+The three trials must be independently recorded. Do not stop after fewer than 3 trials, even if one option appears clearly better after the first or second trial.
+
+The three trials must use independent mutation seeds and therefore fresh mutations, while preserving the requirement that A and B within each trial receive the exact same mutation.
+
+---
+
 # 3. FIRST: Isolate the Evaluation
 
 **Before modifying anything, create the isolated evaluation environment.**
@@ -1829,9 +1853,11 @@ so historical results cannot leak into future experiments.
 
 ---
 
-# 32. Multiple Trials
+# 32. Three Required Trials
 
-When `trials > 1`, repeat the full process.
+Every A/B evaluation runs **exactly 3 trials**.
+
+Repeat the full evaluation process independently for each trial.
 
 Each trial gets:
 
@@ -1847,9 +1873,21 @@ fresh agent session B
 
 Use a new mutation seed per trial.
 
-Do not reuse agent state.
+Do not reuse agent state, repositories, writable caches, or execution state between trials.
 
-Record every trial independently.
+Within each trial, the mutation is created exactly once and the resulting frozen mutation is shared by Option A and Option B. Do not independently generate mutations for A and B.
+
+The complete evaluation therefore has:
+
+```text
+Trial 1: Option A + Option B
+Trial 2: Option A + Option B
+Trial 3: Option A + Option B
+```
+
+Record every trial independently, including all raw evaluation artifacts and metrics.
+
+Do not stop early because one option appears better after an earlier trial.
 
 ---
 
@@ -1894,7 +1932,9 @@ semantic_test_quality = evaluator result
 
 Also provide the locations of the raw artifacts.
 
-For multiple trials, report each trial separately.
+Report all **3 trials** separately.
+
+Also provide an aggregate view across the 3 trials where the metric supports aggregation, while preserving the individual trial results and raw evidence.
 
 Do not collapse the experiment into a subjective ranking or winner.
 
