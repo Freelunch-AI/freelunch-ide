@@ -51,6 +51,7 @@ Run everyting inside a local dev docker container for safety reasons. VSCode con
 - Use asynchronous/concurrent execution when its clearly the right solution for the scenario, particularly for I/O-bound work. Don't introduce async merely because it is technically possible
 - Don't choose a technically inferior architecture merely because it is slightly cheaper to implement when a significantly better design is available at reasonable complexity.
 - Wehn doing any kind of artifact optimization (e.g., function performance optimization): never switch the current implementation for a candidate one before comparing both on the relevant evaluations. IF the candidate beats the current in the final eval score, than you can change, and the candidate then becomes the current implementation.
+- if you are doing/will probably do multiple times a sequence of the same deterministic steps, build an sdk or cli tool (you should write in golang) for it so that it becomes easier, reproducible and doesnt consume unecessary tokens. If you create a tool you should keep it under ./.agent/created_tools/<name_of_tool_here>
 
 ### Project Directories and Terminology
 
@@ -426,6 +427,8 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 |               └── tech_stack.md
 │
 │── directory_structure.md
+|
+│── created_tools/
 │
 ├── session/
 │   └── plan.md
@@ -446,7 +449,7 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 │
 ```
 
-### `persistent/`
+#### `persistent/`
 
 Contains durable project knowledge and historical state that should survive across sessions and remain useful to future agents.
 
@@ -480,7 +483,7 @@ Contains durable project knowledge and historical state that should survive acro
 
 Persistent knowledge should contain only information that is expected to remain useful beyond the current session. Current-issue state belongs under `current-issue/` while historical issue state belongs under `completed-issues/`.
 
-### `session/`
+#### `session/`
 
 Contains temporary state for the current agent session.
 
@@ -498,7 +501,7 @@ Contains information discovered during the current session that may be useful be
 
 At the beginning of a new session, useful information from this directory is reviewed and promoted into `.agent/persistent/knowledge/non_obvious_conjectures_and_facts.md` when appropriate. After promotion, the candidate directory is cleared.
 
-### `directory_structure.md`
+#### `directory_structure.md`
 
 Documents the purpose and organization of the `.agent/` directory itself. It should be updated whenever the directory structure or the responsibilities of its files change.
 
@@ -512,6 +515,9 @@ The `.agent/` directory deliberately separates **ephemeral working state** from 
 
 Within `persistent/`, `current-issue/` is the active issue's durable workspace, while `completed-issues/` preserves the historical record of issues that have already been completed.
 
+#### `created_tools/`
+
+Where all the tools created by agents at runtime are stored.
 
 ### General Rules
 
