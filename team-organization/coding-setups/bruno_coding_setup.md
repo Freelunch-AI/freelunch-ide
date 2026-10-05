@@ -218,7 +218,7 @@ Notes for implementation:
 
 A: Issue-specific Spec & Core Implementation Tasks Plan
 
-0. **/grillme Understand the codebase, then grill me with questions to see if I really understand the codebase.** Make high-level questions (e.g., decisions chosen, project structure, tradeoffs, architecture) and low-level questions (e.g., what a specific file/function/class is for). [AI Approval Gate]
+0. **/quizme Understand the codebase, then quiz me with questions to see if I really understand the codebase.** Make high-level questions (e.g., decisions chosen, project structure, tradeoffs, architecture) and low-level questions (e.g., what a specific file/function/class is for). [AI Approval Gate]
 
 1. **/start Start Issue Handling**: point to the GitHub issue; create a satellite branch with an appropriate name according to the branching strategy file; study the repo; ask user clarifying questions about the problem and solution. This step ends when a common problem/solution understanding is reached with the user.
 
@@ -256,13 +256,13 @@ B2: Tests & Logic
 11. Loop through 11.i–iii until the feature implementation satisfies the functional tests and validation requirements. [User Approval Gate with Independent AI Reviewer Suggestions]
    i. **/featdep Define Allowed Feature-code Dependencies** with explanation of why each is used. Apply the same maintenance/popularity/ease/capability criteria as scaffold dependencies. [User Approval Gate with AI Review Suggestions]
    ii. **/feat Write Feature Code** using only the allowed feature-code dependencies; make/remake `plan.md` first. Implement the smallest coherent behavioral slice and try to make multiple related tests pass at a time. Review against Issue-specific and Global Spec and Design System when GUI work is involved. [User Approval Gate with Independent AI Reviewer Suggestions]
-   iii. **/test Build and Test Feature Code**: make/remake `plan.md` first; build and run functional tests; generate test and coverage reports; review against Issue-specific and Global Spec; repeat until all required tests pass.
+   iii. **/test Build and Test Feature Code**: make/remake `plan.md` first; build and run functional tests; generate test and coverage reports; review against Issue-specific and Global Spec; repeat until build doesnt raise errors or warnigns and all tests pass.
 
 12. **/refact-coreimplementation-task-if-necessary**: make/remake `plan.md` first; evaluate refactoring opportunities limited to the last completed core implementation task. Refactor only when it preserves behavior and improves clarity, quality, or maintainability. After each refactoring, evaluate whether it is actually better; otherwise keep the previous version. [User Approval Gate] [AI Approval Gate]
 
 ----<<separate terminal block (reset context)>>----
 
-13. **/grillme Grill User on the Latest Changes**: user reviews the code and asks questions; the agent grills the user until the user has full understanding of the changes. [AI Approval Gate]
+13. **/quizme Quiz User on the Latest Changes**: user reviews the code and asks questions; the agent grills the user until the user has full understanding of the changes. [AI Approval Gate]
 
 ----<</separate terminal block>>----
 
@@ -288,15 +288,15 @@ D: Security Review, Documentation & PR
 
 18. Loop until security review succeeds [User Approval Gate with AI Reviewer Suggestions]
    i. **/secreview Specialized Security Review**: flag critical problems and warnings. Store the final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
-   ii. **/redo Make Necessary Code/Test/Docs Changes**: make/remake `plan.md` first; implement changes, build and test, then review against Issue-specific and Global Spec. [User Approval Gate with AI Reviewer Suggestions]
+   ii. **/redo Make Necessary Code/Test/Docs Changes**: make/remake `plan.md` first; implement changes, build and test, then review against Issue-specific and Global Spec. Ensure build doesnt raise errors or warnigns and all tests pass [User Approval Gate with AI Reviewer Suggestions]
 
 19. Loop until E2E verification succeeds
    i. **/end-to-end-testing**: run the final E2E verification, including GUI testing when relevant, and verify E2E tests reflect PRD requirements and Global Spec consistency.
-   ii. **/redo Make Necessary Code/Test/Docs Changes** as required. [User Approval Gate with Independent Reviewer Suggestions]
+   ii. **/redo Make Necessary Code/Test/Docs Changes** as required. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent Reviewer Suggestions]
 
 ----<<separate terminal block (reset context)>>----
 
-20. **/grillme Grill User on the Final Changes** until the user has full understanding. [AI Approval Gate]
+20. **/quizme Quiz User on the Final Changes** until the user has full understanding. [AI Approval Gate]
 
 ----<</separate terminal block>>----
 
@@ -313,21 +313,21 @@ E: Make Fixes Based on PR Reviews and/or CI Failures Until PR Is Merged
 24. Loop until all required external review/CI failures are addressed [User Approval Gate with AI Reviewer Suggestions]
    i. **/prreviews**: after the user manually checks a PR review or CI failure notification, read the PR reviews and CI runs from GitHub and write them locally in the dedicated current-issue PR-review area.
    ii. **/review Independent Code Review**: make/remake `plan.md` first; review maintainability, modularity, test coverage, file sizes, tests/spec compliance, and run mutation testing last. Store the final code review in `.agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md`.
-   iii. **/redo Make Necessary Code/Test/Docs Changes**: apply justified fixes, build and test, and review against Issue-specific and Global Spec. [User Approval Gate with Independent AI Reviewer Suggestions]
+   iii. **/redo Make Necessary Code/Test/Docs Changes**: apply justified fixes, build and test, and review against Issue-specific and Global Spec. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent AI Reviewer Suggestions]
 
 ---- New Session (reset context) ----
 
 25. Loop until security review succeeds
    i. **/secreview Specialized Independent Security Review**: store final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
-   ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. [User Approval Gate with Independent AI Reviewer Suggestions]
+   ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. Ensure build doesnt raise errors or warnigns and all tests pass [User Approval Gate with Independent AI Reviewer Suggestions]
 
 26. Loop until final E2E verification succeeds
    i. **/end-to-end-testing**: rerun final E2E verification, including GUI testing when relevant.
-   ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. [User Approval Gate with Independent AI Reviewer Suggestions]
+   ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent AI Reviewer Suggestions]
 
 ----<<separate terminal block (reset context)>>----
 
-27. **/grillme Grill User on Changes Since Last Grillme** until the user has full understanding. [AI Approval Gate]
+27. **/quizme Quiz User on Changes Since Last quizme** until the user has full understanding. [AI Approval Gate]
 
 ----<</separate terminal block>>----
 
@@ -349,7 +349,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Terminal Harnesses: OpenCode + failproofai + claude-tap, open-code-review and openwiki
 - IDE (for better introspection + manual editing): VSCode (with language-specific linters and formatters plugins running continuosly on every file edit)
 - LLM Provider Subscription: **OpenCode Go
-- Models: (0) Planning: Current great coding model thats not so expensive with medium resoning; (1) Spec, scaffold and Tests: Current great coding model thats not so expensive with high reasoning; (2) Core coding: Best coding qualirty/price model with medium reasoning; (3) Independent Spec Review: Best Coding Model with high reasoning; (4) Plan Review: Current great coding model thats not so expensive with high reasoning; (5) Security Review: Best Review Model with high reasoning; (6) end-to-end testing: Current great coding model thats not so expensive with high reasoning; (7) sub-agents model: Best Coding Model with high reasoning; (8) Code Review: 2 not so correlated great Review Models that are not so expensive with high reasoning as cadidate generators and open-code-review using best review model with high reasoning as final decision maker; (9) Grillme: Best coding qualirty/price model with medium reasoning
+- Models: (0) Planning: Current great coding model thats not so expensive with medium resoning; (1) Spec, scaffold and Tests: Current great coding model thats not so expensive with high reasoning; (2) Core coding: Best coding qualirty/price model with medium reasoning; (3) Independent Spec Review: Best Coding Model with high reasoning; (4) Plan Review: Current great coding model thats not so expensive with high reasoning; (5) Security Review: Best Review Model with high reasoning; (6) end-to-end testing: Current great coding model thats not so expensive with high reasoning; (7) sub-agents model: Best Coding Model with high reasoning; (8) Code Review: 2 not so correlated great Review Models that are not so expensive with high reasoning as cadidate generators and open-code-review using best review model with high reasoning as final decision maker; (9) quizme: Best coding qualirty/price model with medium reasoning
 - Local Routing: opencode-model-router (opencode plugin)
     - Fast Model: qwen2.5-coder:7b
     - Medium Model: current coder model
@@ -370,7 +370,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - document using openwiki and with the following guidelines in ./.openwiki/INSTRUCTIONS.md: should first check incosistency (global spec is king), staleness and incompleteness of existing documentation (if any) and then update/create: (1) Contributor Documentation: visualization o repositoty strcture explaining succintly each directory and file, (1.2) Step by step contributor tutorial to help a newcomer understand the codebase; (2) User Documentation (only do after first version 0.1.0 is released): (2.1) User API Reference. (2.2) User step by step tutorial starting from sratch; (2.3) User guides to do common stuff; (2.4) FAQ. 
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
-    - Use existing skills: visual-recap + explain-diff (ideally also running in github actions for every PR), skill-creator, i-have-adhd, quick-recap, mutation-testing, chrome-devtools-cli, optimize-anything, grillme (every grillmre run should log all the questions, answers and feedback gave to the user inot a .agent/persistant/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was grilled in the last grill and user-codebase-questions.jsonl file), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
+    - Use existing skills: visual-recap + explain-diff (ideally also running in github actions for every PR), skill-creator, i-have-adhd, quick-recap, mutation-testing, chrome-devtools-cli, optimize-anything, quizme (every quizme run should log all the questions, answers and feedback gave to the user inot a .agent/persistant/user-grills/grill[i].md where i is the id of the grill and the file should have timestamp, commit, what the grill was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was grilled in the last grill and user-codebase-questions.jsonl file), lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
 
 ## How Code Review is Done
 
