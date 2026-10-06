@@ -186,7 +186,7 @@ Similarly:
 
 - Implent first (Always Required): Unit tests 
 - Implement second (Always Required): Integration tests 
-- Implement third (only required if the project already provides an external API or GUI): End-to-end tests
+- Implement third (only required if the project contains a user-facing API, CLI or GUI/Frontend): End-to-end tests
 
 Skipping any required level = Not Complete
 
