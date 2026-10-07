@@ -19,7 +19,7 @@ Run everyting inside a local dev docker container for safety reasons. VSCode con
 - Before starting something new, check the last uncommitted and commited changes made with git. Only start this new thing if nothing seems suspicious (e.g., new code was written without correspinding tests, weird code changes, etc)
 - Before using an unfamiliar dependency/API, consult its official documentation relevant to the operation being performed. Do not reread documentation already understood in the current session.
 - every review document (in ./.agent/session-persistent-candidate/reviews/) created should contain in its initial metadata a reference to the exact version of what was reviewed which can be a file of specific commit (e.g., spec review and security spec review) or an entire commit (e.g., code review and security code review).
-- log all mistakes you made in ./.agent/persistant/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder}. 
+- log all mistakes you made in ./.agent/persistant/knowledge/mistakes.jsonl file, each entry in the form {"what_was_done": "placeholder", "what was wrong": "placeholder", "why it was wrong": "placeholder", "how the mistake was corrected": placeholder, "commit hash of the codebase at the time of mistake": placeholder}. 
     - What counts as mistakes?
         - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
         - Anything the I (aka your user) had to intervene to change something you already did becomes it had serious problems. I might say explicitely that you did something wrong (e.g., "change di code you wrote because its not readable", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained end-to-end steps, where you start by") or just ask you if you are shure something is correct. Note: before counting it as a mistake and changing it, you must confirm the problem by talking to me with arguments. 
@@ -455,8 +455,13 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 ├── created_tools/
 │
 ├── directory_structure.md
-└── harness-evals/
-    └── <historical harness evaluation results are stored here if configured>
+├── supervised_evals/
+│   └── <mistake-id>/
+│       ├── metadata.json
+│       ├── task.md
+│       └── expected.diff
+└── harness_evals_results/
+    └── <historical harness evaluation results>
 ```
 
 #### `flow/`
@@ -521,6 +526,14 @@ Where all tools created by agents at runtime are stored.
 ### `directory_structure.md`
 
 Documents the purpose and organization of `.agent/`. It should be updated whenever the directory structure or responsibilities of its files change.
+
+### `supervised_evals/`
+
+Contains the persistent supervised evaluation suite derived from confirmed entries in `./.agent/persistant/knowledge/mistakes.jsonl`. Each cached supervised eval contains the mistake ID, the exact mistake commit, the agent-facing task, and the expected correction diff. The expected diff is hidden from evaluated agents. Existing cached evals are reused on later `harness-eval` invocations; only previously unseen mistake entries are converted into new evals.
+
+### `harness_evals_results/`
+
+Contains historical results from completed harness evaluations. It is runtime evidence, not benchmark ground truth, and is excluded from future evaluation snapshots so previous results cannot leak into evaluated agents.
 
 ### Important distinction: session state vs. durable state
 
@@ -742,6 +755,8 @@ If the eval type is missing, stop and request it.
 
 If `doc-review` is selected without exact document paths, stop and request them.
 
+The caller-selected `EVAL_TYPES` governs reconstruction evals only. The cached supervised eval suite described below is always run in addition to those selected reconstruction evals.
+
 ---
 
 # 2.1 Required A/B Trial Count
@@ -764,28 +779,121 @@ Each trial must use fresh agent sessions and isolated execution environments. Tr
 
 The three trials must be independently recorded. Do not stop after fewer than 3 trials, even if one option appears clearly better after the first or second trial.
 
-The three trials must use independent mutation seeds and therefore fresh mutations, while preserving the requirement that A and B within each trial receive the exact same mutation.
+The three reconstruction trials must use independent mutation seeds and therefore fresh mutations, while preserving the requirement that A and B within each trial receive the exact same mutation.
+
+For supervised evals, there is no generated mutation to reseed. All three trials reuse the same cached historical mistake state, task, and expected diff, while still using fresh agent sessions, isolated containers, repositories, and writable execution state.
+
+---
+
+# 2.2 Automatic Cached Supervised Eval Suite
+
+In addition to the caller-selected reconstruction eval types, **every `harness-eval` invocation must run the complete cached supervised eval suite** for each A/B experiment. Supervised evals are not an `EVAL_TYPES` value and do not require the caller to request them explicitly.
+
+A supervised eval is a replay of a confirmed real mistake recorded in `./.agent/persistant/knowledge/mistakes.jsonl`. Each supervised eval contains exactly these benchmark ingredients:
+
+```text
+task
+codebase commit at the time of the mistake
+expected correction diff
+```
+
+The expected diff is hidden from the evaluated agents. The main evaluation agent receives the expected diff only after the agent execution and compares the agent-produced diff against it to produce the supervised evaluation score.
+
+Supervised evals run with the same isolation requirements as reconstruction evals:
+
+* Option A and Option B each run in their own Docker Compose environment.
+* Each supervised eval gets fresh repositories, containers, agent sessions, HOME directories, harness state, temporary directories, writable caches, and build directories.
+* A supervised eval must not share writable execution state with another supervised eval or with a reconstruction eval.
+* A and B receive the exact same historical mistake state and task within each trial; only the intended A/B harness difference may vary.
+* The historical mistake commit is the application/codebase baseline. Apply the current Option A or Option B harness configuration on top of that historical baseline without importing later application changes.
+
+Every cached supervised eval is executed on every invocation. Existing cached eval definitions are reused; they are not regenerated merely because the repository or current harness has changed.
+
+---
+
+# 2.3 Construct and Cache Supervised Evals From New Mistakes
+
+At the beginning of every `harness-eval` invocation, synchronize the supervised-eval cache with `./.agent/persistant/knowledge/mistakes.jsonl`. Only mistake entries that are not already represented in `./.agent/supervised_evals/` are transformed.
+
+Use a stable `mistake_id` derived from the canonical JSON representation of the complete mistake entry, for example:
+
+```text
+mistake_id = SHA-256(canonical_json(mistake_entry))
+```
+
+Do not use the JSONL line number as the identity because entries may be moved or reformatted. The cache directory itself is the lookup/index: if `./.agent/supervised_evals/<mistake-id>/` exists, that mistake entry is already cached. No separate cache index is required.
+
+### Construction must happen outside the main repository
+
+The construction process is **not allowed to create a Git repository, checkout, worktree, or other mutable historical-code workspace anywhere inside the main repository**, including under `.agent/supervised_evals/`. The main repository may only be read to obtain source material and benchmark-construction inputs. Any filtering, redaction, deletion, truncation, or other sanitization must happen only in a copied external workspace; never in the main repository itself.
+
+The **project folder** is the Git checkout containing the project's `.git` directory. The agent may work outside the project folder only **one level above the project folder**. Any such path must be expressed relative to the project root using exactly one `../` component. The agent must not use absolute paths for external workspaces and must not traverse two or more levels above the project root (for example, `../../...`).
+
+All construction work must happen in an external temporary workspace such as:
+
+```text
+../tmp/harness-eval/<run-id>/supervised-eval-construction/<mistake-id>/
+```
+
+The construction workspace may contain a temporary clone/checkout with the original Git history because construction is trusted benchmark-building work. This historical repository must never be exposed to the evaluated agent. Only after construction is complete may the final `task.md`, `expected.diff`, and minimal cache metadata be copied into `./.agent/supervised_evals/<mistake-id>/`.
+
+This separation is mandatory because the supervised-eval agent must start from a historical codebase state, while putting a Git repository inside the user's working repository creates a nested-repository and accidental-scope risk.
+
+For each new mistake entry:
+
+1. Parse and validate the required mistake fields, especially the commit hash of the codebase at the time of the mistake.
+2. Create the external construction workspace and reconstruct the codebase at exactly that mistake commit there.
+3. Use the recorded mistake description and the trusted repository history available in the construction workspace to identify the confirmed correction that actually resolved the mistake.
+4. Construct the **expected diff** as the smallest semantically complete correction patch from the mistake-commit state to the confirmed corrected state. The expected diff must be grounded in the real correction; do not invent a hypothetical patch.
+5. Construct the agent-facing **task** from the mistake description and evidence available to the agent at that historical state. The task may describe the problem that needs fixing, but must not reveal the logged correction procedure, hidden expected diff, or post-mistake ground truth.
+6. Validate that applying the expected diff to the mistake-commit state produces the confirmed correction.
+7. Only after the construction is validated, copy the completed eval into `./.agent/supervised_evals/<mistake-id>/`.
+
+The cached supervised eval contains only:
+
+```text
+metadata.json
+  mistake_id
+  mistake_commit
+
+task.md
+expected.diff
+```
+
+The two metadata fields above have direct operational purposes:
+
+* `mistake_id` identifies which `mistakes.jsonl` entry the cached eval represents and is also encoded by the cache directory name.
+* `mistake_commit` tells the harness which historical application state to reconstruct for execution.
+
+Do **not** store redundant construction metadata such as task paths, expected-diff paths, baseline tree identifiers, expected-diff hashes, construction timestamps, or correction-source references. The paths are fixed by the cache layout, the mistake commit already identifies the historical baseline, the expected diff itself is the ground truth, and construction bookkeeping is irrelevant once the cached benchmark is validated.
+
+Do not expose `./.agent/supervised_evals/`, `expected.diff`, or any construction workspace/evidence to evaluated agents. These paths must be excluded from every evaluated repository snapshot.
+
+A cached supervised eval is immutable during normal `harness-eval` invocations. If a mistake entry already has a cached eval, reuse that eval rather than silently rebuilding it. An intentional rebuild must be an explicit maintenance action outside the normal evaluation flow.
+
+If a new mistake cannot be converted into a trustworthy expected diff, do not invent one. Do not create a partial cache entry; report the construction failure for that invocation and leave the mistake uncached so it can be retried on a later invocation.
 
 ---
 
 # 3. FIRST: Isolate the Evaluation
 
-**Before modifying anything, create the isolated evaluation environment.**
+**Before running any evaluated agent, create the isolated evaluation environment.**
 
 The user's current repository is the **main checkout**.
 
-Treat it as read-only.
+Treat it as read-only for evaluated execution. The harness may update the persistent supervised-eval cache before the experiment and persist results after the experiment, but evaluated agents must never execute against the main checkout.
 
 Do not:
 
-* create the mutation there
-* install an evaluated harness there
-* run an evaluated agent there
-* modify harness files there
-* create evaluation artifacts there
-* modify `.agent/harness-evals/` while agents are running
+* create a reconstruction mutation in the main checkout
+* install an evaluated harness in the main checkout
+* run an evaluated agent in the main checkout
+* modify harness files in the main checkout as part of the actual experiment
+* create runtime evaluation artifacts in the main checkout while agents are running
+* modify `.agent/supervised_evals/` while agents are running
+* modify `.agent/harness_evals_results/` while agents are running
 
-The evaluation uses two separate Docker Compose environments, one per option. The main checkout is only the source from which the evaluation snapshots are created.
+The evaluation uses two separate Docker Compose environments, one per option. The main checkout is only the source from which the evaluation snapshots and historical supervised-eval repositories are created.
 
 ---
 
@@ -810,16 +918,20 @@ Do not include uncommitted application changes in either option.
 
 For both modes:
 
-Exclude:
+Exclude from every agent-visible evaluation snapshot:
 
 ```text
 .git/
-.agent/harness-evals/
+.agent/persistant/knowledge/mistakes.jsonl
+.agent/supervised_evals/
+.agent/harness_evals_results/
 temporary evaluation state
 temporary caches
 credentials
 secrets
 ```
+
+**Excluding a file means omitting it from the copied evaluation snapshot/container. Never delete, truncate, modify, or otherwise change the corresponding file in the main repository.** In particular, the main repository's `./.agent/persistant/knowledge/mistakes.jsonl` must remain untouched because it is the persistent source for future supervised-eval construction.
 
 Never copy secret values into the evaluation repositories.
 
@@ -841,17 +953,71 @@ snapshot tree identifier
 
 Do not create evaluated repositories using normal worktrees from the original repository.
 
+All temporary evaluated repositories must be created under a sibling directory one level above the project folder, using a path relative to the project root such as `../tmp/harness-eval/<run-id>/...`. Do not use an absolute filesystem path or traverse above that parent directory.
+
 The original repository's Git history may reveal hidden ground truth.
 
 Instead:
 
-1. copy the selected evaluation snapshot
-2. create a new temporary Git repository
-3. initialize it
-4. add the snapshot
-5. create a single root commit
+1. create the agent-visible sanitized snapshot described in Section 5.1
+2. copy that sanitized snapshot into the external one-level-up workspace
+3. create a new temporary Git repository in the external one-level-up workspace
+4. initialize it
+5. add the snapshot
+6. create a single root commit
 
 The resulting repository must contain the exact intended snapshot but none of the original Git history.
+
+## 5.1 Sanitize Everything Before Creating Agent Containers
+
+Before either A/B repository is copied into a Docker container, create an **agent-visible sanitized snapshot**. The sanitized snapshot is a derived copy used only for the evaluation; the main repository is never modified as part of sanitization.
+
+The sanitization process must inspect **all files and directories that would otherwise be copied into the agent-visible repository**, not only `.agent/`. The goal is to prevent the evaluated agent from recovering information about the mistake, expected correction, prior agent behavior, hidden mutation, or evaluation outcome from repository context.
+
+At minimum, scan for and remove or redact information such as:
+
+```text
+confirmed mistakes and mistake descriptions
+expected corrections or expected diffs
+post-mistake corrected code that reveals the solution
+agent transcripts, tool traces, or previous agent reasoning
+harness-evaluation results or rankings
+mutation metadata or mutation patches
+supervised-eval task/ground-truth construction evidence
+prior reviews that reveal the specific defect or correction
+issue-flow/session history that reveals the solution, mistake, or hidden benchmark state
+non-obvious conjectures/facts that reveal hidden benchmark information
+created tools or their artifacts that reveal the benchmark construction or expected solution
+user quizzes or codebase-question answers that directly reveal the hidden benchmark information
+other generated or historical artifacts whose contents could reveal what the agent is supposed to reconstruct or fix
+```
+
+Do not assume a file is safe merely because its path is not obviously related to evaluations. **Read and assess every copied text-bearing artifact for benchmark leakage.** Binary/generated artifacts must also be excluded when they contain hidden ground truth or other benchmark-specific information that an evaluated agent could inspect.
+
+If a file contains useful repository context plus benchmark-specific information, sanitize only the benchmark-leaking portions while preserving the unrelated useful context. If the file cannot be safely sanitized without risking leakage, exclude it from the agent-visible snapshot.
+
+The following two directories receive special treatment:
+
+```text
+.agent/session/
+.agent/session-persistent-candidate/
+```
+
+In every A/B agent container, preserve only their directory/file structure. Every file inside them must be **zero bytes**, and no file may contain historical, task, mistake, review, plan, transcript, conjecture, or other content. Directories may remain present, but they must contain only these empty files/directories.
+
+The final agent-visible snapshot must therefore satisfy:
+
+```text
+main repository
+      │
+      ├── remains completely unchanged
+      │
+      └── sanitized copy
+              ↓
+       Option A / Option B containers
+```
+
+The main repository's `mistakes.jsonl`, supervised-eval cache, historical results, session state, and session-persistent-candidate contents are never deleted or sanitized in place. Only the snapshot is filtered.
 
 The evaluated agents must not be able to recover hidden ground truth with commands such as:
 
@@ -880,11 +1046,13 @@ Do not invent a new correctness oracle unless the selected eval definition requi
 
 # 7. Create One Mutation Per Trial
 
-For each trial, create **one mutation**.
+For each reconstruction trial, create **one mutation**.
 
 The mutation is shared by both options.
 
 Never independently generate a mutation for A and B.
+
+For supervised evals, **do not create an additional mutation**. The cached historical mistake state is the fixed benchmark input; use the cached mistake commit and expected diff instead.
 
 Use:
 
@@ -1205,7 +1373,7 @@ Option B
 
 The two Compose environments must be independent.
 
-Each primary agent container must have its own:
+Each primary agent container must have its own **sanitized** copy of the evaluation repository and its own:
 
 ```text
 filesystem
@@ -1217,6 +1385,8 @@ temporary directory
 writable cache
 build directory
 ```
+
+The repository copied into these containers is the sanitized agent-visible snapshot. It is never the live main repository and never contains `.agent/persistant/knowledge/mistakes.jsonl`.
 
 Do not run both options in the same container.
 
@@ -1311,6 +1481,8 @@ If an unavoidable difference exists, record it explicitly.
 
 For inferred working-tree harness evaluations, this is the point where the user-confirmed harness file set from Section 1.2 is applied to B.
 
+For a supervised eval, first reconstruct the historical application/codebase state at the cached `mistake_commit`, then apply the current Option A harness configuration to the A repository and the current Option B harness configuration to the B repository. Do not import application changes made after the mistake commit.
+
 ---
 
 # 18. Verify the Environments Before Starting
@@ -1404,6 +1576,12 @@ Do not expose:
 > Review the specified document against the repository and identify concrete correctness, consistency, and completeness issues. Fix the issues you find using the implementation and other repository documentation as evidence.
 >
 > Do not modify unrelated documents, application code, tests, CI/CD, build infrastructure, dependency configuration, pre-commit configuration, evaluation infrastructure, or unrelated files.
+
+### Supervised Eval
+
+Use the cached task for the supervised eval. The repository starts at the exact historical commit recorded for that mistake. Ask the agent to solve the task normally. Do not expose the expected correction diff, the post-correction repository state, the mistake's correction procedure, or the cache metadata.
+
+The task given to the agent must be identical for Option A and Option B within a trial.
 
 ---
 
@@ -1675,6 +1853,14 @@ Compare the reconstructed region with the original hidden region using semantic 
 
 Compare the repaired specified document with the original hidden document using semantic evaluation by the main evaluation agent.
 
+### Supervised Eval
+
+The main evaluation agent compares the agent-produced final diff with the cached `expected.diff`. Score semantic correctness rather than literal patch identity so equivalent implementations can receive full credit. The comparison must determine whether the mistake was completely corrected, whether the changes are unnecessarily broad or introduce regressions, and how closely the resulting behavior/content matches the confirmed correction.
+
+Use a normalized `supervised_diff_score` in the range `0.0` to `1.0`, where `1.0` means the intended correction is semantically complete and the diff contains no material unjustified changes. Partial credit is allowed for partial corrections. A score of `0.0` means the proposed change does not materially correct the mistake.
+
+Record both the produced diff and the hidden expected diff as separate ground-truth/evidence artifacts. Never expose the expected diff to the evaluated agent.
+
 ---
 
 # 27. Handle Invalid Runs Explicitly
@@ -1690,6 +1876,7 @@ INFRA_ERROR
 VALIDATION_ERROR
 PROTECTED_FILE_VIOLATION
 INVALID_MUTATION
+INVALID_SUPERVISED_EVAL
 INVALID_ENVIRONMENT
 ```
 
@@ -1756,6 +1943,19 @@ baseline validation output
 mutation validation output
 ```
 
+For each supervised eval, preserve separately from the agent-visible repository:
+
+```text
+supervised_eval_id
+mistake_id
+mistake commit
+task
+expected correction diff
+baseline validation output
+```
+
+Do not add redundant hashes, path metadata, timestamps, or construction references to the persisted benchmark definition.
+
 For documentation evaluations, preserve the original ground-truth document/region separately from the agent-visible repository.
 
 Raw artifacts must be:
@@ -1776,16 +1976,16 @@ Do not expose Option A artifacts to Option B or vice versa.
 
 # 29. Store Runtime Artifacts Outside the Repository
 
-During evaluation, store runtime artifacts under:
+During evaluation, store runtime artifacts under a sibling directory one level above the project folder. Paths must remain relative to the project root:
 
 ```text
-/tmp/harness-eval/<run-id>/
+../tmp/harness-eval/<run-id>/
 ```
 
 Use:
 
 ```text
-/tmp/harness-eval/<run-id>/
+../tmp/harness-eval/<run-id>/
 ├── manifest.json
 ├── environment.json
 ├── mutation/
@@ -1810,7 +2010,13 @@ Use:
     ├── diff.patch
     ├── usage.json
     └── validation/
+└── supervised-eval/
+    └── <supervised-eval-id>/
+        ├── task.md
+        └── expected.diff
 ```
+
+The `supervised-eval/` ground-truth directory is never mounted into either agent container.
 
 Keep ground-truth artifacts separate from agent-visible repositories.
 
@@ -1838,18 +2044,25 @@ Do not leave agent state or evaluation state behind.
 Only after the evaluation is complete and the containers are destroyed, copy the required artifacts into:
 
 ```text
-.agent/harness-evals/<run-id>/
+.agent/harness_evals_results/<run-id>/
 ```
 
 Do not expose this directory to the evaluated agents.
 
-When taking a future evaluation snapshot, always exclude:
+The persistent supervised-eval cache remains separate:
 
 ```text
-.agent/harness-evals/
+.agent/supervised_evals/
 ```
 
-so historical results cannot leak into future experiments.
+When taking a future evaluation snapshot, always exclude both directories:
+
+```text
+.agent/harness_evals_results/
+.agent/supervised_evals/
+```
+
+Historical results and supervised ground truth must never leak into future evaluated repositories.
 
 ---
 
@@ -1859,7 +2072,7 @@ Every A/B evaluation runs **exactly 3 trials**.
 
 Repeat the full evaluation process independently for each trial.
 
-Each trial gets:
+For reconstruction evals, each trial gets:
 
 ```text
 fresh mutation
@@ -1871,11 +2084,31 @@ fresh agent session A
 fresh agent session B
 ```
 
-Use a new mutation seed per trial.
+Use a new mutation seed per reconstruction trial.
+
+For supervised evals, each trial gets the same cached benchmark inputs:
+
+```text
+same supervised_eval_id
+same mistake commit
+same task
+same expected diff
+```
+
+but still gets:
+
+```text
+fresh Docker Compose environment A
+fresh Docker Compose environment B
+fresh repository A
+fresh repository B
+fresh agent session A
+fresh agent session B
+```
 
 Do not reuse agent state, repositories, writable caches, or execution state between trials.
 
-Within each trial, the mutation is created exactly once and the resulting frozen mutation is shared by Option A and Option B. Do not independently generate mutations for A and B.
+Within each reconstruction trial, the mutation is created exactly once and the resulting frozen mutation is shared by Option A and Option B. Do not independently generate mutations for A and B. Within each supervised trial, the cached historical benchmark is shared by A and B and no additional mutation is created.
 
 The complete evaluation therefore has:
 
@@ -1897,20 +2130,30 @@ For every option report:
 
 | Metric | Option A | Option B |
 | --- | ---: | ---: |
-| Task result | PASS/FAIL/status | PASS/FAIL/status |
+| Task result | Score | Score |
 | Tests | result | result |
 | Agent time | duration | duration |
-| Input tokens | count | count |
-| Cached input | count | count |
-| Cache-write tokens | count | count |
-| Output tokens | count | count |
-| Reasoning tokens | count | count |
-| Model | identifier | identifier |
-| Model inference cost | amount | amount |
+| Input tokens p/model used| count | count |
+| Cached input tokens p/model used| count | count |
+| Output tokens p/model used | count | count |
+| Reasoning tokens p/model used | count | count |
+| Model inference cost p/model used | amount | amount |
 | Protected-file violations | count | count |
 | Application dependency changes | count | count |
 | Harness dependency changes | count | count |
 | Exit status | code | code |
+
+For supervised evals also report:
+
+```text
+supervised_eval_id
+mistake_id
+mistake_commit
+supervised_diff_score
+produced_diff_path
+```
+
+The expected diff remains available as hidden ground truth through the supervised-eval cache; its path is fixed by the cache layout and does not need to be duplicated in the result metadata.
 
 For code review also report:
 
@@ -1946,6 +2189,12 @@ Before declaring an evaluation complete, verify all of these:
 
 ```text
 [ ] main checkout was never used as an execution environment
+[ ] main checkout was never modified for snapshot sanitization or benchmark construction
+[ ] `.agent/persistant/knowledge/mistakes.jsonl` was omitted from agent-visible snapshots rather than deleted or modified in the main checkout
+[ ] every copied file/dir was scanned for benchmark-leaking information before container creation
+[ ] `.agent/session/` and `.agent/session-persistent-candidate/` contained only empty files/directories inside A and B containers
+[ ] any agent-accessible path outside the project folder was one level above the project root and expressed with exactly one ../ prefix
+[ ] no agent-accessible path used an absolute external filesystem path or ../../ traversal
 [ ] exactly two Docker Compose environments were created for the A/B trial
 [ ] each option had its own primary agent container
 [ ] each option had its own repository
@@ -1970,25 +2219,32 @@ Before declaring an evaluation complete, verify all of these:
 [ ] cost used the actual model and applicable current pricing
 [ ] secret values were not extracted into evaluation metadata or artifacts
 [ ] raw artifacts were preserved
+[ ] supervised eval expected diffs remained hidden from evaluated agents
+[ ] every cached supervised eval ran for all 3 A/B trials
+[ ] new mistakes were added to the supervised-eval cache only once and existing cached evals were reused
 [ ] containers and temporary environments were destroyed
-[ ] results were persisted under .agent/harness-evals/
-[ ] main checkout remains unchanged
+[ ] results were persisted under .agent/harness_evals_results/
+[ ] supervised eval definitions were persisted under .agent/supervised_evals/
+[ ] main checkout was not used as an evaluated execution environment
 ```
 
-The purpose of this skill is to turn harness development into a controlled experiment:
+The purpose of this skill is to improve the harness itself systematically after very session:
 
 ```text
 harness change
       ↓
 isolated A/B experiment
       ↓
-same mutation + same task + same non-experimental environment
+reconstruction evals: same frozen mutation + same task + same non-experimental environment
+supervised evals: same cached historical mistake state + same task + same non-experimental environment
       ↓
 independent agents
       ↓
-correctness + task time + token usage + cost
+correctness / supervised diff score + task time + token usage + cost
       ↓
-raw evidence + final report
+raw evidence + final report + final harness improvement suggestions
+      ↓
+human makes the appropriate harness changes
 ```
 
-Do not decide the outcome for the user.
+Do not decide the outcome for the user, just give actioanable suggestions (maximum 3 suggestions).
