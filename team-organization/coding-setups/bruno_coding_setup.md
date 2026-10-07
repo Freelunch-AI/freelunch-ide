@@ -224,10 +224,10 @@ A: Issue-specific Spec & Core Implementation Tasks Plan
 
 2. **/reproducebug** only for bug issues: reproduce the reported bug by writing and running a failing test and confirm that it fails for the expected reason described in the bug issue.
 
-3. Loop until **3.ii and 3.iii** are successful [User Approval Gate with AI Security Reviewer Suggestions]
-   i. **/spec Build Issue-specific Spec**: create `prd.md`, `architecture.md`, and `tech_stack.md` under `.agent/flow/current-issue/issue-spec_[i]/`.
-   ii. **/reviewspec Review Spec**: use an Independent AI Reviewer to check consistency with the Global Spec (Founding Doc + Roadmap + Tech Stack), catch omissions, and flag problems in the Global Spec. If a Global Spec problem is found, modify the Global Spec first, then update the issue-specific spec. Store the final spec review in `.agent/session-persistent-candidate/reviews/final_spec_review_[timestamp].md`. [User Approval Gate]
-   iii. **/specsecreview Specialized Spec Security Review**: flag critical security problems and warnings. Store the final security spec review in `.agent/session-persistent-candidate/reviews/final_spec_sec_review_[timestamp].md`.
+3. Loop until **3.2 and 3.3** are successful [User Approval Gate with AI Security Reviewer Suggestions]
+    1. **/spec Build Issue-specific Spec**: create `prd.md`, `architecture.md`, and `tech_stack.md` under `.agent/flow/current-issue/issue-spec_[i]/`.
+    2. **/reviewspec Review Spec**: use an Independent AI Reviewer to check consistency with the Global Spec (Founding Doc + Roadmap + Tech Stack), catch omissions, and flag problems in the Global Spec. If a Global Spec problem is found, modify the Global Spec first, then update the issue-specific spec. Store the final spec review in `.agent/session-persistent-candidate/reviews/final_spec_review_[timestamp].md`. [User Approval Gate]
+    3. **/specsecreview Specialized Spec Security Review**: flag critical security problems and warnings. Store the final security spec review in `.agent/session-persistent-candidate/reviews/final_spec_sec_review_[timestamp].md`.
 
 ----<<separate terminal block (reset context)>>----
 
@@ -243,9 +243,9 @@ B: Core Implementation
 
 B1: Common Scaffold
 
-7. **/boilerdep Define Allowed Scaffold Dependencies**: choose dependencies for the common scaffold. Dependencies must be actively maintained. A dependency may be preferred when it has important capabilities the alternatives lack, is significantly more popular, is significantly easier to use, or is significantly older. [User Approval Gate with AI Review Suggestions]
+7. **/scaffolddep Define Allowed Scaffold Dependencies**: choose dependencies for the common scaffold. Dependencies must be actively maintained. A dependency may be preferred when it has important capabilities the alternatives lack, is significantly more popular, is significantly easier to use, or is significantly older. [User Approval Gate with AI Review Suggestions]
 
-8. **/boiler Setup/Modify the Common Scaffold**: make/remake `plan.md` first; create or modify the required project skeleton, dependencies, build/test/package automations, and other foundation pieces. Review against Issue-specific and Global Spec. [User Approval Gate with AI Review Suggestions]
+8. **/scaffold Setup/Modify the Common Scaffold**: make/remake `plan.md` first; create or modify the required project skeleton, signatures, dependencies, build/test/package automations, and other foundation pieces. Review against Issue-specific and Global Spec. [User Approval Gate with AI Review Suggestions]. Important: You should not write body implementations of functions or classes, instead leave body implementations as pseudocode in the following format: """ TODO: high-level pseudocode here"""
 
 B2: Tests & Logic
 
@@ -370,7 +370,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - document using openwiki and with the following guidelines in ./.openwiki/INSTRUCTIONS.md: should first check incosistency (global spec is king), staleness and incompleteness of existing documentation (if any) and then update/create: (1) Contributor Documentation: visualization o repositoty strcture explaining succintly each directory and file, (1.2) Step by step contributor tutorial to help a newcomer understand the codebase; (2) User Documentation (only do after first version 0.1.0 is released): (2.1) User API Reference. (2.2) User step by step tutorial starting from sratch; (2.3) User guides to do common stuff; (2.4) FAQ. 
         make shure the documentaiton explains well things that I usually have a hard-time understanding.
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
-    - Use existing skills: ctx7, visual-recap + explain-diff (ideally also running in github actions for every PR), skill-creator, i-have-adhd, quick-recap, mutation-testing, chrome-devtools-cli, optimize-anything, grillme, lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part).
+    - Use existing skills: ctx7, unslop, visual-recap + explain-diff (ideally also running in github actions for every PR), skill-creator, i-have-adhd, quick-recap, mutation-testing, chrome-devtools-cli, optimize-anything, grillme, lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part), teach, ponytail
 
 ## How Code Review is Done
 
@@ -574,6 +574,117 @@ Mandatory pre-pr checklist (ready to push and open/update a PR):
 - highlight key architectural/design decisions that a reviewer might question, problems encountered, solutions and tradeoffs
 - document what was tested and link to evidence. Standard test evidence should show the current commit hash, test suite result and strict 90%+ coverage. GUI work should include before/after video capture where appropriate.
 - make a risk assessment of the PR (Low, Medium, High) based on change scope, type of change, test coverage and other relevant evidence
+
+In the summary section, pick the smallest view that makes the key point clear.
+
+- Show logic or an algorithm as pseudocode:
+
+```text
+on(save)
+  if content is unchanged
+    return cached result
+  write new content
+  return fresh result
+```
+
+- Show runtime control flow as a call tree:
+
+```text
+submitForm
+  createSession
+    persistPrompt
+    launchAgent
+  navigateToSession
+```
+
+- Show UI structure as a component tree, including state and module boundaries that matter:
+
+```text
+<SessionPage> (apps/example/src/routes/session.tsx)
+  useSessionEvents()
+  <SessionToolbar>
+    <RunSkillButton> (packages/ui)
+```
+
+- Show file responsibility or a broad refactor as a shallow file tree:
+
+```text
+src/
+├── commands/       # parses user actions
+├── sessions/       # owns session state
+└── transport/      # sends API requests
+```
+
+- Show component interaction, control flow, or data flow with Mermaid:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI
+    participant Daemon
+    User->>UI: choose command
+    UI->>Daemon: send expanded prompt
+    Daemon-->>UI: stream result
+```
+
+- Use `diff` when the point is what changes and the surrounding shape already exists. Match the diff shape to the topic.
+
+For a component change:
+
+```diff
+ <SessionPage>
+   useSessionEvents()
+   <SessionToolbar>
++    <RunSkillButton />
+   <SessionTimeline>
++    <SkillResultCard />
+```
+
+For a file-layout change:
+
+```diff
+ src/
+ ├── commands/
++│   └── show-me.ts       # expands the slash command
+ ├── sessions/
+-└── transport.ts
++└── transport/
++    ├── client.ts
++    └── stream.ts
+```
+
+For a call-tree or call-stack change:
+
+```diff
+ submitForm
+   createSession
+     persistPrompt
++    expandSkillMention
+     launchAgent
+-  navigateToSession
++  navigateToSession
++    subscribeToEvents
+```
+
+For a state or control-flow change:
+
+```diff
+ on(save)
+-  write content
++  if content is unchanged
++    return cached result
++  write new content
++  invalidate cache
+```
+
+- Show the whole block when most of it is new, when omitted context would hide ownership or order, or when the user needs a copyable target shape:
+
+```ts
+function expandSkill(command: string): string {
+  const skillName = command.slice(1);
+  return `use the ${skillName} skill`;
+}
+```
 
 ### Handling PR Comments and Reviews
 
