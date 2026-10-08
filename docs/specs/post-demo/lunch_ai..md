@@ -13,7 +13,7 @@ Features:
 - custom coding model always beating major LLM APIs: proactive monitoring of where new LLM APIs beat the custom model, then finetuning the cusotm model on distilled data from the best performing API for the specific lagging place. this is until custom model is agian the best model.
 - optional deployment of self-hosted LLM API for agents to use instead of cloud APIs
 - first mate: have a manager agent that orchestrates all the other agents for you, instead of you doing it manually
-- cloud agents for: tech debt removal, performance enhancement, pr review, deploy, operations and feature request creation that ping human engineer when stuck in a loop or uncertan about an important thing.
+- cloud agents for: feature request creation, tech debt removal, performance enhancement, pr review, staging testing, deploy (babysitting + calculated stres testing in prod), operations (problem identification, root cause analysis and issue creation); that ping human engineer when stuck in a loop or uncertan about an important thing.
 - automatic pr merge policy that can merge prs automatically depending on the type of pr (pr acceptance rate is tracked per type of pr)
 
 ## On self-improvement of agents and automatic discovery of best company/repo-specific coding setup for human developers
