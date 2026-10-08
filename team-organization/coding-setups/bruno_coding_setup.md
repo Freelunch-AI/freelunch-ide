@@ -1,6 +1,6 @@
 # Bruno's AI-assisted Coding Setup
 
-Disable opencode native tools and only give it the OpenSandbox MCP which provies file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox.
+Disable opencode native tools and only give it the OpenSandbox MCP which provies file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox. Therefore one window is used to interact with the oding agent and the other window is used to interact with the coding environment.
 
 ## Project Rules (AGENTS.md)
 
