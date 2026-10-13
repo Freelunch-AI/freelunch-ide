@@ -1,10 +1,23 @@
 # Bruno's AI-assisted Coding Setup
 
-Disable opencode native tools and only give it the OpenSandbox MCP which provides file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox. Therefore one window is used to interact with the coding agent and the other window is used to interact (if necessary) with the coding environment in wich the agent is taking actions on.
+## Fundamental Setup
+
+Requirements for the Fundamental Setup:
+- OpenCode Go Suncription API Key
+- Docker Installed Locally
+
+Disable opencode native tools and only give it the OpenSandbox MCP which provides file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate container and separate vscode window (with remote connection to the opencode container) that's not connected to the sandbox. Therefore one window is used to interact with the coding agent container (in which the agent is receiving observations, thinking and generating actions) and the other window is used to interact (if necessary) with the coding environment container (in wich the agent is taking actions on)
 
 Secrets needed by the Agent to use tools should be stored via OpenSandbox which injects secrets are injected at tool-use time.
 
-Run LiteLLM as the LLM Gateaway using its pass-through endpoints, not ordinary model translation. Therefore, the OpenCode subcription secret is stored via LiteLLM, not accessible to the OpenCode Agent.
+Run LiteLLM as the LLM Gateaway using its pass-through endpoints, not ordinary model translation. Therefore, the OpenCode subcription secret is stored via LiteLLM, not accessible to the OpenCode Agent. Configure OpenCode with the LiteLLM custom provider. The gateway authenticates the request (vlidtes the custom api key the gateway generated), injects your actual Go API key, and forwards the request to https://opencode.ai/zen/go/v1. The LiteLLM Gateway also runs on its own container.
+
+In Summary:
+- opencode vanilla docker container that can access only the LiteLLM generated API Key, with no access to vendor secrets. Needs ntworking acess to both the LLM Gatway container and the OpenSandbox Container.
+- opensandbox gVisor docker container that runs actions, maintains durable state and provides observations to the opencode agent via MCP; provides file editing and shell execution actions. Injects secrets at tool-use time.
+- litellm vanilla docker container that contains opencode go subscription api key, that forwards requests from the opencode container to the opencode go endpoint, injecting the opencode go subcription api key.
+
+Where all containers are grouped and deployed locally as a unit via docker-compose.
 
 ## Project Rules (AGENTS.md) [for Inner Loop Agents]
 
