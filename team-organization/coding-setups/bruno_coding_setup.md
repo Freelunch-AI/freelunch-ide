@@ -1,6 +1,6 @@
 # Bruno's AI-assisted Coding Setup
 
-## Fundamental Setup
+## Fundamental Setup [for Humans or Outer Loop Agents]
 
 Requirements for the Fundamental Setup:
 - OpenCode Go Subscription API Key
