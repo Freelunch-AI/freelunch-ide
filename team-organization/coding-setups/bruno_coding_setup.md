@@ -1,6 +1,6 @@
 # Bruno's AI-assisted Coding Setup
 
-Disable opencode native tools and only give it the OpenSandbox MCP which provies file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox. Therefore one window is used to interact with the oding agent and the other window is used to interact with the coding environment.
+Disable opencode native tools and only give it the OpenSandbox MCP which provies file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox. Therefore one window is used to interact with the coding agent and the other window is used to interact (if necessary) with the coding environment in wich the agent is taking actions on.
 
 ## Project Rules (AGENTS.md)
 
@@ -445,7 +445,7 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 │   ├── knowledge/
 │   │   ├── non_obvious_conjectures.md
 │   │   └── exploration_findings/
-│   │       └── <name-of-exploration>_[timestamp].md
+│   │       └── [i]_<name-of-exploration>_[timestamp].md
 │   └── reviews/
 │       ├── final_spec_review_[timestamp].md
 │       ├── final_spec_sec_review_[timestamp].md
@@ -456,12 +456,12 @@ The `.agent/` directory contains the AI agent's workflow state, persistent knowl
 │
 ├── directory_structure.md
 ├── supervised_evals/
-│   └── <mistake-id>/
+│   └── <mistake_name>_[mistake_id]/
 │       ├── metadata.json
 │       ├── task.md
 │       └── expected.diff
 └── harness_evals_results/
-    └── <historical harness evaluation results>
+    └── [i]_<experiment_name>_[timestamp]/
 ```
 
 #### `flow/`
