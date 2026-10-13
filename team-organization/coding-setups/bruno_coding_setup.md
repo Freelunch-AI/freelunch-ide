@@ -3,7 +3,7 @@
 ## Fundamental Setup
 
 Requirements for the Fundamental Setup:
-- OpenCode Go Suncription API Key
+- OpenCode Go Subscription API Key
 - Docker Installed Locally
 
 Disable opencode native tools and only give it the OpenSandbox MCP which provides file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate container and separate vscode window (with remote connection to the opencode container) that's not connected to the sandbox. Therefore one window is used to interact with the coding agent container (in which the agent is receiving observations, thinking and generating actions) and the other window is used to interact (if necessary) with the coding environment container (in wich the agent is taking actions on)
