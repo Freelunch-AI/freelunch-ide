@@ -2,7 +2,7 @@
 
 Disable opencode native tools and only give it the OpenSandbox MCP which provides file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox. Therefore one window is used to interact with the coding agent and the other window is used to interact (if necessary) with the coding environment in wich the agent is taking actions on.
 
-## Project Rules (AGENTS.md)
+## Project Rules (AGENTS.md) [for Wroker Agents]
 
 ### Things you should NEVER do
 
@@ -194,7 +194,7 @@ Skipping any required level = Not Complete
 
 ---
 
-## Issue Flow (tool-agnostic)
+## Issue Flow (tool-agnostic) [for Humans or Outer Loop Agents]
 
 Notes for implementation:
 
@@ -341,7 +341,7 @@ The human user is responsible for checking when the PR is ultimately merged.
 
 > This is the end of the Issue Flow section.
 
-## AI-assisted Coding Tech Stack
+## AI-assisted Coding Tech Stack [for Humans or Outer Loop Agents]
 
 External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Repo
 
@@ -372,20 +372,20 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
         - ui-taste (UI Taste gives Claude a visual sense of taste. Instead of relying only on abstract design principles, the skill provides curated examples of bad, good, and stellar GUIs across different application categories and problem modes, including screenshots and their underlying HTML/CSS. This gives the agent an understanding of what makes GUIs look good. The agent should launch the current GUI, identify the biggest visual shortcomings, and iteratively improve them. The goal isn't to force a particular design style—it is to help Claude distinguish "functional but mediocre" from "genuinely beatifull and easy to use", giving coding agents a practical visual benchmark for judging their own work.)
     - Use existing skills: ctx7, unslop, visual-recap + explain-diff (ideally also running in github actions for every PR), skill-creator, i-have-adhd, quick-recap, mutation-testing, chrome-devtools-cli, optimize-anything, grillme, lavish-axi, code-review-and-quality, api-and-interface-design, browser-testing-with-devtools (only when working with frontend part), security-and-hardening, cc-skills-golang, maintainable-typescript (only when working with frontend part), improve-codebase-architecture, screenshot (only when working with frontend part), extract-design-system (only when working with frontend part), frontend-design (only when working with frontend part), teach, ponytail
 
-## How Code Review is Done
+## How Code Review is Done [for Humans or Outer Loop Agents]
 
 1. Start a new session with opencode: do code review with Model A and store the review in .agent/session-persistent-candidate/reviews/[A]_code_review_[timestamp].md, where A is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
 2. Start a new session with opencode: do code review with Model B and store the review in .agent/session-persistent-candidate/reviews/[B]_code_review_[timestamp].md, where B is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
 3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session-persistent-candidate/reviews/ folder and store the resulting code review inside .agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md
 
-## Token Efficency Laws
+## Token Efficency Laws [for Humans or Outer Loop Agents]
 
 - Avoid small actions → batch related small tasks into larger coherent work units (use a todo_buffer.md to store all todos and then batch them before prompting the harness)
 - Don't derail the agent from its main goal → context spent on unrelated work is expensive and increases context pollution.
 - Use a graph/codebase-understanding tool → avoid repeatedly spending LLM tokens rediscovering repository structure and relationships.
 - Related big tasks in the same session, unrelated new stuff gets its new session
 - Start a new session when context becomes sufficiently polluted → carrying a huge amount of irrelevant history can become more expensive than rebuilding a clean context.
-- Avoid rambling/random studying with the agent, do all of this in ChatGPT/Gemini/Grok webages
+- Avoid rambling/random studying with the agent, do all of this in ChatGPT/Gemini/Grok webpages
 - Stay in the same session while the context is still useful → preserving cached/reusable context avoids paying to rebuild understanding.
 - Until you reach scaffold code with tests, dont swittch models
 - Always mention files with @ for the agent to look/modify instead o letting the agent winder the repo for that file
@@ -554,7 +554,7 @@ The `.agent/` directory deliberately separates temporary state from durable proj
 
 > This is the end of the .agent/directory_structure.md file
 
-## Custom PR Skill
+## Custom PR Skill [for Wroker Agents]
 
 Mandatory pre-pr checklist (ready to push and open/update a PR):
 
@@ -694,7 +694,7 @@ function expandSkill(command: string): string {
 
 ---
 
-## Harness Evaluation Custom Skill (harness-eval.md)
+## Harness Evaluation Custom Skill (harness-eval.md) [for Wroker Agents]
 
 Use this skill to run controlled A/B evaluations of AI coding setups.
 
