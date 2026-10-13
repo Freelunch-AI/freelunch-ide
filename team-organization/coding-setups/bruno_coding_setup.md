@@ -2,7 +2,7 @@
 
 Disable opencode native tools and only give it the OpenSandbox MCP which provides file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate vscode window that's not connected to the sandbox. Therefore one window is used to interact with the coding agent and the other window is used to interact (if necessary) with the coding environment in wich the agent is taking actions on.
 
-## Project Rules (AGENTS.md) [for Wroker Agents]
+## Project Rules (AGENTS.md) [for Inner Loop Agents]
 
 ### Things you should NEVER do
 
@@ -554,7 +554,7 @@ The `.agent/` directory deliberately separates temporary state from durable proj
 
 > This is the end of the .agent/directory_structure.md file
 
-## Custom PR Skill [for Wroker Agents]
+## Custom PR Skill [for Inner Loop Agents]
 
 Mandatory pre-pr checklist (ready to push and open/update a PR):
 
@@ -694,7 +694,7 @@ function expandSkill(command: string): string {
 
 ---
 
-## Harness Evaluation Custom Skill (harness-eval.md) [for Wroker Agents]
+## Harness Evaluation Custom Skill (harness-eval.md) [for Inner Loop Agents]
 
 Use this skill to run controlled A/B evaluations of AI coding setups.
 
