@@ -373,7 +373,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
     - Heavy Model: current coder model
 - Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name.
 - OpenCode Plugins: graphify, rtk, opencode-quota, opencode-model-router, opencode-trace
-- OpenCode MCPs: Github MCP
+- OpenCode External Tools: Github CLI
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Tip: Agency-agents repo provides some sub-agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
 - Dependency Docs: a dependency_docs.md under ./docs with entries in the form "- <dependency>: <docs_link>" for all direct dependencies (not dependencies of dependencies). Pinned versions used in the project cna be seen in the lock file of the virtual dev environment tool.
@@ -1314,20 +1314,21 @@ The mutated repository does **not** need to fail deterministic validation. The c
 
 The test-writing eval measures the ability to practice test-first development by reconstructing **tests plus only the minimal project skeleton/stubs required for those tests to run**, using the repository's specifications and surrounding technical context.
 
-Start from a known-good repository containing the intended application implementation and its tests.
+Start from a known-good repository state in which its last merged PR is the one we want to recostruct the skeleton/tests of the selected new behaviour being merged.
 
 For the mutation:
 
-* delete selected application implementation code
-* delete the tests corresponding to the selected behavior
-* remove or delete the minimal project skeleton needed by those tests when appropriate (files, packages/modules, functions, classes, interfaces, types or empty/stub definitions)
-* preserve the specifications and other repository evidence
+* define commit hash of the repo before the merge of the PR we want to recostruct, define the PR number we want to recostruct the tests, define the issue number this PR resolves
+* setup the repo to be exactly as the commit hash of the repo before the PR
+* put the issue description in the raw issue directory inside .agent
+
+Note: when running this eval need to make shure the agent doesnt have access to github, because if it has access it can cheat by looking at the actual PR made or things in the future.
 
 The agent must:
 
-* recreate the missing tests
-* recreate only the project skeleton/stubs required for those tests to compile and run
-* use the specifications and repository evidence as the source of behavioral intent
+* recreate/modify tests from the issue description
+* recreate/modify the project skeleton/stubs required for those tests to compile and run
+* use the issue description as the source of behavioral intent
 * **not implement the actual application behavior**
 
 All reconstructed tests must be runnable and all of them must fail for the expected reason: the behavior under test is intentionally not implemented. Test failures caused by invalid test code, compile errors, missing imports, broken test setup, or unrelated infrastructure problems are not acceptable.
@@ -1335,14 +1336,16 @@ All reconstructed tests must be runnable and all of them must fail for the expec
 The evaluation therefore has two distinct requirements:
 
 ```text
-test validity:
+test validity (determisistic):
     all tests compile/run
     all tests fail because the intended behavior is unimplemented
 
-semantic test quality:
-    tests correctly represent the requirements in the specification
+semantic test quality (agentic evaluation):
+    tests correctly represent the requirements in the issue
     and cover the intended behavior, constraints, and important cases
 ```
+
+The actual merged PR on github is used by the agentic evaluation as a baseline for comparisons of generate skeleton/tsts vs actual merged skeleton/tests.
 
 Do not require the agent to reconstruct the real implementation.
 
