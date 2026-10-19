@@ -13,9 +13,9 @@ Secrets needed by the Agent to use tools should be stored via OpenSandbox which 
 Run LiteLLM as the LLM Gateaway using its pass-through endpoints, not ordinary model translation. Therefore, the OpenCode subcription secret is stored via LiteLLM, not accessible to the OpenCode Agent. Configure OpenCode with the LiteLLM custom provider. The gateway authenticates the request (vlidtes the custom api key the gateway generated), injects your actual Go API key, and forwards the request to https://opencode.ai/zen/go/v1. The LiteLLM Gateway also runs on its own container.
 
 In Summary:
-- opencode vanilla docker container that can access only the LiteLLM generated API Key, with no access to vendor secrets. Needs ntworking acess to both the LLM Gatway container and the OpenSandbox Container.
-- opensandbox gVisor docker container that runs actions, maintains durable state and provides observations to the opencode agent via MCP; provides file editing and shell execution actions. Injects secrets at tool-use time.
-- litellm vanilla docker container that contains opencode go subscription api key, that forwards requests from the opencode container to the opencode go endpoint, injecting the opencode go subcription api key.
+- Vanilla docker container running opencode that can access only the LiteLLM generated API Key, with no access to external secrets. Needs local docker networking acess to both the LLM Gatway container and the OpenSandbox Container. Important: the entire project folder needs to be mounted as a mounted volume to persist the project across container chutdowns/startups.
+- gVisor docker container running opensandbox that runs actions, maintains durable state and provides observations to the opencode agent via MCP; provides file editing and shell execution actions. Injects external secrets (e.g., github secret or k8s secret) at tool-use time using opensandbox's egress sidecar pattern that proxies outbound requests.
+- Vanilla docker container running litellm that contains the secret opencode go subscription api key, that forwards requests from the opencode container to the external opencode go endpoint, injecting the opencode go subcription api key.
 
 Where all containers are grouped and deployed locally as a unit via docker-compose.
 
