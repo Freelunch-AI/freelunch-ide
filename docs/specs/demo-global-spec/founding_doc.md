@@ -4,12 +4,21 @@
 
 ## 1.1 What is FreeLunch?
 
-**FreeLunch is a business factory that provides to our comapanies all the infra they need so thay can just focus on business logic.** Our goal is to let small teams scale software-intensive businesses without having to build infra and hire experts; with full visibiity and control. Our core product is an **human-centric software factory for applications at scale**. We are starting with just engineering, but have plans for ERP, technical upskilling, offices, and other shared infrastructure startups use.
+**FreeLunch is a meta-company. We spawn startups, and support them with our platforms forever. Our goal is to provide our startups with all the infra they need so thay can just focus on business-specific logic forever.** We want small teams to scale software-intensive companies without having to build/buy infrastructure or hire experts; while maintianing full visibility and control for engineers. 
 
-Similar Companies (Business-as-a-Service):
+Our core platform is a **human-centric software factory for applications at scale**. We are starting with support for engineering, but have future plans to support all facets of a company: finance, hr, supply chain, gaphical design, marketing, sales, technical upskilling, offices, and any other shared infrastructure.
+
+### Similar Orgs
+
+1. Business-as-a-Service (everything needed to go from idea to an operational digital business):
 - [NanoCorp](https://www.nanocorp.so/)
 - [Cofounder](https://cofounder.co/how-to/scale)
 - [Polsia](https://polsia.com/)
+
+2. Meta-companies (create/acquire and operate/support child comapnies):
+- [Long Lake](https://llmh.com/)
+- [Valsoft](https://www.valsoftcorp.com/) 
+- [Redesign Health](https://www.redesignhealth.com/)
 
 But these companies don't support well applications at scale neither focus on human understanding/control. They use AI but forget platform engineering is fundamental for guardrails, predictability, reproducibility, lower cost and human control.
 
@@ -26,15 +35,15 @@ But these companies don't support well applications at scale neither focus on hu
 
 ## 1.3 Product Vision
 
-FreeLunch is a **cloud-development IDE and internal developer platform** that combines application development, infrastructure, deployment, experimentation, and operations in a single place.
+FreeLunch's software foactory is called *freelunch-ide*. It is an **IDE-based internal developer platform for cloud applications** that supports the entire SDLC in a single place.
 
 The core analogy is:
 
-> **IDE + Internal Developer Platform as a single productwith AI Software Factory on top of it**
+> **IDE + Internal Developer Platform as a single product, with AI Software Factory on top of it**
 
-Developers should be able to compose services and infrastructure visually, write application code, deploy through GitOps, observe the running system, and diagnose production issues without needing to become experts in the underlying Kubernetes/cloud-native ecosystem.
+Developers should be able to compose services and infrastructure visually, write application code, deploy through GitOps, observe the running system, and diagnose production issues without needing to become/hire experts in the underlying Kubernetes/cloud-native ecosystem.
 
-The platform provides a higher-level abstraction while preserving access to the underlying systems.
+The platform provides higher-level abstractions while preserving direct interaction with the underlying tools (e.g., K8s, IaC, etc).
 
 ### Core principles
 
