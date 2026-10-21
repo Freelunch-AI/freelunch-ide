@@ -17,6 +17,12 @@ In Summary, for handling an issue:
 - gVisor docker container running opensandbox that runs actions, maintains durable state and provides observations to the opencode agent via MCP; provides file editing and shell execution actions. Injects external secrets (e.g., github secret or k8s secret) at tool-use time using opensandbox's egress sidecar pattern that proxies outbound requests.
 - Vanilla docker container running litellm that contains the secret opencode go subscription api key, that forwards requests from the opencode container to the external opencode go endpoint, injecting the opencode go subcription api key.
 
+Notes for handling multiple issues concurrently:
+- all issue handling workflows share the same vanilla docker container running opencode sessions
+- each issue handling terminal session works on its own git worktree
+
+Important: each issue handling workflow is tied to a terminal session, therefore if the workflow needs an ephemeral opencode session at any point, you should spawn a child terminal session that will inherit the current working directory and environment variables from the parent terminal session. Never spawn manually a terminal session in this case.
+
 Where all containers are grouped and deployed locally as a unit via docker-compose.
 
 ## Project Rules (AGENTS.md) [for Inner Loop Agents]
