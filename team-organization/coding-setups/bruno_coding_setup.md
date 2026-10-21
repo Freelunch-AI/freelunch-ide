@@ -1,5 +1,11 @@
 # Bruno's AI-assisted Coding Setup
 
+## Doc-specific section markers
+
+[for Humans or Outer Loop Agents] --> these mark sections of this document which are intended for humans or agents setting up and operating the issue --> PR factory, meaning that who should act on these sections is not doing the actual issue -> PR work, but setting up or operating the process itself that enables the inner loop agents to work properly, effectively and securely inside the process.
+
+[for Inner Loop Agents] --> these mark sections of this document which are intended for agents who are working in the process of issue --> PR, effectevely doing the final intended work, working within a strcutured process. These sections should be treated as harness artifacts that will be put in the right place in the harness, and provided to these agents at runtime (as agents.md, skills, or something else)
+
 ## Fundamental Setup [for Humans or Outer Loop Agents]
 
 Requirements for the Fundamental Setup:
@@ -17,13 +23,15 @@ In Summary, for handling an issue:
 - gVisor docker container running opensandbox that runs actions, maintains durable state and provides observations to the opencode agent via MCP; provides file editing and shell execution actions. Injects external secrets (e.g., github secret or k8s secret) at tool-use time using opensandbox's egress sidecar pattern that proxies outbound requests.
 - Vanilla docker container running litellm that contains the secret opencode go subscription api key, that forwards requests from the opencode container to the external opencode go endpoint, injecting the opencode go subcription api key.
 
+Where all containers are grouped and deployed locally as a unit via docker-compose.
+
 Notes for handling multiple issues concurrently:
 - all issue handling workflows share the same vanilla docker container running opencode sessions
+- all issue handling workflows are connected to the same llm proxy container (vanilla docker container running litellm)
 - each issue handling terminal session works on its own git worktree
+- each issue handling workfow is connected to its own sandbox container (gVisor docker container running opensandbox)
 
 Important: each issue handling workflow is tied to a terminal session, therefore if the workflow needs an ephemeral opencode session at any point, you should spawn a child terminal session that will inherit the current working directory and environment variables from the parent terminal session. Never spawn manually a terminal session in this case.
-
-Where all containers are grouped and deployed locally as a unit via docker-compose.
 
 ## Project Rules (AGENTS.md) [for Inner Loop Agents]
 
