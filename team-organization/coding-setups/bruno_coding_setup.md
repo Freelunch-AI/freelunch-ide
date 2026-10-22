@@ -305,7 +305,9 @@ B2: Tests & Logic
 
 ---- New Session (reset context) ----
 
-16. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If GUI is involved, include GUI usability/visual testing that emulates real user behavior. Check that E2E tests reflect PRD requirements and that the issue spec remains consistent with the Global Spec.
+16. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If a GUI is involved: include GUI usability/visual testing that emulates real user behavior. Also perform end-to-end stress testing, for APIs this means load testing endpoints for availability and latencyy, for GUIs this means mimicking aggressive scrolling, random group browsing, rapid navigation, repeated media loading.
+
+(aggressive scrolling, random group browsing, rapid navigation, repeated media loading) )Check that E2E tests reflect PRD requirements and that the issue spec remains consistent with the Global Spec.
 
 ---- New Session (reset context) ----
 
@@ -323,8 +325,8 @@ D: Security Review, Documentation & PR
    i. **/secreview Specialized Security Review**: flag critical problems and warnings. Store the final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
    ii. **/redo Make Necessary Code/Test/Docs Changes**: make/remake `plan.md` first; implement changes, build and test, then review against Issue-specific and Global Spec. Ensure build doesnt raise errors or warnigns and all tests pass [User Approval Gate with AI Reviewer Suggestions]
 
-19. Loop until E2E verification succeeds
-   i. **/end-to-end-testing**: run the final E2E verification, including GUI testing when relevant, and verify E2E tests reflect PRD requirements and Global Spec consistency.
+19. Loop until End-to-end testing succeeds
+   i. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If a GUI is involved: include GUI usability/visual testing that emulates real user behavior. Also perform end-to-end stress testing, for APIs this means load testing endpoints for availability and latencyy, for GUIs this means mimicking aggressive scrolling, random group browsing, rapid navigation, repeated media loading.
    ii. **/redo Make Necessary Code/Test/Docs Changes** as required. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent Reviewer Suggestions]
 
 ----<<separate terminal block (reset context)>>----
@@ -354,8 +356,8 @@ E: Make Fixes Based on PR Reviews and/or CI Failures Until PR Is Merged
    i. **/secreview Specialized Independent Security Review**: store final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
    ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. Ensure build doesnt raise errors or warnigns and all tests pass [User Approval Gate with Independent AI Reviewer Suggestions]
 
-26. Loop until final E2E verification succeeds
-   i. **/end-to-end-testing**: rerun final E2E verification, including GUI testing when relevant.
+26. Loop until final End-to-end verification succeeds
+   i. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If a GUI is involved: include GUI usability/visual testing that emulates real user behavior. Also perform end-to-end stress testing, for APIs this means load testing endpoints for availability and latencyy, for GUIs this means mimicking aggressive scrolling, random group browsing, rapid navigation, repeated media loading.
    ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent AI Reviewer Suggestions]
 
 ----<<separate terminal block (reset context)>>----
