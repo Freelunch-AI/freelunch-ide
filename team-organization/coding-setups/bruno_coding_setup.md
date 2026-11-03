@@ -2,9 +2,9 @@
 
 ## Doc-specific section markers
 
-[for Humans or Outer Loop Agents] --> these mark sections of this document which are intended for humans or agents setting up and operating the issue --> PR factory, meaning that who should act on these sections is not doing the actual issue -> PR work, but setting up or operating the process itself that enables the inner loop agents to work properly, effectively and securely inside the process.
+**[for Humans or Outer Loop Agents]**: these mark sections of this document which are intended for humans or agents setting up and operating the issue --> PR factory, meaning that who should act on these sections is not doing the actual issue -> PR work, but setting up or operating the process itself that enables the inner loop agents to work properly, effectively and securely inside the process.
 
-[for Inner Loop Agents] --> these mark sections of this document which are intended for agents who are working in the process of issue --> PR, effectevely doing the final intended work, working within a strcutured process. These sections should be treated as harness artifacts that will be put in the right place in the harness, and provided to these agents at runtime (as agents.md, skills, or something else)
+**[for Inner Loop Agents]**: these mark sections of this document which are intended for agents who are working in the process of issue --> PR, effectevely doing the final intended work, working within a strcutured process. These sections should be treated as harness artifacts that will be put in the right place in the harness, and provided to these agents at runtime (as agents.md, skills, or something else)
 
 ## Fundamental Setup [for Humans or Outer Loop Agents]
 
