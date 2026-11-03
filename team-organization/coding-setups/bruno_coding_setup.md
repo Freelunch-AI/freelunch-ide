@@ -28,7 +28,7 @@ Where all containers are grouped and deployed locally as a unit via docker-compo
 Notes for handling multiple issues concurrently:
 - all issue handling workflows share the same vanilla docker container running opencode sessions
 - all issue handling workflows are connected to the same llm proxy container (vanilla docker container running litellm)
-- each issue handling terminal session works on its own git worktree
+- each issue handling terminal session works on its own git worktree and issue-specific branch
 - each issue handling workfow is connected to its own sandbox container (gVisor docker container running opensandbox)
 
 Important: each issue handling workflow is tied to a terminal session, therefore if the workflow needs an ephemeral opencode session at any point, you should spawn a child terminal session that will inherit the current working directory and environment variables from the parent terminal session. Never spawn manually a terminal session in this case.
