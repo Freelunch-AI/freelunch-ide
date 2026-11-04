@@ -10,34 +10,112 @@
 
 Requirements for the Fundamental Setup:
 - OpenCode Go Subscription API Key
-- Docker Installed Locally
+- Windows with WSL2 and a Linux distribution such as Ubuntu
+- Docker Engine running inside the WSL2 distribution (recommended), or one deliberately selected Docker Desktop daemon exposed through WSL integration
+- Docker Compose
 
-Disable opencode native tools and only give it the OpenSandbox MCP which provides file editing and shell execution in an isolated gVisor container (launched via docker with runsc as the OCI runtime). VSCode connects easily via Remote Connection to the container. Important: need to run opencode on a separate container and separate vscode window (with remote connection to the opencode container) that's not connected to the sandbox. Therefore one window is used to interact with the coding agent container (in which the agent is receiving observations, thinking and generating actions) and the other window is used to interact (if necessary) with the coding environment container (in wich the agent is taking actions on)
+Use **ordinary Docker containers with Docker's default `runc` runtime** for all OpenSandbox sandboxes. Do not install or configure an alternative OCI runtime or virtualization layer. No Kubernetes cluster, Kubernetes node, RuntimeClass, Helm or Kubernetes control plane is required.
 
-Secrets needed by the Agent to use tools should be stored via OpenSandbox which injects secrets are injected at tool-use time.
+For the simplest and most predictable WSL setup, install Docker Engine directly inside the Ubuntu WSL2 distribution and run the OpenSandbox server against that daemon. Use one Docker daemon consistently: do not install Docker Engine inside WSL and accidentally point some services at the separate Docker Desktop daemon. Verify which daemon is active with `docker context show` and `docker info`. Keep any host-side checkout, setup files or bind-mounted data in the WSL Linux filesystem (for example, under `~/projects`) rather than `/mnt/c`, so Linux permissions, symlinks, filesystem events and file performance behave as expected. The actual issue working copies should live in OpenSandbox-managed Docker volumes inside their assigned sandbox; do not bind-mount the project repository into the OpenCode container. Before installing OpenSandbox, verify the daemon with `docker context show`, `docker info`, and `docker run --rm hello-world`; all Compose services and OpenSandbox must target this same daemon.
 
-Run LiteLLM as the LLM Gateaway using its pass-through endpoints, not ordinary model translation. Therefore, the OpenCode subcription secret is stored via LiteLLM, not accessible to the OpenCode Agent. Configure OpenCode with the LiteLLM custom provider. The gateway authenticates the request (vlidtes the custom api key the gateway generated), injects your actual Go API key, and forwards the request to https://opencode.ai/zen/go/v1. The LiteLLM Gateway also runs on its own container.
+Disable OpenCode's native filesystem and terminal tools. Give each issue's OpenCode process only its assigned OpenSandbox MCP, which provides file editing and shell execution in that issue's ordinary Docker sandbox. The working repository and its durable storage belong to the issue-specific sandbox and its persistent Docker-managed storage; the OpenCode container must not mount the project repository or the Docker socket. VS Code may use separate remote windows: one connected to the OpenCode container for interacting with the agent, and another connected to the relevant coding environment for inspecting or manually editing the repository.
 
-In Summary, for handling an issue:
-- Vanilla docker container running opencode that can access only the LiteLLM generated API Key, with no access to external secrets. Needs local docker networking acess to both the LLM Gatway container and the OpenSandbox Container. Important: the entire project folder needs to be mounted as a mounted volume to persist the project across container chutdowns/startups.
-- gVisor docker container running opensandbox that runs actions, maintains durable state and provides observations to the opencode agent via MCP; provides file editing and shell execution actions. Injects external secrets (e.g., github secret or k8s secret) at tool-use time using opensandbox's egress sidecar pattern that proxies outbound requests.
-- Vanilla docker container running litellm that contains the secret opencode go subscription api key, that forwards requests from the opencode container to the external opencode go endpoint, injecting the opencode go subcription api key.
+**Use the OpenSandbox Docker backend with Docker's default `runc` runtime.** Do not configure a `[secure_runtime]` section and do not register an alternative runtime with Docker. Configure the Docker backend with bridge networking because OpenSandbox's Docker egress sidecar and per-sandbox `networkPolicy` require it. A minimal server configuration is:
 
-Where all containers are grouped and deployed locally as a unit via docker-compose.
+```toml
+[server]
+# Required when the lifecycle server runs inside Docker Compose.
+host = "0.0.0.0"
+port = 8080
+# Supply the actual value through OPENSANDBOX_SERVER_API_KEY, not this file.
+
+[proxy]
+# The server runs on a Compose network while sandbox containers use Docker's
+# default bridge; proxy through host-published sandbox ports.
+resolve_internal = false
+
+[runtime]
+type = "docker"
+execd_image = "opensandbox/execd:<version-compatible-with-server>"
+
+[egress]
+image = "opensandbox/egress:<version-compatible-with-server>"
+mode = "dns+nft"
+readiness_timeout_seconds = 30.0
+
+[docker]
+network_mode = "bridge"
+# Must resolve from the OpenSandbox server and OpenCode client containers.
+host_ip = "host.docker.internal"
+port_range_min = 40000
+port_range_max = 60000
+no_new_privileges = true
+drop_capabilities = ["AUDIT_WRITE", "MKNOD", "NET_ADMIN", "NET_RAW", "SYS_ADMIN", "SYS_MODULE", "SYS_PTRACE", "SYS_TIME", "SYS_TTY_CONFIG"]
+pids_limit = 4096
+seccomp_profile = "" # Empty selects Docker's default seccomp profile.
+```
+
+Pin OpenSandbox server, `execd` and egress images to a mutually compatible release set; pin the SDK version too, and do not use `latest`. Meet the minimum versions in the Credential Vault guide (server >= 0.2.0, egress >= 1.1.1, and the minimum version for the language SDK you actually use). The egress sidecar is attached only to sandboxes created with a `networkPolicy`.
+
+The `[proxy].resolve_internal = false` and `[docker].host_ip` values above are for the recommended Compose topology: the OpenSandbox server is attached to a private Compose network, while sandboxes are created on Docker's default bridge and expose their `execd`/service ports on the Docker host. Set `[docker].publish_host` to the actual default-bridge gateway IPv4 obtained from `docker network inspect bridge`, rather than leaving it at the default `0.0.0.0`; this limits the host interfaces on which sandbox endpoint ports are published. Add `extra_hosts: ["host.docker.internal:host-gateway"]` to the OpenSandbox server and to every client container (including OpenCode) that must connect to returned sandbox endpoint URLs. Reserve the configured Docker port range in local firewall policy. Confirm from inside both containers that `host.docker.internal` resolves to the Docker host gateway and that an issued sandbox endpoint is reachable. If instead the OpenSandbox server runs directly as a process inside WSL and can route directly to sandbox bridge IPs, use the direct/internal proxy mode documented by OpenSandbox and choose a host address reachable by the clients; do not blindly reuse the Compose-specific settings.
+
+**Credential Vault has a hard `dns+nft` requirement.** For credential injection, create the sandbox with both an explicit outbound `networkPolicy` and `credentialProxy.enabled = true`, then create narrowly scoped Credential Vault bindings through the egress-sidecar API. Use `defaultAction = "deny"` and explicitly allow only the destinations required by the task. The Credential Vault guide states that it refuses to activate in DNS-only mode because direct-IP connections can bypass DNS policy. Therefore, **do not fall back to `mode = "dns"` and assume secret injection still works**. DNS-only mode is an option only for sandboxes that do not use Credential Vault and only need domain-based egress filtering; it does not enforce CIDR/IP rules. Before relying on this architecture in WSL2, run an end-to-end preflight on the actual WSL2 Docker daemon: create a bridge-networked sandbox with `networkPolicy` and `credentialProxy.enabled = true`, verify the egress sidecar becomes healthy, create a test Credential Vault binding, and verify that a scoped HTTPS request receives the injected test credential while a denied destination remains blocked. Merely having the `nft` userspace command installed is not sufficient proof that the WSL2 kernel and Docker networking support the required NAT interception. If this preflight fails, fix the WSL2 kernel/network prerequisites or use a separate credential-broker design; do not silently downgrade the Credential Vault to DNS-only mode.
+
+The Docker (`runc`) + egress configuration is explicitly listed as supported by OpenSandbox and requires `[docker].network_mode = "bridge"`. See the [OpenSandbox Docker Compose example](https://github.com/opensandbox-group/OpenSandbox/blob/main/server/docker-compose.example.yaml), [server configuration](https://github.com/opensandbox-group/OpenSandbox/blob/main/server/configuration.md), [egress compatibility notes](https://github.com/opensandbox-group/OpenSandbox/blob/main/docs/guides/egress-upstream-proxy.md), [egress architecture](https://open-sandbox.ai/architecture/network/egress), and [Credential Vault guide](https://github.com/opensandbox-group/OpenSandbox/blob/main/docs/guides/credential-vault.md).
+
+**Security trade-off:** ordinary Docker containers share the WSL2 Linux host kernel. They provide process, filesystem, namespace, capability and network isolation, but they do not provide a separate-kernel/VM isolation boundary. Treat sandboxed agent code as untrusted, but do not describe this setup as VM-grade isolation or as a strong boundary against a kernel escape. Reduce risk with OpenSandbox's default seccomp profile, `no_new_privileges`, dropped Linux capabilities, per-issue containers and workspaces, default-deny egress policies, resource limits, and strict separation of the Docker socket. Never mount `/var/run/docker.sock` into an OpenCode or sandbox container. Only the trusted OpenSandbox control-plane service may access the Docker socket because it must create and manage sandboxes; anyone who can control that socket effectively has control over the Docker host. The WSL user/root account and anyone with access to the Docker daemon are therefore trusted administrators and can inspect sandbox files, sidecar state and container environment variables; this architecture protects secrets from the sandboxed agent, not from the local machine administrator.
+
+If the OpenSandbox control plane runs as a Docker Compose service, mount the WSL Docker socket into that service only. Set `OPENSANDBOX_SERVER_API_KEY` in the control-plane container environment; this overrides `[server].api_key`. When the server runs in a container, bind its HTTP listener to `0.0.0.0` inside the container, but do not publish the lifecycle API port to the LAN: expose it only on the private Compose network and, when needed for local administration, bind a host port to `127.0.0.1`. Add `extra_hosts: ["host.docker.internal:host-gateway"]` to both the OpenSandbox server and OpenCode client containers because the server returns host-published sandbox endpoint URLs. This must match `[proxy].resolve_internal = false` and `[docker].host_ip = "host.docker.internal"` in the server config; do not configure only one of these pieces. Keep the API authenticated and private. A user with access to the WSL Docker daemon/socket can inspect or control the OpenSandbox control plane and its containers; treat the WSL Docker administrator as trusted. OpenCode receives only its assigned issue-specific OpenSandbox MCP endpoint, never the Docker API or socket.
+
+Secrets needed by the agent to use tools should be stored through OpenSandbox's Credential Vault and injected at tool-use time through the supported Docker (`runc`) egress path. Do not put real external credentials in sandbox environment variables, files, command arguments, agent prompts or logs. Scope every credential binding by destination host, HTTP method and path, and ensure its destination is explicitly allowed by the sandbox's egress policy. Keep the OpenCode Go subscription credential separate: only the APISIX gateway may access it.
+
+Use **Apache APISIX 3.19.0 or newer** as the LLM credential gateway, configured as a generic HTTP reverse proxy rather than an LLM request/response translator. APISIX is an open-source Apache-2.0 API gateway. Pin the image version. The 3.19.0 minimum is deliberate: this release makes `upstream.tls.verify` effective for HTTPS/GRPCS upstreams. Compose its OSS plugins to implement the required behavior:
+
+1. `key-auth` validates a locally generated gateway key from a dedicated request header such as `X-Gateway-API-Key`. Create an APISIX Consumer and a `key-auth` Consumer credential for each issue's OpenCode process; its `key` must be a secret reference such as `$ENV://OPENCODE_GATEWAY_KEY_ISSUE_<id>`, not the literal key in the declarative route/consumer file. Configure the route's `header` to `X-Gateway-API-Key` and set `hide_credentials: true` so this client credential is removed before forwarding. APISIX documents environment-variable and secret-manager references for Consumer authentication credentials.
+2. Use `serverless-pre-function` in the `rewrite` phase to enforce an explicit **request-header allowlist**. Preserve only the headers required by the API families used by OpenCode Go, such as `accept`, `accept-encoding`, `content-type`, `content-length`, `user-agent`, `x-gateway-api-key`, `x-opencode-session`, and the provider/version headers observed in actual OpenCode requests (for example `anthropic-version`, `anthropic-beta`, `openai-beta`, `openai-organization`, and `openai-project`). Add a provider-specific header only after confirming it is required. Remove all other client-supplied headers, especially client-supplied `Authorization`, `Proxy-Authorization`, cookies and spoofable forwarding headers. APISIX should generate its own forwarding/trace headers.
+3. Use `proxy-rewrite.headers.set.Authorization` to **overwrite** the upstream `Authorization` header with the full value held by APISIX, referenced as `$ENV://OPENCODE_GO_AUTHORIZATION` (the environment variable contains the complete value, including the `Bearer ` prefix). Do not append to or preserve the client-supplied authorization value.
+4. Store each issue's gateway credential (for example, `OPENCODE_GATEWAY_KEY_ISSUE_<id>`) and the complete upstream authorization value (`OPENCODE_GO_AUTHORIZATION`) in APISIX runtime environment variables or a supported secret manager. Use the corresponding `$ENV://OPENCODE_GATEWAY_KEY_ISSUE_<id>` reference in that Consumer's `key-auth.key` and `$ENV://OPENCODE_GO_AUTHORIZATION` in `proxy-rewrite.headers.set.Authorization`. APISIX supports `$ENV://...` references in Consumer authentication credentials and plugin string fields; ensure those variables are exposed to APISIX's Nginx worker through the documented `env` configuration. Because an unset APISIX environment reference can be treated as a literal string, the Compose entrypoint/preflight must explicitly test that every configured issue key and the upstream authorization variable are non-empty and exit before APISIX starts if any is missing. Do not put either real secret in route configuration, OpenCode configuration, repository files or agent-visible logs. Remember that a WSL Docker administrator can inspect container environment variables; the host Docker administrator is inside the trusted computing base.
+5. Create routes for `/inference/go` and `/inference/go/*` only, with a fixed upstream node `opencode.ai:443` and `scheme = "https"`. Preserve the request method, body, query string and path; do not rewrite the path. Set the APISIX upstream `pass_host` to `node` so the upstream HTTP Host and TLS SNI are derived from the fixed `opencode.ai` node (do not try to set `Host` through `proxy-rewrite.headers.set`). Set `upstream.tls.verify = true`. Do not let the caller choose an upstream host, port or arbitrary destination.
+6. Enable APISIX's `proxy-buffering` plugin with `disable_proxy_buffering: true` on inference routes so streamed responses (including SSE) reach OpenCode without response buffering.
+
+OpenCode supports custom provider `options.headers`. Configure the OpenCode custom provider to send `X-Gateway-API-Key: {env:OPENCODE_LLM_GATEWAY_KEY}` to APISIX. Orca's issue launcher must inject the matching issue-specific local gateway key into that OpenCode process as `OPENCODE_LLM_GATEWAY_KEY`; it is an intentionally agent-visible, narrowly scoped credential for the fixed APISIX inference route, not the OpenCode Go subscription credential. Keep it process-scoped, do not write it into repository/config files, and revoke it when the issue process ends. If the selected SDK adapter requires an `apiKey` value to construct a request, use a non-secret placeholder; APISIX must overwrite `Authorization` before the request leaves the gateway. Do not configure the actual OpenCode Go key in `auth.json`, `options.apiKey`, or any OpenCode process environment.
+
+The current OpenCode Go base URL is `https://opencode.ai/inference/go`. Configure separate OpenCode custom-provider entries for the API dialects you actually use, rather than assuming one shared `baseURL` can be combined safely with several SDK adapters. Each entry should use the matching SDK package and a `baseURL` prefix that makes the installed adapter generate exactly the documented complete path below when it appends its own endpoint suffix:
+- OpenAI Chat Completions: `/inference/go/openai/v1/chat/completions`
+- OpenAI Responses: `/inference/go/openai/v1/responses`
+- Anthropic Messages: `/inference/go/anthropic/v1/messages`
+- Gemini: `/inference/go/google/v1beta/models/<model>:generateContent` (and the corresponding `:streamGenerateContent` request where required)
+
+For example, the OpenAI adapters can use the `/inference/go/openai/v1` base prefix, the Anthropic adapter `/inference/go/anthropic`, and the Google adapter `/inference/go/google/v1beta`, provided the installed SDK versions append the suffixes shown above. Use `@ai-sdk/openai-compatible` for Chat Completions, `@ai-sdk/openai` for Responses, `@ai-sdk/anthropic` for Messages, and `@ai-sdk/google` for Gemini. APISIX must pass requests through; it must not translate the request body or API dialect. Before using the real provider, run each configured provider against a mock upstream and assert the exact final method, path, query string, body, headers and streaming behavior. Do not invent model-catalogue or usage paths: allow those only when confirmed from the actual requests made by the installed OpenCode Go integration, and keep them under the fixed `/inference/go` prefix.
+
+OpenCode Go requires a stable `x-opencode-session` header for every conversation. Preserve it unchanged through APISIX and include it in the header allowlist. The launcher must provide a unique, opaque `OPENCODE_GO_SESSION_ID` for each OpenCode Go conversation, and the provider configuration must send it as `x-opencode-session` using OpenCode's environment-variable substitution. Keep that identifier stable for all requests in one conversation; generate a new one for a new conversation. Do not reuse one static identifier across conversations. Verify the actual header at the APISIX ingress and at a mock upstream before using the real provider. The Go service also asks clients to identify themselves with a client-specific User-Agent; configure and preserve an identifiable value such as `freelunch-opencode/<version>` rather than a generic HTTP-library name. See the [OpenCode Go API documentation](https://dev.opencode.ai/v2/docs/console/go/), [OpenCode provider configuration](https://docs.opencode.ai/docs/providers/), and [OpenCode configuration/environment substitution](https://docs.opencode.ai/docs/config/).
+
+For the initial single-node APISIX deployment, prefer file-driven standalone mode so etcd is not required solely for local routing. Keep the APISIX Admin API/control interface inaccessible to the OpenCode agent; expose only the inference data-plane listener. APISIX references: [key-auth](https://apisix.apache.org/docs/apisix/plugins/key-auth/), [proxy-rewrite](https://apisix.apache.org/docs/apisix/plugins/proxy-rewrite/), [serverless functions](https://apisix.apache.org/docs/apisix/plugins/serverless/), [proxy-buffering](https://apisix.apache.org/docs/apisix/plugins/proxy-buffering/), [APISIX Secrets](https://apisix.apache.org/docs/apisix/terminology/secret/), and [deployment modes](https://apisix.apache.org/docs/apisix/deployment-modes/).
+
+Before considering the gateway integration complete, test it against a harmless/mock upstream and then OpenCode Go: (1) missing and invalid `X-Gateway-API-Key` values are rejected; (2) a valid local key is accepted; (3) the local key is not forwarded; (4) arbitrary incoming headers are removed unless allowlisted, including client-supplied `Host`, `Authorization`, `Proxy-Authorization`, cookies and forwarding headers; (5) any client-supplied `Authorization` value is removed/overwritten and the APISIX-held Go credential is the only upstream credential; (6) the real upstream credential never appears in responses, OpenCode configuration, logs or traces; (7) all four API-family paths are forwarded with their original methods, bodies, query strings and paths; (8) upstream requests use `Host: opencode.ai`, SNI `opencode.ai` and successful certificate verification; (9) streaming responses work without buffering; (10) `x-opencode-session` reaches the upstream unchanged and is stable per conversation; (11) the expected client-specific User-Agent is forwarded; and (12) requests to arbitrary hosts or paths outside the configured OpenCode Go route prefix are rejected.
+
+In summary, local issue handling uses these components:
+- One ordinary Docker container runs the OpenCode processes. It has no project-repository mount, no Docker socket and no OpenCode Go subscription credential. Each issue process receives only its own local APISIX gateway key and its assigned OpenSandbox MCP endpoint.
+- The OpenSandbox server uses its local Docker backend with Docker's default `runc` runtime. Each issue gets a separate ordinary Docker sandbox container, repository/worktree and durable storage. The sandbox executes file and shell actions and provides observations through its issue-specific MCP endpoint. Transparent egress credential injection uses OpenSandbox Credential Vault through the documented Docker (`runc`) egress integration. It must be enabled only with an explicit per-sandbox `networkPolicy` and `credentialProxy.enabled = true`.
+- One ordinary Docker container runs Apache APISIX. It validates the local gateway key, applies the request-header allowlist, overwrites upstream `Authorization`, and forwards to the fixed OpenCode Go endpoint without LLM protocol translation.
+
+Docker Compose may orchestrate OpenCode, APISIX and the OpenSandbox control-plane service. The OpenSandbox control plane is trusted and may need access to the host Docker Engine; if containerized, mount the Docker socket into that service only. OpenSandbox then creates ordinary Docker sandbox containers using Docker’s default `runc` runtime. No Kubernetes resources are involved.
 
 Notes for handling multiple issues concurrently:
-- all issue handling workflows share the same vanilla docker container running opencode sessions
-- all issue handling workflows are connected to the same llm proxy container (vanilla docker container running litellm)
-- each issue handling terminal session works on its own git worktree and issue-specific branch
-- each issue handling workfow is connected to its own sandbox container (gVisor docker container running opensandbox)
+- Issue workflows may share the ordinary OpenCode container and APISIX gateway, but each issue/conversation runs in its own OpenCode process/Orca terminal with its own process environment.
+- Each issue workflow uses its own git worktree/branch, ordinary Docker OpenSandbox workload, persistent volume and MCP endpoint.
+- `SANDBOX_ENDPOINT` is a **process-scoped environment variable**: Orca's issue launcher sets it in the environment of that issue's OpenCode process (child tool processes inherit it). The OpenCode MCP configuration references it with OpenCode's `{env:SANDBOX_ENDPOINT}` substitution. `OPENCODE_LLM_GATEWAY_KEY` is also process-scoped and contains only the local APISIX credential for that issue's Consumer. Never set either value as a single container-global value for concurrent issues.
+- `SANDBOX_ENDPOINT` selects the MCP endpoint; it is routing configuration, not by itself a security boundary. Give each issue's MCP endpoint its own authentication/secure-access credential and expose that credential only to the corresponding OpenCode process. The assigned MCP server must authenticate and authorize every request and bind the authenticated identity to the assigned sandbox. Do not assume that the environment variable alone prevents a process from contacting another reachable endpoint.
+- Because multiple OpenCode processes share one container and network namespace, process-scoped environment variables do not provide network isolation. Run issue processes under distinct unprivileged OS user IDs, with private `HOME`/OpenCode configuration directories and per-issue MCP credentials readable only by the corresponding user. Restrict cross-user process inspection. If Orca cannot provide and preserve this OS-level process separation, use separate OpenCode containers per issue rather than claiming that `SANDBOX_ENDPOINT` alone isolates them.
+- `OPENCODE_GO_SESSION_ID` is conversation-scoped, not issue-scoped: generate a new value for every Go conversation. A child OpenCode process that starts a new conversation must get a new session ID while retaining the issue's `SANDBOX_ENDPOINT` and `OPENCODE_LLM_GATEWAY_KEY`.
 
-Important: each issue handling workflow is tied to a terminal session, therefore if the workflow needs an ephemeral opencode session at any point, you should spawn a child terminal session that will inherit the current working directory and environment variables from the parent terminal session. Never spawn manually a terminal session in this case.
+Important: use Orca's terminal/session management for issue-specific terminal sessions. Each issue's OpenCode process must receive its own working directory and process environment, including `SANDBOX_ENDPOINT` and `OPENCODE_LLM_GATEWAY_KEY`; each conversation also receives its own `OPENCODE_GO_SESSION_ID`. Child sessions spawned for that issue retain the issue mapping and local gateway credential but receive a new Go session ID when they represent a new conversation. Do not manually create a terminal session that loses the issue mapping.
 
 ## Project Rules (AGENTS.md) [for Inner Loop Agents]
 
 ### Things you should NEVER do
 
-- never acess directories above the project's root directory
+- never access directories above the parent of the project's root directory. The project root's immediate parent is the highest directory level an agent may access; use it only when a documented workflow explicitly requires it (for example, the harness-evaluation workspace under `../tmp/`). Never traverse to `../../` or higher.
 - never read sensitive files (e.g., .env)
 - never run destructive commands without my permission. Always present me a dry run alternative if possible.
 - never try to extract extreme performance (speed, throughput) at the expense of making code complexity significantly higher, unless specifically prompted for extreme performance optimization
@@ -56,8 +134,8 @@ Important: each issue handling workflow is tied to a terminal session, therefore
         - Anything you realize you did wrong before, having evidence to support why its wrong and explanation of why its wrong
         - Anything the I (aka your user) had to intervene to change something you already did becomes it had serious problems. I might say explicitely that you did something wrong (e.g., "change this code you wrote because its not readable", "change these tests you wrote becaue they dont reflect the spec", "change your implementation plan to more fine-grained end-to-end steps, where you start by ...") or just ask you if you are shure something is correct. Note: before counting it as a mistake and changing it, you must consider that I might be wrong, therefore you must reason about it and come to a conclusion based on arguments and evidence.
     - Whats doesnt count as mistakes? (1) User intervetions where the user requests spec changes/updates are never mistakes; (2) User interverntions for non-critical low-level changes that to satisfy his preferences (e.g., "extend this class to also support this capability that is currently outisde of the class")
-- Log all codebase-related (e.g., how does this function work?) questions I ask to you in a ./.agent/persistant/user-codebase-questions.jsonl, each entry in the form "question": "placeholder", "answer": "placeholder", "branch": "placeholder", "commit_hash": placeholder"} where branch is the branch in which the user is in when he asked the question and commit_hash is the last commit of the branch that user was in, at the time the user asked the question.
-- Log all new usefull nuggets of codebase knowledge to ./.agent/session-persistent-candidate/non_obvious_conjectures.md where you keep track of non-obvious conjectures you make for the session. Each conjecture has the following data: (1) description of the conjecture, current evidence of the conjecture, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky conjecture you dont have much evidence.
+- Log all codebase-related (e.g., how does this function work?) questions I ask to you in a ./.agent/persistant/user-understanding/user-codebase-questions.jsonl, each entry in the form "question": "placeholder", "answer": "placeholder", "branch": "placeholder", "commit_hash": placeholder"} where branch is the branch in which the user is in when he asked the question and commit_hash is the last commit of the branch that user was in, at the time the user asked the question.
+- Log all new usefull nuggets of codebase knowledge to ./.agent/session-persistent-candidate/knowledge/non_obvious_conjectures.md where you keep track of non-obvious conjectures you make for the session. Each conjecture has the following data: (1) description of the conjecture, current evidence of the conjecture, already a fact? (yes or no) and risk if wrong (high, medium or low). Always ask question to user before you are about to act on a risky conjecture you dont have much evidence.
 - keep your code clean and organized, refactoring might be needed
 - modularization: the codebase should have a few big modules with clear boundaries and relationships, and each big module is composed of many little modules. Dont let files become too big, prefer breaking into multiple files where each one has a clear meaning/job.
 - if using bash commands for file/content search: prefer `fd` (fdfind) and `rg` (ripgrep) over standard `find` and `grep` for better performance and git-awareness.
@@ -79,7 +157,7 @@ Important: each issue handling workflow is tied to a terminal session, therefore
 - Before building any GUI, need to: (1) have a mock/prototype validated with the user; (2) write a design.md to standardize GUI components and patterns.
 - If I give you you a mock.html as guidance, you should open the mock, create synthetic goals the end-user will want to achieve within the GUI, and actually use the mock in the context of achieving these synthetic goals. In the end, write your improved understanding of the mock, i.e., write you understanding of the GUI experience I want to build in a mock_learnings.md at the same directory as mock.html. The you ask for my approval to use this mock as the implementation guide.
 - all core code of a project needs to be inside ./src directory at project repo root
-- for quizzing me, always look at Use .agent/persistant/user-codebase-questions.jsonl to know my comon weak uderstanding spots
+- for quizzing me, always look at Use .agent/persistant/user-understanding/user-codebase-questions.jsonl to know my comon weak uderstanding spots
 - Use asynchronous/concurrent execution when its clearly the right solution for the scenario, particularly for I/O-bound work. Don't introduce async merely because it is technically possible and more elegant.
 - Don't choose a technically inferior architecture merely because it is slightly cheaper to implement when a significantly better design is available at reasonable complexity.
 - Wehn doing any kind of artifact optimization (e.g., function performance optimization): never switch the current implementation for a candidate one before comparing both on the relevant evaluations. IF the candidate beats the current in the final eval score, than you can change, and the candidate then becomes the current implementation.
@@ -237,146 +315,141 @@ Notes for implementation:
 - each step is done by a single agent
 - the agent can decide to go back to a previous step (e.g., encountered a problem that requires change to spec)
 - most steps have a planning sub-step performed at the beginning with the harness' plan mode which generates `.agent/session/plan.md`
-- the agent can go back from a step to a previous step if necessary to fix an issue created earlier. Step jumps must be tracked in `issue_flow.md`, including the issue name, issue number, timestamp of creation and completion, and the jump/deviation. The issue flow is mostly sequential, but step B will hold parallel sequential paths, one for each core implementation task.
+- the agent can go back from a step to a previous step if necessary to fix an issue created earlier. Step jumps must be tracked in `issue_flow_[i].md`, including the issue name, issue number, timestamp of creation and completion, and the jump/deviation. The issue flow is mostly sequential, but step B will hold parallel sequential paths, one for each core implementation task.
 - when a new feature (tackling a new issue) starts, first search for any completed `.agent/flow/completed-issues/completed_issue_flows/issue_flow_[i].md` and use it when relevant as historical context for the issue being handled
-- session summary hook: when a session ends, store a summary of key things done, key problems encountered, tips/learnings/todos in the current issue's `issue_flow.md` under the step the agent was in, using this JSON form:
+- session summary hook: when a session ends, store a summary of key things done, key problems encountered, tips/learnings/todos in the current issue's `issue_flow_[i].md` under the step the agent was in, using this JSON form:
   `{"key things done": "placeholder", "key problems encountered": {"problem": "placeholder", "solved_or_not": placeholder, "tips for next agent working on this": "placeholder"}, "learnings": "", "todos": "placeholder"}`
 - approval gates mean that either the user (developer) or a specific AI agent needs to give approval to continue the flow
-- "AI Review" means the same AI that is coding reviews its own work
-- "Independent AI Reviewer" means that a different model with fresh context must be used
+- An author self-check may be performed, but it is not a review and cannot satisfy a review or verification gate. Every LLM-based review or verification must use a different effective model from the model that authored the artifact being reviewed/verified. When multiple reviewers or verifiers are involved in the same work unit, use pairwise-distinct effective models. Prefer different model families/providers, not merely different aliases or reasoning settings. Deterministic build/test/static-analysis tools remain independent evidence and do not need an LLM. If model availability prevents distinct models, explicitly mark the check as non-independent and request approval before treating a critical gate as complete.
+- The workflow is initially human-directed; slash commands expose the steps but the human chooses when to invoke them. Do not add an automated workflow state machine yet.
+- The main issue-flow steps must be numbered sequentially from 1, with no gaps or duplicates; child steps must use stable hierarchical identifiers (for example, `12.a`). Implement `validate-issue-flow` as an automated validator for this authoritative Issue Flow section. It must check sequential main-step numbering, unique child identifiers, that every parent exists, that every explicit step/cross-reference/loop target resolves to an existing identifier, and that referenced step ranges are valid. Run it whenever this document's Issue Flow section or the generated slash-command definitions change, and run it before relying on the flow. Store the validator under `.agent/created_tools/validate-issue-flow/` and include tests for malformed numbering, duplicate identifiers, dangling references and invalid loop ranges.
 - when a session ends, a hook must be called to: (1) empty all files inside `.agent/session`; (2) recursively analyze `.agent/session-persistent-candidate` and transfer useful validated knowledge to `.agent/persistant/knowledge/non_obvious_conjectures_and_facts.md`, then empty `.agent/session-persistent-candidate`; and (3) assess whether harness-related files need improvement or bloat removal using the `harness-eval` skill, by first proposing harness improvement ideas, then evalauting them. Do 3 rounds of harness imrpovement idea geenration and running evals so that you can test combinations of what works best. Some harness changes might not be directly evaluatable (e.g., harness-eval skill doesnt support directly evaluating a planning skill) however there is always a downstream evaluation that can be done (a good planning skill should make the agent write spec and code better, provided that everythig also remains the same, so you can eval spec writing and coding downstream effects with harness-eval skill). Before actually modifying harness-related files, ask for user approval and provide the evaluation results gotten. If changes are approved by me (user), git commit them.
-- at the start of any slash command, a hook must git add & commit if there are uncommitted changes that should not be left outstanding. **Exception: when the slash command is starting an inferred harness A/B evaluation of the current uncommitted working tree, do not auto-commit the harness changes before the evaluation snapshot is created.** In a new session without context, use `.agent/flow/current-issue/flow/issue_flow.md`'s last progress data to infer a suitable commit message.
+- At the start of every slash command, retain the automatic commit hook: if there are uncommitted changes that the workflow says should not be left outstanding, the hook must commit them before the command begins. Before generating the commit message, study the relevant workflow artifacts under `.agent/` to establish exactly what was done, which implementation-plan tasks were completed, what problems were encountered, and how they were resolved. At minimum inspect the current issue's `issue_flow_[i].md`, `core-implementation-tasks-plan.md`, relevant issue-specific spec, the latest `.agent/session/plan.md`, session summaries, and any relevant PR-review/review artifacts; compare these with `git status` and the actual diff so the message describes the real changes rather than merely repeating the last step name. Use a concise conventional commit subject and a body when needed to explain the scope, rationale, and important problem resolution. Do not invent work not evidenced by the diff/workflow artifacts, and do not include unrelated user-owned changes in the commit. **Exception: when the slash command is starting an inferred harness A/B evaluation of the current uncommitted working tree, do not auto-commit the harness changes before the evaluation snapshot is created.** In a new session without context, first reconstruct the commit context from `.agent/flow/current-issue/flow/issue_flow_[i].md` and the other relevant workflow artifacts.
 - ensure language-specific (in our case Go and TypeScript) linters and formatters are running continuously on every file edit, using OpenCode hooks
 - have a git pre-commit hook that builds (successfully without warnings), runs tests (all must pass to consider a unit of work done), and verifies test coverage is above 90%
 
 ### Issue Flow (note: bug, refactoring or performance issue handling may skip multiple steps that are unnecessary)
 
+The workflow is human-directed for now: each unique command is exposed as a slash command, and the developer decides when to invoke it. The flow is sequential by default, but an agent may return to an earlier step when new evidence requires a specification, test, design or implementation change. Every such deviation must be recorded in `issue_flow_[i].md` with the reason and affected step identifiers.
+
 A: Issue-specific Spec & Core Implementation Tasks Plan
 
-0. **/start Start Issue Handling**: point to the GitHub issue; [Before doing anything: (1) if there isnt a dedicated sandbox contianer for this specific issue, setup a new Visor docker container running opensandbox mcp for the new issue. So we continue having only one Vanilla docker container, and continue having one vanilla docker container running litellm, but we do need one separate gVisor docker container (with *.agent/flow/current-issue* and *.agent/flow/current-pr* directories with al their files emptied) running opensandbox mcp for each issue (so that separate issue handling workflows dont interfere with each other); (2) setup a config file containing the MCP domain for each issue being handlded concurrently; (3) read the MCP endpoint for this specific issue in the issue-sandbox mapping config fileand set it as an export environment variable just for this specific terminal session (child sessions should also inherit). The name of the environment variable should be SANDBOX_ENDPOINT; (4) ensure opencode is configured to use SANDBOX_ENDPOINT as its only MCP where it should send all terminal and file interaction actions. Ensure opencode native tools for file interation and terminal are disabled.] create a satellite branch with an appropriate name according to the branching strategy file; study the repo; ask user clarifying questions about the problem and solution. This step ends when a common problem/solution understanding is reached with the user.
+1. **/start Start Issue Handling**: point to the GitHub issue. Before doing anything: (1) if there is not already a dedicated sandbox for this issue, create a new ordinary Docker OpenSandbox environment for it, with its issue-specific repository/worktree and persistent storage; (2) ensure the issue has its own MCP endpoint and mapping in the issue-sandbox configuration; (3) have Orca launch the issue's terminal/OpenCode process with `SANDBOX_ENDPOINT` set in that process environment only (child processes inherit it); (4) configure that OpenCode process to use this endpoint as its only filesystem/terminal MCP and disable native filesystem and terminal tools; (5) ensure the process has access to APISIX but not the actual OpenCode Go credential. Study the repository and branching strategy, inspect the current git state, and ask the user any clarifying questions needed to reach a shared understanding of the problem and intended solution. This step ends when the problem/solution understanding is agreed.
 
-5. **/quizme Understand the codebase, then quiz me with questions to see if I really understand the codebase.**. Make high-level questions (e.g., decisions chosen, project structure, tradeoffs, architecture) and low-level questions (e.g., what a specific file/function/class is for). [AI Approval Gate]
+2. **/quizme Understand the Codebase**: quiz the developer on high-level architecture, design decisions, tradeoffs and low-level codebase details until the developer understands the codebase. [AI Approval Gate]
 
-6. **/reproducebug** only for bug issues: reproduce the reported bug by writing and running a failing test and confirm that it fails for the expected reason described in the bug issue.
+3. **/reproducebug** (bug issues only): reproduce the reported bug by writing and running a failing test, and confirm that it fails for the reason described in the issue.
 
-7. Loop until **3.2 and 3.3** are successful [User Approval Gate with AI Security Reviewer Suggestions]
-    1. **/spec Build Issue-specific Spec**: create `prd.md`, `architecture.md`, and `tech_stack.md` under `.agent/flow/current-issue/issue-spec_[i]/`.
-    2. **/reviewspec Review Spec**: use an Independent AI Reviewer to check consistency with the Global Spec (Founding Doc + Roadmap + Tech Stack), catch omissions, and flag problems in the Global Spec. If a Global Spec problem is found, modify the Global Spec first, then update the issue-specific spec. Store the final spec review in `.agent/session-persistent-candidate/reviews/final_spec_review_[timestamp].md`. [User Approval Gate]
-    3. **/specsecreview Specialized Spec Security Review**: flag critical security problems and warnings. Store the final security spec review in `.agent/session-persistent-candidate/reviews/final_spec_sec_review_[timestamp].md`.
+4. Loop until **4.b and 4.c** are successful [User Approval Gate with Independent AI Reviewer Suggestions]
+   - **4.a /spec Build Issue-specific Spec**: create `prd.md`, `architecture.md` and `tech_stack.md` under `.agent/flow/current-issue/issue-spec_[i]/`.
+   - **4.b /reviewspec Review Spec**: use an Independent AI Reviewer to check consistency with the Global Spec (Founding Doc + Roadmap + Tech Stack), catch omissions and flag problems in the Global Spec. If a Global Spec problem is found, modify the Global Spec first, then update the issue-specific spec. Store the final review in `.agent/session-persistent-candidate/reviews/final_spec_review_[timestamp].md`. [User Approval Gate]
+   - **4.c /specsecreview Specialized Spec Security Review**: flag critical security problems and warnings. Use a model different from the spec author and the independent spec reviewer. Store the final security review in `.agent/session-persistent-candidate/reviews/final_spec_sec_review_[timestamp].md`.
 
 ----<<separate terminal block (reset context)>>----
 
 B: Core Implementation
 
-4. **/make-tasks-plan Convert the spec into a dependency graph of core implementation tasks** in `.agent/flow/current-issue/flow/core-implementation-tasks-plan.md`. Each node should represent a coherent behavioral/functional slice rather than a component-only task. [User Approval Gate with Independent AI Plan Reviewer Suggestions]
+5. **/make-tasks-plan Convert the Spec into a Dependency Graph** in `.agent/flow/current-issue/flow/core-implementation-tasks-plan.md`. Each node must represent a coherent behavioral/functional slice rather than a component-only task. [User Approval Gate with Independent AI Plan Reviewer Suggestions]
 
-5. **/tasksplangrillme Grill User on the task plan** until the user has a full understanding of it. [AI Approval Gate]
+6. **/tasksplangrillme Grill User on the Task Plan** until the developer understands the plan. [AI Approval Gate]
 
-6. **Core Implementation Loop**: process each pending core implementation task in the graph until the graph is fully complete. Each task follows steps 7–12 below.
+7. **Core Implementation Loop**: process each pending core implementation task in the graph until the graph is complete. Each task follows steps 8–13 below.
 
 ---- New Session (reset context) ----
 
 B1: Common Scaffold
 
-7. **/scaffolddep Define Allowed Scaffold Dependencies**: choose dependencies for the common scaffold. Dependencies must be actively maintained. A dependency may be preferred when it has important capabilities the alternatives lack, is significantly more popular, is significantly easier to use, or is significantly older. [User Approval Gate with AI Review Suggestions]
+8. **/scaffolddep Define Allowed Scaffold Dependencies**: choose dependencies for the common scaffold. Have a different model review the dependency decision. Dependencies must be actively maintained. A dependency may be preferred when it has important capabilities the alternatives lack, is significantly more popular, is significantly easier to use, or is significantly older. [User Approval Gate with Independent AI Reviewer Suggestions]
 
-8. **/scaffold Setup/Modify the Common Scaffold**: make/remake `plan.md` first; create or modify the required project skeleton, signatures, dependencies, build/test/package automations, and other foundation pieces. Review against Issue-specific and Global Spec. [User Approval Gate with AI Review Suggestions]. Important: You should not write body implementations of functions or classes, instead leave body implementations as pseudocode in the following format: """ TODO: high-level pseudocode here"""
+9. **/scaffold Set Up/Modify the Common Scaffold**: make/remake `.agent/session/plan.md` first; create or modify the required project skeleton, signatures, dependencies, build/test/package automations and other foundation pieces. Review against the Issue-specific and Global Specs. Leave function/class bodies as high-level pseudocode rather than implementing feature logic. [User Approval Gate with Independent AI Reviewer Suggestions]
 
 B2: Tests & Logic
 
-9. **/writetests Write/Modify Functional Tests**: make/remake `plan.md` first. Write/modify unit and integration tests and review them against the Issue-specific and Global Spec. Flag inconsistencies rather than silently resolving spec conflicts. [User Approval Gate with Independent AI Reviewer Suggestions]
+10. **/writetests Write/Modify Functional Tests**: make/remake `.agent/session/plan.md` first; write or modify unit and integration tests and review them against the Issue-specific and Global Specs. Flag inconsistencies rather than silently resolving spec conflicts. [User Approval Gate with an Independent AI Reviewer]
 
-10. **/testtests Test the Functional Tests with Placeholder Feature Code**: all functional tests must fail in this phase, while test files themselves must be valid and runnable. Ensure strict test coverage of the intended core logic (above 90% of the entire codebase once implemented, ideally near 100%).
+11. **/testtests Test the Functional Tests with Placeholder Feature Code**: all functional tests must fail in this phase, while the test files themselves must be valid and runnable. Ensure strict test coverage of the intended core logic (above 90% of the entire codebase once implemented, ideally near 100%).
 
-11. Loop through 11.i–iii until the feature implementation satisfies the functional tests and validation requirements. [User Approval Gate with Independent AI Reviewer Suggestions]
-   i. **/featdep Define Allowed Feature-code Dependencies** with explanation of why each is used. Apply the same maintenance/popularity/ease/capability criteria as scaffold dependencies. [User Approval Gate with AI Review Suggestions]
-   ii. **/feat Write Feature Code** using only the allowed feature-code dependencies; make/remake `plan.md` first. Implement the smallest coherent behavioral slice and try to make multiple related tests pass at a time. Review against Issue-specific and Global Spec and Design System when GUI work is involved. [User Approval Gate with Independent AI Reviewer Suggestions]
-   iii. **/test Build and Test Feature Code**: make/remake `plan.md` first; build and run functional tests; generate test and coverage reports; review against Issue-specific and Global Spec; repeat until build doesnt raise errors or warnigns and all tests pass.
+12. Loop through **12.a–12.c** until the feature implementation satisfies the functional tests and validation requirements. [User Approval Gate with Independent AI Reviewer Suggestions]
+   - **12.a /featdep Define Allowed Feature-code Dependencies** with an explanation of why each is used. Apply the same maintenance/popularity/ease/capability criteria as scaffold dependencies. [User Approval Gate with Independent AI Reviewer Suggestions]
+   - **12.b /feat Write Feature Code**: make/remake `.agent/session/plan.md` first; implement using only the allowed feature-code dependencies. Implement the smallest coherent behavioral slice and try to make multiple related tests pass at a time. Review against the Issue-specific and Global Specs and Design System when GUI work is involved. [User Approval Gate with an Independent AI Reviewer]
+   - **12.c /test Build and Test Feature Code**: make/remake `.agent/session/plan.md` first; build and run functional tests; generate test and coverage reports; review against the Issue-specific and Global Specs; repeat until the build has no errors/warnings and all required tests pass. The verification model must differ from the implementation model.
 
-12. **/refact-coreimplementation-task-if-necessary**: make/remake `plan.md` first; evaluate refactoring opportunities limited to the last completed core implementation task. Refactor only when it preserves behavior and improves clarity, quality, or maintainability. After each refactoring, evaluate whether it is actually better; otherwise keep the previous version. [User Approval Gate] [AI Approval Gate]
+13. **/refact-coreimplementation-task-if-necessary**: make/remake `.agent/session/plan.md` first; evaluate refactoring opportunities limited to the last completed core implementation task. Refactor only when behavior is preserved and clarity, quality or maintainability improves. After each refactoring, evaluate whether it is actually better using an independent model and the relevant tests/evaluations; otherwise keep the previous version. [User Approval Gate] [Independent AI Approval Gate]
 
 ----<<separate terminal block (reset context)>>----
 
-13. **/quizme Quiz User on the Latest Changes**: user reviews the code and asks questions; the agent grills the user until the user has full understanding of the changes. [AI Approval Gate]
+14. **/quizme Quiz User on the Latest Changes**: the developer reviews the code and asks questions; the agent grills the developer until the developer understands the latest changes. [AI Approval Gate]
 
-----<</separate terminal block>>----
+15. **/stripdebuglogs**: make/remake `.agent/session/plan.md` first; remove debug logs if any remain. [User Approval Gate with an Independent AI Reviewer]
 
-14. **/stripdebuglogs**: make/remake `plan.md` first; remove debug logs if there are any. [User Approval Gate with AI Reviewer Suggestions]
-
-15. **/determine-if-core-implementation-task-is-done**: determine whether the current core implementation task objectives were actually achieved and whether the task graph still holds. Do not rely on historic test output; rerun the entire suite for the current task and previously completed core tasks to catch regressions. Only mark the current task done when tests reflect the spec and pass.
+16. **/determine-if-core-implementation-task-is-done**: determine whether the current core implementation task objectives were achieved and whether the task graph still holds. Do not rely on historical test output; rerun the entire suite for the current task and previously completed core tasks to catch regressions. Use an independent verification model. Only mark the task done when tests reflect the spec and pass.
 
 ---- New Session (reset context) ----
 
-16. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If a GUI is involved: include GUI usability/visual testing that emulates real user behavior. Also perform end-to-end stress testing, for APIs this means load testing endpoints for availability and latencyy, for GUIs this means mimicking aggressive scrolling, random group browsing, rapid navigation, repeated media loading.
-
-(aggressive scrolling, random group browsing, rapid navigation, repeated media loading) )Check that E2E tests reflect PRD requirements and that the issue spec remains consistent with the Global Spec.
+17. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. For GUIs, include usability/visual testing that emulates real user behavior. Also perform risk-appropriate stress testing: for APIs, load/availability/latency tests; for GUIs, aggressive scrolling, random group browsing, rapid navigation and repeated media loading. The E2E verification model must differ from the implementation and earlier review models.
 
 ---- New Session (reset context) ----
 
 C: Code Review
 
-17. Loop until code review succeeds [User Approval Gate with Independent AI Reviewer Suggestions]
-   i. **/review Independent Code Review**: make/remake `plan.md` first; review maintainability, modularity, test coverage, file sizes, test/spec compliance, and GUI compliance where relevant. The last thing to do is run mutation testing. Also identify omissions and spec/design problems. Store the final code review in `.agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md`.
-   ii. **/redo Make Necessary Code/Test Changes**: make/remake `plan.md` first; implement justified changes, build and test; review again against Issue-specific and Global Spec. [User Approval Gate with AI Reviewer Suggestions]
+18. Loop until code review succeeds [User Approval Gate with Independent AI Reviewer Suggestions]
+   - **18.a /review Independent Code Review**: make/remake `.agent/session/plan.md` first; review maintainability, modularity, test coverage, file sizes, test/spec compliance and GUI compliance where relevant. Run mutation testing last. Identify omissions and spec/design problems. Use a model distinct from the implementer and other reviewers. Store the final code review in `.agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md`.
+   - **18.b /redo Make Necessary Code/Test Changes**: make/remake `.agent/session/plan.md` first; implement justified changes, build and test, and review against Issue-specific and Global Specs. [User Approval Gate with an Independent AI Reviewer]
 
 ---- New Session (reset context) ----
 
 D: Security Review, Documentation & PR
 
-18. Loop until security review succeeds [User Approval Gate with AI Reviewer Suggestions]
-   i. **/secreview Specialized Security Review**: flag critical problems and warnings. Store the final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
-   ii. **/redo Make Necessary Code/Test/Docs Changes**: make/remake `plan.md` first; implement changes, build and test, then review against Issue-specific and Global Spec. Ensure build doesnt raise errors or warnigns and all tests pass [User Approval Gate with AI Reviewer Suggestions]
+19. Loop until security review succeeds [User Approval Gate with Independent AI Reviewer Suggestions]
+   - **19.a /secreview Specialized Security Review**: flag critical security problems and warnings. Use a model different from the implementer and code reviewer. Store the final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
+   - **19.b /redo Make Necessary Code/Test/Docs Changes**: make/remake `.agent/session/plan.md` first; implement justified changes, build and test, then review against Issue-specific and Global Specs. The verification/review model must differ from the implementer and security reviewer. [User Approval Gate]
 
-19. Loop until End-to-end testing succeeds
-   i. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If a GUI is involved: include GUI usability/visual testing that emulates real user behavior. Also perform end-to-end stress testing, for APIs this means load testing endpoints for availability and latencyy, for GUIs this means mimicking aggressive scrolling, random group browsing, rapid navigation, repeated media loading.
-   ii. **/redo Make Necessary Code/Test/Docs Changes** as required. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent Reviewer Suggestions]
+20. Loop until End-to-end testing succeeds
+   - **20.a /end-to-end-testing**: verify the complete issue behavior in the end-user environment. Use an independent model distinct from the implementer, code reviewer and security reviewer.
+   - **20.b /redo Make Necessary Code/Test/Docs Changes** as required. Rebuild and rerun required tests; use an independent verification model.
 
 ----<<separate terminal block (reset context)>>----
 
-20. **/quizme Quiz User on the Final Changes** until the user has full understanding. [AI Approval Gate]
+21. **/quizme Quiz User on the Final Changes** until the developer understands the final changes. [AI Approval Gate]
 
-----<</separate terminal block>>----
+22. **/write-pr**: check `.agent/flow/current-pr/pre-pr-checklist.md`, confirm it is satisfied, then write the PR to `.agent/flow/current-pr/pr.md`. The PR is not final until documentation and required reviews are complete.
 
-21. **/write-pr**: check `.agent/flow/current-pr/pre-pr-checklist.md`, confirm it is satisfied, then write the PR to `.agent/flow/current-pr/pr.md`. The PR is not considered final until the documentation step is complete.
+23. **/document Document**: (A) Contributor Documentation: explain how to understand the codebase through a step-by-step tutorial from high to low level; (B) Final User Documentation only if the product is already usable. Use an independent documentation reviewer. [User Approval Gate]
 
-22. **/document Document**: (A) Contributor Documentation: explain how to understand the codebase using a step-by-step tutorial from high level to low level; (B) Final User Documentation only if the product is already usable. [User Approval Gate with Independent AI Reviewer Approval Suggestions]
+24. **/deep-review**: perform two phases. Phase 1 runs multiple problem-finding rounds with fresh contexts and different models, until no materially new problems are found. Phase 2 uses three verifiers to assess each candidate problem; a problem is validated only when at least two verifiers agree that it can cause a production failure under a defined condition. Use different models for the verifiers. Do not reuse a model with merely different prompt wording and describe it as independent. If there are not enough distinct models, report the reduced independence and request approval before treating the review as complete. Code styling/formatting preferences and file splitting alone are not production problems.
 
-23. **/deep-review:** done in 2 phases. In phase 1, multiple rproblem finding rounds are done in sequence until no new problems are found, where each round: adds new problems to the problem list, uses a fresh context and a different reviewer model (if no new reviewer model exists, then can reuse a model but with prompt wording modifications to inject some variation). In phase 2, 3 verifiers verify each problem from the list of total problems found in phase 1. A new list of validate problems is made, problems only end up on the validated list if 2 of the 3 verifiers agree its a problem. What counts as problems? Problems are things that will break production at a certain point (immediatelly, after some event, at scale, under some adversarial attack, etc). Code styling, formatting, file/function breaking are not problems in this analysis.
-
-24. **/send-pr**: push and open the draft PR using `.agent/flow/current-pr/pr.md`.
+25. **/send-pr**: push and open the draft PR using `.agent/flow/current-pr/pr.md`.
 
 ---- New Session (reset context) ----
 
 E: Make Fixes Based on PR Reviews and/or CI Failures Until PR Is Merged
 
-24. Loop until all required external review/CI failures are addressed [User Approval Gate with AI Reviewer Suggestions]
-   i. **/prreviews**: after the user manually checks a PR review or CI failure notification, read the PR reviews and CI runs from GitHub and write them locally in the dedicated current-issue PR-review area.
-   ii. **/review Independent Code Review**: make/remake `plan.md` first; review maintainability, modularity, test coverage, file sizes, tests/spec compliance, and run mutation testing last. Store the final code review in `.agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md`.
-   iii. **/redo Make Necessary Code/Test/Docs Changes**: apply justified fixes, build and test, and review against Issue-specific and Global Spec. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent AI Reviewer Suggestions]
+26. Loop until all required external review/CI failures are addressed [User Approval Gate with Independent AI Reviewer Suggestions]
+   - **26.a /prreviews**: after the user checks a PR review or CI failure notification, read the PR reviews and CI runs from GitHub and write them locally in the dedicated current-issue PR-review area.
+   - **26.b /review Independent Code Review**: make/remake `.agent/session/plan.md` first; review maintainability, modularity, test coverage, file sizes, test/spec compliance and run mutation testing last. Use a model different from the model that made the changes and from the earlier code reviewer. Store the final code review in `.agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md`.
+   - **26.c /redo Make Necessary Code/Test/Docs Changes**: apply justified fixes, build and test, and review against Issue-specific and Global Specs. Use an independent verification model. [User Approval Gate]
 
 ---- New Session (reset context) ----
 
-25. Loop until security review succeeds
-   i. **/secreview Specialized Independent Security Review**: store final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
-   ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. Ensure build doesnt raise errors or warnigns and all tests pass [User Approval Gate with Independent AI Reviewer Suggestions]
+27. Loop until security review succeeds
+   - **27.a /secreview Specialized Independent Security Review**: use a distinct security-review model and store the final security review in `.agent/session-persistent-candidate/reviews/final_code_sec_review_[timestamp].md`.
+   - **27.b /redo Make Necessary Code/Test/Docs Changes** and validate with a model distinct from the implementer and security reviewer. [User Approval Gate]
 
-26. Loop until final End-to-end verification succeeds
-   i. **/end-to-end-testing**: test end-to-end to make sure the issue was completely handled. If a GUI is involved: include GUI usability/visual testing that emulates real user behavior. Also perform end-to-end stress testing, for APIs this means load testing endpoints for availability and latencyy, for GUIs this means mimicking aggressive scrolling, random group browsing, rapid navigation, repeated media loading.
-   ii. **/redo Make Necessary Code/Test/Docs Changes** and validate. Ensure build doesnt raise errors or warnigns and all tests pass. [User Approval Gate with Independent AI Reviewer Suggestions]
+28. Loop until final End-to-end verification succeeds
+   - **28.a /end-to-end-testing**: test end-to-end to make sure the issue was completely handled, including GUI usability/visual testing and risk-appropriate stress testing. Use a model distinct from the implementer and all preceding reviewers.
+   - **28.b /redo Make Necessary Code/Test/Docs Changes** and validate with an independent model. [User Approval Gate]
 
 ----<<separate terminal block (reset context)>>----
 
-27. **/quizme Quiz User on Changes Since Last quizme** until the user has full understanding. [AI Approval Gate]
+29. **/quizme Quiz User on Changes Since Last Quiz** until the developer understands the changes made since the previous quiz. [AI Approval Gate]
 
-----<</separate terminal block>>----
+30. **/write-pr**: recheck `.agent/flow/current-pr/pre-pr-checklist.md`, then regenerate `.agent/flow/current-pr/pr.md` so it reflects the final state.
 
-28. **/write-pr**: recheck `.agent/flow/current-pr/pre-pr-checklist.md`, then regenerate `.agent/flow/current-pr/pr.md` so it reflects the final state.
+31. **/document**: update contributor documentation and usable final user documentation. Use an independent documentation reviewer. [User Approval Gate]
 
-29. **/document**: update contributor documentation and usable final user documentation. [User Approval Gate with Independent AI Reviewer Approval Suggestions]
+32. **/deep-review**: repeat the two-phase review described in step 24 for the post-review changes. Use fresh contexts and models distinct from the authors of those changes and from the earlier reviewers. Store the final validated problems list in `.agent/session-persistent-candidate/reviews/problems_list_[timestamp].md`.
 
-30. **/deep-review:** done in 2 phases. In phase 1, multiple rproblem finding rounds are done in sequence until no new problems are found, where each round: adds new problems to the problem list, uses a fresh context and a different reviewer model (if no new reviewer model exists, then can reuse a model but with prompt wording modifications to inject some variation). In phase 2, 3 verifiers (each with fresh context) verify each problem from the list of total problems found in phase 1. A new list of validate problems is made, problems only end up on the validated list if 2 of the 3 verifiers agree its a problem. What counts as problems? Problems are things that will break production at a certain point (immediatelly, after some event, at scale, under some adversarial attack, etc). Code styling, formatting, file/function breaking are not problems in this analysis. Store the final validated problems list in `.agent/session-persistent-candidate/reviews/problems_list_[timestamp].md`.
-
-31. **/send-pr**: push/open/update the draft PR using `.agent/flow/current-pr/pr.md`.
+33. **/send-pr**: push/open/update the draft PR using `.agent/flow/current-pr/pr.md`.
 
 The human user is responsible for checking when the PR is ultimately merged.
 
@@ -389,22 +462,25 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Agent-native Editor/Terminal: Orca (only when tackling multiple issues in parallel)
 - Terminal Harnesses: OpenCode + failproofai + claude-tap, open-code-review and openwiki
 - IDE (for better introspection + manual editing): VSCode (with language-specific linters and formatters plugins running continuosly on every file edit)
-- LLM Provider Subscription: **OpenCode Go
-- Models: (0) Planning: Current great coding model thats not so expensive with medium resoning; (1) Spec, scaffold and Tests: Current great coding model thats not so expensive with high reasoning; (2) Core coding: Best current coding qualirty/price model with medium reasoning; (3) Independent Spec Review: Best Current Coding Model with high reasoning; (4) Plan Review: Current great coding model thats not so expensive with high reasoning; (5) Security Review: Best Current Review Model with high reasoning; (6) end-to-end testing: Current great coding model thats not so expensive with high reasoning; (7) sub-agents: Best Current Coding Model with high reasoning; (8) Code Review: 2 not so correlated great Current Review Models that are not so expensive with high reasoning as cadidate generators and open-code-review cli tool using best current code review model with high reasoning as final decision maker; (9) quizme: Best current coding quality/price model with medium reasoning; (10) UI Testing: Best current computer use model.
+- LLM Provider Subscription: **OpenCode Go**
+- LLM credential gateway / transparent HTTP reverse proxy: **Apache APISIX (Apache-2.0)**, using `key-auth` for local gateway-key validation and `proxy-rewrite` to replace the upstream `Authorization` header. Use file-driven standalone mode for the initial local single-node setup; the initial configuration should not require etcd. This is a generic API gateway, not an LLM protocol translator.
+- OpenCode Go upstream: `https://opencode.ai/inference/go`; preserve the API-family path and the stable `x-opencode-session` header for each conversation.
+- Models: (0) Planning: good coding model with medium reasoning; (1) Spec/scaffold/tests: good coding model with high reasoning; (2) Core coding: best current coding quality/price model with medium reasoning; (3) Independent Spec Review: a different effective model from the spec author; (4) Plan Review: a different effective model from the plan author; (5) Security Review: a distinct security-capable model; (6) End-to-end testing/verification: a distinct model from the implementation and prior reviewers; (7) Sub-agents: suitable coding/research models; (8) Code Review: two candidate-generating models from different model families/providers and a third distinct model as final adjudicator; (9) quizme: coding-quality model with medium reasoning; (10) UI Testing: best current computer-use model. For every review and AI verification, use a model different from the implementer and from the other reviewers/verifiers for that work unit; prefer distinct model families/providers. Record the actual model identifiers in the workflow artifacts.
 - Local Routing: opencode-model-router (opencode plugin)
     - Fast Model: qwen2.5-coder:7b
     - Medium Model: current coder model
     - Heavy Model: current coder model
-- Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow.md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name.
+- Issue Flow: Start with just making each step a slash command, and leave to the developer to follow the steps (note: this doesnt enforce step execution, se requires developer commitment). Note: each slash commands should remember to update the issue resolving progress at the end (issue_flow_[i].md file) or, if its the first step, create the file if its still not created). Each slash command should have a simple name.
 - OpenCode Plugins: graphify, rtk, opencode-quota, opencode-model-router, opencode-trace
 - OpenCode External Tools: Github CLI, Context 7 CLI
 - Custom Freelunch OpenCode sub-agents: security-specialist, code-review-and-refactoring-specialist, testing-specialist, debugging-specialist. Tip: Agency-agents repo provides some sub-agents out-of-the-box.
 - Custom Freelunch OpenCode Slash Commands: one for each unique step of the issue building flow
+- Custom workflow validator: `validate-issue-flow`, stored under `.agent/created_tools/validate-issue-flow/`, automatically checks step numbering and all cross-references whenever the flow or slash-command definitions change
 - Dependency Docs: a dependency_docs.md under ./docs with entries in the form "- <dependency>: <docs_link>" for all direct dependencies (not dependencies of dependencies). Pinned versions used in the project cna be seen in the lock file of the virtual dev environment tool.
 - Skills: 
     - Custom Skills: created on-demand, under a `custom_skills` folder, via manual creation or via `skill-creator` to avoid having to repeat the same solution process over and over. Make these custom skills:
         - harness-eval (evalautes proposed harness changes on the current codebase, explained better in the end of this doc)
-        - quizme (continually ask questions of the latest changes to codebase to me, to see if i understand the codebase. Always give score my answers and give feedback to it. Only stop when you feel i understand the codebase. The user can also specifify specific files for you to grill him about instead of the entire codebase) (every quizme run should log all the questions, answers and feedback gave to the user inot a .agent/persistant/user-quizes/quiz[i].md where i is the id of the quiz and the file should have timestamp, commit, what the quiz was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was quizzed in the last grill and user-codebase-questions.jsonl file)
+        - quizme (continually ask questions of the latest changes to codebase to me, to see if i understand the codebase. Always give score my answers and give feedback to it. Only stop when you feel i understand the codebase. The user can also specifify specific files for you to grill him about instead of the entire codebase) (every quizme run should log all the questions, answers and feedback gave to the user inot a .agent/persistant/user-understanding/user-quizzes/quiz[i].md where i is the id of the quiz and the file should have timestamp, commit, what the quiz was about and grill score in the beggining of it. Ever grill should start by looking at the commit, what was quizzed in the last grill and user-codebase-questions.jsonl file)
         - understand-external-codebase (1. Build a doc eplxianng in detail the characteristics and internals of an external github codebase; 2. Add to this doc an explanation of where and why this codebase can be helpfull as a reference for ideias/patterns for the current project being built) 
         - update-fixed-context (1. Infers new usefull knowledge from ./.agent/persistant/knowledge/mistakes.jsonl and ./.agent/flow/completed-issues/completed_issue_flows; 2. Add this new usefull knowledge to AGENTS.md if its not already there)
         - make-core-implementation-tasks-plan (transforms the spec into a graph of tasks, where: (1) each task can depend on other tasks being already done or not depend on any; (2) the tasks should not be of the form "one task implements each component that will be needed in this feature, e.g., oen task for the backend, another for databas,e another for gateway and another for frontend", the tasks should be done in the form of "one task implments a slice (governed by on or more integration/end-to-end tests) of multiple components, e.g., this task implements a funcitonality slice of frontend, backend, gateway and frontend that together brings us one step closer to our end goal and guarantee rich cross-component feedback along development". The core implementation tasks plan needs to be stored in .agent/flow/current-issue/flow/core-implementation-tasks-plan.md. The core-implementation-tasks-plan.md. file should have the graph structure of the plan, where each node is a task. For each node there is also a pending/in-progress/done checkbox. Do not confuse with plan.md which is a per-step ephmeral small plan for step execution.)
@@ -417,7 +493,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 
 1. Start a new session with opencode: do code review with Model A and store the review in .agent/session-persistent-candidate/reviews/[A]_code_review_[timestamp].md, where A is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
 2. Start a new session with opencode: do code review with Model B and store the review in .agent/session-persistent-candidate/reviews/[B]_code_review_[timestamp].md, where B is a placeholder for the actual mode name, and timestamp is placeholder for the actual timestamp
-3. Start a new session with open-code-review: do code review with Model C explicitely telling it to look at the candidate problems flagged inside .agent/session-persistent-candidate/reviews/ folder and store the resulting code review inside .agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md
+3. Start a new session with open-code-review using Model C, which must be different from Models A and B, explicitly telling it to inspect the candidate problems flagged inside `.agent/session-persistent-candidate/reviews/` and store the final review in `.agent/session-persistent-candidate/reviews/final_code_review_[timestamp].md`. Use a fresh context for every reviewer.
 
 ## Token Efficency Laws [for Humans or Outer Loop Agents]
 
@@ -428,7 +504,7 @@ External Vendor Requirements: Opencode Go Subcription, Claude Credits, Github Re
 - Start a new session when context becomes sufficiently polluted → carrying a huge amount of irrelevant history can become more expensive than rebuilding a clean context.
 - Avoid rambling/random studying with the agent, do all of this in ChatGPT/Gemini/Grok webpages
 - Stay in the same session while the context is still useful → preserving cached/reusable context avoids paying to rebuild understanding.
-- Until you reach scaffold code with tests, dont swittch models
+- Keep the core implementation model consistent through the common scaffold and initial functional-test suite when continuity is useful; this does not apply to reviews or verifications, which must use distinct models under the review-independence rule above.
 - Always mention files with @ for the agent to look/modify instead o letting the agent winder the repo for that file
 - Use something like rtk to compact tool outputs
 - Have a router + local model for doing simple stuff
@@ -913,27 +989,29 @@ The caller-selected `EVAL_TYPES` governs reconstruction evals only. The cached s
 
 # 2.1 Required A/B Trial Count
 
-Every A/B evaluation must be run for **exactly 3 independent trials** because model behavior is probabilistic.
+Every A/B evaluation must begin with **3 independent paired screening trials** because model behavior is probabilistic. Three is the minimum screening sample, not a hard cap.
 
 One trial consists of one independent execution of Option A and one independent execution of Option B against the same frozen mutation and task for that trial.
 
-Therefore, every A/B evaluation produces:
+The initial screening therefore produces:
 
 ```text
-3 trials
+3 paired trials
 ×
 2 options
 =
 6 agent executions
 ```
 
+Before launching an experiment, declare the primary quality metric, the smallest practically meaningful A/B difference for that metric, and the maximum confirmation budget. After the initial screening, run additional paired confirmation trials when the results are close or unstable. Treat the result as close/unstable if (a) the direction of the paired A-minus-B difference changes across the three screening trials, (b) the aggregate difference is smaller than the predeclared practically meaningful difference, or (c) a paired confidence interval still includes both no difference and a practically meaningful advantage for either option. Add confirmation trials in batches of 3, keeping A and B matched within every trial and using independent fresh mutations for reconstruction trials. Recalculate the paired effect and interval after each batch. If the predeclared trial budget is exhausted before the result is stable, report the comparison as inconclusive rather than declaring a winner.
+
 Each trial must use fresh agent sessions and isolated execution environments. Trials must not reuse agent state, writable caches, repositories, or other execution state from previous trials.
 
-The three trials must be independently recorded. Do not stop after fewer than 3 trials, even if one option appears clearly better after the first or second trial.
+Every screening and confirmation trial must be independently recorded. Never stop before the initial 3 paired trials are complete. Do not declare a winner after the initial screening when the results are close or unstable; run the confirmation batches described above.
 
-The three reconstruction trials must use independent mutation seeds and therefore fresh mutations, while preserving the requirement that A and B within each trial receive the exact same mutation.
+Each reconstruction trial must use an independent mutation seed and therefore a fresh mutation, while A and B within that trial receive the exact same frozen mutation.
 
-For supervised evals, there is no generated mutation to reseed. All three trials reuse the same cached historical mistake state, task, and expected diff, while still using fresh agent sessions, isolated containers, repositories, and writable execution state.
+For supervised evals, there is no generated mutation to reseed. All screening and confirmation trials reuse the same cached historical mistake state, task and expected diff, while still using fresh agent sessions, isolated containers, repositories and writable execution state.
 
 ---
 
@@ -1980,19 +2058,29 @@ agent's finding + agent's fix
 original hidden repository + specification/architecture/conventions
 ```
 
-The primary score is:
+The primary metrics are precision, recall and F1. Count a finding at most once per injected defect; duplicate reports of the same defect do not increase true positives. A finding is a true positive only when the evaluator confirms that it matches an injected defect and the agent both identifies the defect and makes a semantically correct fix. An injected defect not found is a false negative. A reported finding that is not a real defect is a false positive.
 
 ```text
-detection_score = defects_found / defects_injected
+precision = true_positives / (true_positives + false_positives)
+recall = true_positives / (true_positives + false_negatives)
+f1_score = 2 * precision * recall / (precision + recall)
+detection_score = recall  # retained as a backward-compatible alias
 ```
 
-Report at minimum:
+Handle zero denominators as `N/A`, not as an invented zero score. Report at minimum:
 
 ```text
 defects_injected
-defects_found
+true_positives
+false_positives
+false_negatives
+precision
+recall
+f1_score
 detection_score
 ```
+
+A valid additional defect that was not injected should be reported separately as `validated_additional_findings`; do not count it as a false positive merely because it was outside the injected benchmark set.
 
 Also report the categories of the injected defects.
 
@@ -2223,11 +2311,11 @@ Historical results and supervised ground truth must never leak into future evalu
 
 # 32. Three Required Trials
 
-Every A/B evaluation runs **exactly 3 trials**.
+Every A/B evaluation runs **at least 3 paired trials**: 3 initial screening trials, followed by additional batches of 3 confirmation trials when results are close or unstable.
 
 Repeat the full evaluation process independently for each trial.
 
-For reconstruction evals, each trial gets:
+For reconstruction evals, each screening or confirmation trial gets:
 
 ```text
 fresh mutation
@@ -2241,7 +2329,7 @@ fresh agent session B
 
 Use a new mutation seed per reconstruction trial.
 
-For supervised evals, each trial gets the same cached benchmark inputs:
+For supervised evals, each screening or confirmation trial gets the same cached benchmark inputs:
 
 ```text
 same supervised_eval_id
@@ -2265,7 +2353,7 @@ Do not reuse agent state, repositories, writable caches, or execution state betw
 
 Within each reconstruction trial, the mutation is created exactly once and the resulting frozen mutation is shared by Option A and Option B. Do not independently generate mutations for A and B. Within each supervised trial, the cached historical benchmark is shared by A and B and no additional mutation is created.
 
-The complete evaluation therefore has:
+The initial screening therefore has:
 
 ```text
 Trial 1: Option A + Option B
@@ -2273,9 +2361,7 @@ Trial 2: Option A + Option B
 Trial 3: Option A + Option B
 ```
 
-Record every trial independently, including all raw evaluation artifacts and metrics.
-
-Do not stop early because one option appears better after an earlier trial.
+When confirmation is required, append additional paired trials in batches of 3. Record every screening and confirmation trial independently, including all raw evaluation artifacts and metrics. Do not stop before the initial three trials are complete, and do not declare a winner from an unstable screening result.
 
 ---
 
@@ -2314,8 +2400,14 @@ For code review also report:
 
 ```text
 defects_injected
- defects_found
+true_positives
+false_positives
+false_negatives
+precision
+recall
+f1_score
 detection_score
+validated_additional_findings
 defect categories
 ```
 
@@ -2330,9 +2422,9 @@ semantic_test_quality = evaluator result
 
 Also provide the locations of the raw artifacts.
 
-Report all **3 trials** separately.
+Report every screening and confirmation trial separately. Identify the initial three screening trials and any additional confirmation batches.
 
-Also provide an aggregate view across the 3 trials where the metric supports aggregation, while preserving the individual trial results and raw evidence.
+Also provide an aggregate view across all screening and confirmation trials actually run where the metric supports aggregation, while preserving the initial screening results, each confirmation batch, individual paired results and raw evidence.
 
 Do not collapse the experiment into a subjective ranking or winner.
 
@@ -2348,7 +2440,7 @@ Before declaring an evaluation complete, verify all of these:
 [ ] `.agent/persistant/knowledge/mistakes.jsonl` was omitted from agent-visible snapshots rather than deleted or modified in the main checkout
 [ ] every copied file/dir was scanned for benchmark-leaking information before container creation
 [ ] `.agent/session/` and `.agent/session-persistent-candidate/` contained only empty files/directories inside A and B containers
-[ ] any agent-accessible path outside the project folder was one level above the project root and expressed with exactly one ../ prefix
+[ ] any agent-accessible path outside the project folder stayed within the project root's immediate parent and used exactly one ../ prefix where required
 [ ] no agent-accessible path used an absolute external filesystem path or ../../ traversal
 [ ] exactly two Docker Compose environments were created for the A/B trial
 [ ] each option had its own primary agent container
@@ -2375,7 +2467,7 @@ Before declaring an evaluation complete, verify all of these:
 [ ] secret values were not extracted into evaluation metadata or artifacts
 [ ] raw artifacts were preserved
 [ ] supervised eval expected diffs remained hidden from evaluated agents
-[ ] every cached supervised eval ran for all 3 A/B trials
+[ ] every cached supervised eval ran for all initial 3 A/B screening trials and any required confirmation trials
 [ ] new mistakes were added to the supervised-eval cache only once and existing cached evals were reused
 [ ] containers and temporary environments were destroyed
 [ ] results were persisted under .agent/harness_evals_results/
