@@ -1,7 +1,7 @@
 # Lunch Formal: Formal Verirication of Freelunch Codebases
 
 Use Cases:
-- guaranteeing that major safety and cost issues are not present in codebases that are heavily written by AI Agents, not humans.
+- guaranteeing that major safety/security and cost issues are not present in codebases that are heavily written by AI Agents, not humans.
 
 Steps:
 1. Codebase is mapped to a standard system specification (SSS) document containing code entitites, relationships, user types, user access points, external communication... everything needed to reason about the system. Where the system is platform + applications.
