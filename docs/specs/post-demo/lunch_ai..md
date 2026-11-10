@@ -8,69 +8,101 @@ Features:
 - assign issues to local and remote agents (when local machine is not enough for running all the coding agents you want to run, because 1 sandbox/agent starts becoming heavy)
 - get notified on important remote agent events
 - agent cost manageemnt
-- self-improvement of models/harnesses/agents based on hill-climbing evals.
-- your custom coding model always beating major LLM APIs: proactive monitoring of where new LLM APIs beat the custom model, then finetuning the cusotm model on distilled data from the best performing API for the specific lagging place. this is until custom model is agian the best model.
-- optional deployment of self-hosted LLM API for agents to use instead of external providers
+- self-hosted, open source-based LLM API for agents to use instead of external LLM providers
+- your custom coding model always beating major LLM APIs: proactive monitoring of where new LLM APIs beat the custom model, then finetuning the cusotm model on distilled data from the best performing API for the specific lagging place. This is done until custom model is again the best model.
 - first mate: have a manager agent that you talk to, the manager deals with all the other agents. Manager can explain, make changes, monitor and provide help to the other agents.
-- built-in autonomous cloud agents (with easy evals creation for them) for: app spec-code-docs disalignment flagging & suggestions, app feature request creation from user feedback, app tech debt removal, app performance enhancement, app pentesting, app pr review, platform pr review, app staging testing, app deploy babysitting, app operations (problem identification, root cause analysis, issue creation), platform operations (problem identification, root cause analysis, issue creation); that ping human engineer when stuck in a loop or uncertan about an important thing.
+- built-in autonomous cloud agents (with easy evals creation for them + improver agent that tries to improve them continuosly on evals) for: app spec-code-docs disalignment flagging & suggestions, app feature request creation from user feedback, app tech debt removal, app performance enhancement, app pentesting, app pr review, platform pr review, app staging testing, app deploy babysitting, app operations (problem identification, root cause analysis, issue creation), platform operations (problem identification, root cause analysis, issue creation); that ping human engineer when stuck in a loop or uncertain about an important thing.
 - automatic pr merge policy that can merge prs automatically depending on the type of pr (ai-made pr acceptance rate is tracked per type of pr, if its very high, might be good option to just auto merge taht type of pr)
 
 ## On self-improvement of agents and automatic discovery of best company/repo-specific coding setup for human developers
 
-Hire the Best AI Developers for Your Codebase
+Coding agents differ in how well they perform depending on the codebase, task, and engineering environment. The choice of agent, model, tools, instructions, and workflows can have a significant impact on the quality, cost, and speed of software development.
 
-Every company is about to hire AI software engineers.
+However, most organizations select these configurations based on public benchmarks, vendor claims, or manual experimentation. These evaluations rarely reflect the organization's actual repository, architecture, conventions, and development workflows.
 
-The problem is that nobody knows which ones to hire.
+Our approach is to automatically evaluate and optimize coding agent configurations against the organization's own codebase.
 
-Should you use Claude Code, Codex, Devin, Cursor, OpenHands, or something else? Which models, Skills, plugins, MCP servers, coding rules, and workflows actually produce the best engineers for *your* repository?
+1. Generating candidate configurations
 
-Today, companies choose these configurations based on benchmarks, blog posts, or intuition.
+The platform generates candidate setups by combining different:
 
-We think that's backwards.
+- Harnesses (Claude Code, Codex, etc.).
+- Models.
+- Global rules, skills, plugins, and tools.
+- Development workflow
 
-Recent companies like **Stet** have shown that evaluating different coding agent configurations on your own repository is valuable. We agree—but we think evaluation is only the first step.
+Each candidate represents a complete, reproducible configuration of the coding environment.
 
-Instead of asking you to pick an AI developer, we hire thousands of them for you.
+The search process is configurable. Organizations can define an experimentation budget, the number of candidates to evaluate, and prior knowledge that constrains or guides the search. For example, they can exclude agents that have consistently performed poorly, prioritize configurations that previously produced good results, or require certain tools and coding rules to be present.
 
-Our platform automatically generates hundreds or thousands of candidate AI engineering systems. Each candidate is a unique combination of coding agents, models, Skills, plugins, MCP servers, prompts, coding rules, context strategies, and developer workflows.
+This allows the platform to build on previous experiments rather than repeatedly exploring configurations that are already known to be ineffective.
 
-Every candidate is given the same issues from your repository and works independently in an isolated cloud environment.
+2. Evaluating candidates on real repository tasks
 
-Each candidate produces its own pull request.
+Candidates are evaluated using issues from the organization's own repositories.
 
-Candidates that fail CI, break tests, or receive poor PR reviews are immediately eliminated.
+Each candidate receives the same task specification and initial repository state, and operates independently in an isolated environment. This ensures that candidates cannot access each other's changes or intermediate results.
 
-The remaining candidates are scored across three dimensions:
+Each candidate must implement the requested changes and submit a pull request.
 
-* **Code Correctness** — Does the implementation satisfy the specification and pass all required tests?
-* **Code Quality** — Is the solution clean, maintainable, testable, understandable, and easy to extend?
-* **Code Performance** — Estimated Memory consumption & latency for realistic deploy scenario (using profiling info + deploy scenerio infp)?
-* **Cost** — How much did it cost to produce the pull request, including model usage, compute, and execution time?
-* **Time** — How long it took to produce the PR (things like pre-commit hooks can increase the time)?
+The evaluation pipeline checks the resulting implementation against the same criteria:
 
-The weak candidates are fired.
+Correctness: Does the implementation satisfy the issue specification? Do the relevant tests pass? Are there regressions?
 
-The best-performing engineering system is promoted into production.
+Code quality: Is the implementation maintainable, understandable, modular, and consistent with the repository's architecture and conventions?
 
-The hiring process is fully configurable. Companies can choose how many experiments to run based on their budget and timeline, and they can provide prior knowledge to guide the search. For example, they can specify that a particular coding agent consistently performs poorly on their repository, that a specific plugin has historically produced better results, or that certain workflows should always or never be considered. Instead of starting every hiring round from scratch, the platform incorporates what the organization already knows, reducing search costs while converging on the best engineering system faster.
+Performance: Does the resulting implementation meet relevant runtime performance requirements, such as latency and memory consumption? Where applicable, this is measured through profiling and representative deployment scenarios.
 
-With a single click, that validated workflow becomes your autonomous remote AI software engineer, continuously solving GitHub issues using the exact combination of models, tools, and engineering practices that already proved themselves on your codebase.
+Cost: What was the total cost of producing the implementation, including model tokens, inference charges, and compute resources?
 
-The platform never stops improving.
+Development time: How long did the agent take to produce the result, including tool execution, testing, pre-commit hooks, and other workflow steps?
 
-As new models, coding agents, plugins, and tools are released, it continuously runs new hiring rounds every month. Challengers compete against your current production workflow, and promotions only happen when a new engineering system demonstrably outperforms the incumbent according to your organization's priorities.
+Evaluation combines automated checks, such as tests, static analysis, and profiling, with structured code review. Failed mandatory checks can disqualify a candidate, while the remaining dimensions are scored according to the organization's priorities.
 
-Over time, the optimization data itself becomes a strategic asset. Our long-term vision is to fine-tune open-source foundation models on the engineering knowledge discovered during these experiments, embedding the winning setups directly into the model. Instead of repeatedly injecting this knowledge through context windows, the model itself has the knowledge, dramatically reducing token usage, latency, and inference cost while preserving the engineering practices that proved most effective.
+Where results are variable, candidates can be evaluated across multiple tasks and repeated trials to distinguish consistent improvements from isolated successes.
 
-You don't have to chase the latest AI coding tools.
+3. Selecting and deploying the best configuration
 
-Your AI engineering team continuously evolves itself.
+The platform compares candidates using the evaluation results and the organization's scoring criteria.
 
-We aren't building another coding agent.
+The objective is not necessarily to find the configuration that produces the highest-quality code regardless of cost or time. Organizations can define their own trade-offs, such as prioritizing correctness and maintainability while imposing cost and execution-time constraints.
 
-We're building the hiring, evaluation, deployment, promotion, and continuous training system for AI software engineers.
+The best-performing configuration is saved as a reproducible engineering environment, including its agent, model, tools, instructions, and workflow configuration.
 
-Today, companies like Stet help you discover which AI engineering setup performs best on your repository.
+It can then be deployed as an autonomous coding agent that continuously picks up issues from the organization's GitHub repositories, implements changes, runs the required checks, and opens pull requests using the validated configuration.
 
-Our vision is to take the next step: automatically hire the best AI engineers, put them to work, continuously improve them, and eventually encode everything they learn directly into the models themselves.
+4. Continuous evaluation and promotion
+
+The selected configuration becomes the production baseline, but it is not assumed to remain optimal indefinitely.
+
+New models, coding agents, tools, and workflow strategies are continuously evaluated against the incumbent configuration.
+
+These experiments use comparable repository tasks and evaluation criteria. A challenger is promoted only when the results demonstrate a meaningful improvement according to the organization's priorities, without violating mandatory quality or reliability requirements.
+
+This creates a continuous optimization process:
+
+Generate candidate configurations.
+
+Evaluate them on repository-specific tasks.
+
+Compare their results against the production configuration.
+
+Promote configurations that demonstrate measurable improvements.
+
+Repeat as new models and tools become available.
+
+The platform also retains historical evaluation results, allowing organizations to track how configurations perform over time and understand which changes contributed to improvements or regressions.
+
+5. Learning from evaluation data
+
+Over time, the platform accumulates a dataset connecting engineering environment configurations, repository characteristics, task specifications, implementation results, code reviews, and execution costs.
+
+This data can be used to improve the configuration search process itself, helping the platform predict which combinations of agents, models, tools, and workflows are worth evaluating for a particular repository.
+
+Our longer-term research direction is to use this data to fine-tune open-source foundation models for software engineering.
+
+Rather than relying exclusively on external prompts, Skills, and repository instructions to communicate engineering practices to an agent, specialized models could learn some of these practices directly during training.
+
+This could reduce the amount of context required at inference time and potentially improve latency and inference costs. Whether this produces measurable improvements over context-based approaches would itself need to be evaluated.
+
+The result is a system that does more than execute software engineering tasks: it systematically measures, selects, deploys, and improves the engineering environments responsible for executing them.
