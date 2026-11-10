@@ -1,4 +1,4 @@
-# Lunch Formal: Formal Verirication of Freelunch Codebases
+# Lunch Formal: Formal Verification of Freelunch Codebases
 
 Use Cases:
 - guaranteeing that major safety/security and cost issues are not present in codebases that are heavily written by AI Agents, not humans.
