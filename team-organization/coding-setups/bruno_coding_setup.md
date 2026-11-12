@@ -150,6 +150,67 @@ Docker security references: [Docker Engine security](https://docs.docker.com/eng
 - `OPENCODE_GO_SESSION_ID` is conversation-scoped: keep it stable for one OpenCode Go conversation and generate a new value for each new conversation. Preserve each native Claude Code/Codex session identifier as required by its client protocol.
 - The local OpenCode process must not receive the actual OpenCode Go subscription credential. The host-side Docker administrator remains trusted and may be able to inspect Docker-managed state and secrets.
 
+## Harness Settings JSON [for Outer Loop Agents or Humans]
+
+
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "blockReadsOutsideWorkingDirectories": true,
+    "blockWritesOutsideWorkingDirectories": true,
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Read(./secrets/**)",
+      "Read(./**/secrets/**)",
+      "Read(./*.pem)",
+      "Read(./*.key)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/credentials.json)",
+      "Read(./**/service-account*.json)",
+      "Read(./**/id_rsa)",
+      "Read(./**/id_ed25519)",
+      "Read(//home/**/.ssh/**)",
+      "Read(//home/**/.aws/**)",
+      "Read(//home/**/.kube/**)",
+      "Read(//home/**/.config/gcloud/**)",
+      "Bash(rm -rf *)",
+      "Bash(rmdir *)",
+      "Bash(shred *)",
+      "Bash(mkfs *)",
+      "Bash(dd *)",
+      "Bash(chmod -R *)",
+      "Bash(chown -R *)",
+      "Bash(sudo *)",
+      "Bash(su *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(git checkout -- *)",
+      "Bash(git restore *)",
+      "Bash(git branch -D *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git rebase *)",
+      "Bash(git commit *)",
+      "Bash(git merge *)",
+      "Bash(docker run --privileged *)",
+      "Bash(docker system prune *)",
+      "Bash(docker volume rm *)",
+      "Bash(docker compose down -v *)",
+      "Bash(docker rm -f *)",
+      "Bash(curl * | bash*)",
+      "Bash(curl * | sh*)",
+      "Bash(wget * | bash*)",
+      "Bash(wget * | sh*)",
+      "Bash(eval *)"
+    ]
+  }
+}
+
+
 ## Project Rules (AGENTS.md) [for Inner Loop Agents]
 
 ### Things you should NEVER do
