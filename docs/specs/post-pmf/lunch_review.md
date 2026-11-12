@@ -1,206 +1,311 @@
-# The Claude Code for Code Review
+# Lunch Review: A Foundation Model for Autonomous Code Review
 
-In 2026, AI coding agents can produce software faster than engineering teams can reliably inspect it. **Code review is becoming the bottleneck.** Greptile, CodeRabbit, and similar AI PR reviewers have shown that LLMs can already automate meaningful parts of review, but they are fundamentally limited by using existing models as reviewers rather than training the review system itself toward a measurable objective. We want to build the next step: **an autonomous code-review agent swarm trained as a whole specifically to maximize the recall of real software defects.**
+## The Thesis
 
-## A Claude Code built for review
+AI coding agents are rapidly increasing software production. The bottleneck is no longer writing code — it is verifying that code is correct.
 
-The product is an autonomous engineering swarm that can operate throughout the development lifecycle—not just on pull requests. Like Claude Code, it can explore the repository, use tools, run tests, inspect dependencies, modify code to test hypotheses, and reason across the codebase. The difference is its objective: **Claude Code tries to make the code work; our swarm tries to prove that it has problems.**
+Today's AI reviewers (Greptile, CodeRabbit, Claude Code review mode, etc.) use general-purpose LLMs as reviewers. They optimize for generating useful review comments.
 
-This means the product isn't simply a GitHub bot that comments on pull requests. It can operate alongside developers and coding agents while they are building software, continuously investigating changes, challenging implementations, searching for regressions, and testing suspicious behavior. Pull-request review is simply one place where the same underlying review agent can be deployed.
+**Lunch Review is different: we are building a code review foundation model whose objective is discovering real software defects.**
 
-## The Technology we use
+Instead of treating code review as prompt engineering, we train specialized review models and jointly optimize an autonomous reviewer swarm around a measurable objective:
 
-We use an agetn swarm to perform the review with a problem candidate generation phase and a problem filtering phase.
+> **maximize discovery of real defects while minimizing high-confidence false positives.**
 
-### The key difference: we train the swarm
+---
 
-We leverage swarm-aware multi-model optimization infrastructure such as AgentJet (Multi-agent RL) for inner loop model optimizaiton and DSPY (LLM-based program optimization) for outer loop system optmization to train the agents toward the outcome of the entire review process. The optimization target isn't "did the model write a convincing review?" It is **"did the swarm discover a real defect?"**
+# Building a Review Foundation Model
 
-This allows us to optimize the entire system: which agents participate, which models they use, what tools they invoke, how deeply they investigate, how they debate, how they verify findings, when they escalate to humans, how results are combined, and how findings are filtered. The models are components. **The swarm is the thing being optimized.**
+The long-term goal is not a GitHub bot.
 
-### Another major key difference: calibrated & fine-grained confidence-backed reviews
+It is a **review foundation model**: a family of models trained specifically for software verification rather than code generation.
 
-Today’s coding agents can find increasingly subtle bugs, but they still struggle to know how much to trust their own conclusions. A review agent may identify a real race condition and a speculative performance issue with the same confident tone. The goal is to train a model with a genuine, calibrated sense of uncertainty at the claim level, so it can distinguish what it knows from what it is merely hypothesizing.
+The foundation model learns capabilities that existing coding models are not explicitly trained for:
 
-The core training approach would use reinforcement learning with confidence-sensitive rewards. Each review finding is evaluated against ground truth, and the reward is tied to both correctness and confidence: the model is rewarded more for being highly confident when it is right, and punished more heavily for being highly confident when it is wrong. In other words, confidently wrong findings should be much more costly than cautious mistakes, while confidently correct findings receive the strongest reward. This directly trains the model to develop a useful internal model of its own reliability rather than simply learning to sound uncertain.
+- finding functional defects,
+- finding security vulnerabilities,
+- detecting regressions,
+- verifying behavior against specifications,
+- constructing executable proofs,
+- estimating calibrated confidence for every finding.
 
-There are two promising ways to expose that learned signal. Token-based confidence would train the model to delimit spans with special tokens such as <VERY_CONFIDENT>...</VERY_CONFIDENT>, <CONFIDENT>...</CONFIDENT>, and <NOT_CONFIDENT>...</NOT_CONFIDENT>, allowing different parts of a review to carry different confidence levels. A separate confidence head would instead keep confidence outside the generated text, predicting something like P(claim is correct) for each individual finding and letting the review system convert that signal into whatever interface or behavior is appropriate.
+The final product is distilled into lightweight reviewer models that can run continuously during development or inside pull request workflows.
 
-The result is a code-review agent that doesn't just try to find more bugs—it learns to know which of its own findings deserve to be trusted. High-confidence problem findings can automatically block a PR, medium-confidence findings can be surfaced to the developer, and low-confidence findings can trigger further investigation instead of being presented as facts.
+---
 
-## Two Offerings of Lunch Review: Ralph Version & Human Version
+# Claude Code Writes Code. Lunch Review Tries to Break It.
 
-### lunch-review-human: Maximize Defect Recall
+Claude Code is optimized to produce working implementations.
 
-When a human engineer is the final decision-maker, the system should optimize primarily for extremely high defect recall. False positives are acceptable because the human can discard speculative findings, while missed defects remain invisible.
+**Lunch Review is optimized to prove implementations are wrong.**
 
-The swarm can therefore operate as a deliberately high-recall candidate generator: investigate aggressively, surface weak hypotheses, and trade precision for coverage. The objective is to maximize the number of real defects discovered while providing enough evidence and calibrated confidence for the engineer to distinguish strong findings from speculative ones.
+The reviewer continuously investigates code by:
 
-### lunch-review-ralph: Minimize High-Confidence Regression-Inducing False Positives
+- reading specifications,
+- exploring the repository,
+- executing tools,
+- running tests,
+- generating new tests,
+- reproducing failures,
+- verifying hypotheses.
 
-When review findings are consumed by an autonomous Ralph loop, the objective changes fundamentally. A false positive is no longer merely an annoying review comment: the agent may actually modify the code in response to it.
+Pull request review is simply one deployment mode. The same reviewer can operate while code is being written.
 
-The critical metric therefore becomes high-confidence regression-inducing false positives: findings that are incorrect and whose acceptance causes the implementation to become less compliant with the actual product specification or introduces a behavioral regression.
+---
 
-The Ralph configuration should therefore optimize for very low high-confidence regression-inducing false-positive rate, while maintining high recall.
+# What Makes Lunch Review Different?
 
-Non-regression-inducing false positive examples: unnecessary modularization, stylistic changes, overengineering security, overengineering performance, or other improvements that leave behavior correct. These induce non-critical time & cost problems. 
+## 1. Specialized Reviewer Swarm
 
-Regression-inducing false positive examples: findings that cause tests to be rewritten around incorrect behavior or findngs that change build/test/package/deploy or publish commands in a way that breaks intended behaviour & validation.
+The system is composed of specialized reviewer agents.
 
-## Architecture
+Examples include:
 
-1. [Read Mode] [Multi-agent] [Test-time scaling] Static Codebase Understanding, Making hypotheses and predicitons for hypothesis, also sending questions to human engineer
-2. [Read Mode] [Multi-agent] Runs experiments to test hypothesis and improve understanding
-3. [Read Mode] [Multi-agent] [High-recall] Static Problem Candidate Generation with causal evidence, specification/contract grounding and problem execution proof (Failing Test) building type per problem (Level 1, Level 2, Level 3 or Level 4)
-4. [Execution Mode] [Multi-agent] Independent Build/Test/Package/Deploy or Publish Command Runner, Problem Execution Proof (Failing Test) Builder and Problem Report Builder
-    1. Level 1 (Static AST Analysis): Candidate agents generate hypotheses using static code/diff analysis.
-    2. Level 2 (In-Memory Verification): If a candidate bug can be proven with a standard mock or unit test, do it here (fast, low compute).
-    3. Level 3 (Containerized Verification): If the bug requires stateful dependencies (e.g., database, cache, message bus), invoke Testcontainers and/or Floci to run a localized integration proof.
-    4. Level 4 (Full Topology Simulation): Only for cross-service, workflow, or infrastructure bugs, spin up Act and/or lightweight cluster topologies (e.g., via Kind, Proxmox, OpenStack or Floci) as a final verification step.
-5. [Execution Mode] [Multi-agent] [Test-time scaling] [Confidence Calibrated Statements] [High-precision] [Very Low regression-inducing FP rate] Verifier that Review the Report to Produce the Final Problem Report
+- functional correctness,
+- security,
+- performance,
+- architecture,
+- documentation,
+- UI behavior.
 
-That produces a report in the form:
+Each specialist is responsible for generating and verifying findings inside its own domain.
 
-### Functional Problems
-- Critical Problems: {"problems_a": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "spec_grounding", str, "confidence": float}; ...}
-- Important Problems: {"problems_b": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "spec_grounding", str, "confidence": float}; ...}
-- Enhancement Opportunities: {"problems_g": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "spec_grounding", str, "confidence": float}; ...}
-- Non-critical score: float
+This specialization allows each model to become significantly stronger than a single general-purpose reviewer.
 
-### Security Problems
-- Critical Problems: {"problems_c": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Important Problems: {"problems_d": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Enhancement Opportunities: {"problems_h": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Non-critical score: float
+## 2. Executable Evidence, Not Opinions
 
-### Code Quality & Documentation Problems
-- Critical Problems: {"problems_e": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Important Problems: {"problems_f": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Enhancement Opportunities: {"problems_i": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Non-critical score: float
+Every finding is treated as a hypothesis that should be proven whenever possible.
 
-### Performance Problems
-- Critical Problems: {"problems_g": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Important Problems: {"problems_f": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Enhancement Opportunities: {"problems_j": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Non-critical score: float
+The reviewer escalates verification through increasingly expensive execution environments.
 
-### UI Problems (If project has UI)
-- Critical Problems: {"problems_k": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Important Problems: {"problems_l": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Enhancement Opportunities: {"problems_m": {"problem_name": str, "problem_description": str, "problem_executable_proof": str, "confidence": float}; ...}
-- Non-critical score: float
+| Level | Verification |
+|-------|--------------|
+| **L1** | Static code and AST analysis |
+| **L2** | Unit tests or mocked execution |
+| **L3** | Containerized integration tests |
+| **L4** | Full multi-service topology simulation |
 
-Where:
-- non-critical score is a score of the diff excluding criticla problems. In ralph loop, you set a score treshold which determines when you pass review or not. Critical problems are not considered because all of them must be solved. This allows humans to be called only for: (1) answering questions; (2) solving stuck loops; (3) reviewing low-confidence critical problems.
-- critical high-confidence regression-inducing false positives (generally functional false positives) extremely close to 0
-- non-critical high-confidence regression-inducing false positives (generally functional false positives) are close to 0
-- code quality & documentation problems proofs are cosntructed by makig a test that calls LLMs to check
-- the whole system is trained end-to-end with RL to optimize for extemely low high-confidence regression-inducing false positives, high-recall, decent precision and calibrated confidence.
-- spec_grounding is a causal justification how why the code is not prducing the intended behaviour described in the spec, with spec citations
-- can be configured to use a different random_seed at each run (usefull for getting ralph loops unstuck) where it uses different models, and slighly different prompts and hyperparameters
-- awarm has specific agents for each type of problem
-- lunch review can be configured for 3 different levels of compute: light (lowest cost, good results), medium (costs more, better results) and heavy (costs the most, best results)
+Whenever possible, every finding includes:
 
-## Humans become the escalation layer
+- specification grounding,
+- causal explanation,
+- executable failing test,
+- reproduction instructions.
 
-The ideal workflow is simple: claude code is generating code, lunch review is reviwing code and human are only called for these things:
-- aswering questions
-- solving stuck loops
-- analyzing low-confidence critical problems surfaced
+The output is evidence rather than speculation.
 
-This changes the role of the engineer from **reviewer of every change** to **investigator of the changes that actually need human judgment**. Instead of spending hours reviewing code that is probably correct, engineers spend their time on the small fraction of changes.
+## 3. Learned Confidence Calibration
 
-## Review during development via CLI or Review PRs via Gitub Action
+Current AI reviewers sound equally confident whether they are correct or hallucinating.
 
-- During development: via cli or triggered by your main coding agent harness (e.g., claude code), to catch problems before PR phase. The earlier a problem is encounterd, the cheaper it is to fix it.
-- For PR: at every PR or triggered by PR comment. Requests changes for critical problems.
+Lunch Review explicitly learns confidence as part of training.
 
-## Training Pipeline
+Every finding predicts its probability of being correct.
 
-1. train each model indidually via SFT on open bug/vulnerability finding datasets + synthehtic mutation testing dataset (note: this dataset is constructed based on know real-world bug/vulnerability modes, not randomly) specific to that models role (e.g., maintainability, security, performance, scalability)
-2. train each model indidually via RL (described in step 3) with calibration punishment.
-3. train the entire system together (models, prompts, hyperparameters) via RL with calibration punishment where:
-    1. its rewarded a little if:
-        - giving high confidence on successes
-    2. its rewarded a lot if:
-        - for bugs/vulnerabilities it can: produce a test that passes in main but not on the mutated satellite branch 
-        - for code quality: rewarded via llm-as-a-judge proportionally to how clean the test-passing diff it produces to a changes in product spec (quality code should produce cleaner diffs)
-        3. giving low confidence on mistakes (bad test)
-    3. punished a little for:
-        - giving low confidence on successes (good test)
-        - each step it takes
-        - token consumption
-    4. punished more for:
-        - producing a mistake
-    5. punsihed a lot for:
-        - giving high confidence on a mistake
-4. train the entire system together (models, prompts, hyperparameters) via RL on real PRs that got reviewed and patched.
-5. distill the traces of the big system and finetune the best open course coding model on it.
-6. Result: A single model/Single Agent for cidate generation + A single model/Single Agent for candidate verification
+The model is rewarded for:
 
-## Why Review Must Go Beyond Final Diff Review
+- high confidence when correct,
+- low confidence when uncertain.
 
-A final diff is only the **end state** of a coding agent's work. For training coding agents, reviewing only the final diff loses the most valuable information: **how the agent arrived there**.
+It is punished heavily for:
 
-A final diff review answers:
+- high confidence when incorrect.
 
-> **"Is this change correct?"**
+The result is a reviewer that learns what it actually knows.
 
-A trajectory review answers the more important training question:
+Confidence becomes a machine-actionable signal rather than a writing style.
 
-> **"Where did the agent's reasoning or implementation process go wrong, and how should it have proceeded?"**
+---
 
-### Final Diff Review
+# Two Operating Modes
 
-The fundamental review task remains:
+## Lunch Review Human
 
-```text
-Specification + Code Diff → Review
+The human reviewer is the final decision-maker.
+
+Objective:
+
+**maximize defect recall.**
+
+The swarm aggressively surfaces hypotheses, evidence, and confidence scores. Humans filter speculative findings.
+
+## Lunch Review Ralph
+
+The reviewer operates inside an autonomous coding-agent loop.
+
+Objective:
+
+**minimize high-confidence regression-inducing false positives while maintaining high recall.**
+
+Incorrect high-confidence findings are extremely costly because another agent may modify code in response to them.
+
+---
+
+# Review Architecture
+
+## Stage 1 — Understand the Codebase
+
+Multiple agents build an understanding of:
+
+- repository structure,
+- specifications,
+- documentation,
+- dependency graph,
+- recent changes.
+
+Agents generate hypotheses and identify areas worth investigating.
+
+## Stage 2 — Investigate and Generate Candidates
+
+Specialists independently search for problems inside their domain.
+
+This stage intentionally prioritizes **high recall**.
+
+Agents may:
+
+- inspect execution paths,
+- generate tests,
+- mutate inputs,
+- run tools,
+- inspect runtime behavior.
+
+The output is a large pool of candidate findings.
+
+## Stage 3 — Verify and Filter Candidates
+
+Independent verifier agents evaluate every candidate.
+
+Verification includes:
+
+- reproducing failures,
+- validating executable proofs,
+- checking specification grounding,
+- rejecting unsupported hypotheses,
+- assigning calibrated confidence.
+
+This stage converts a noisy high-recall candidate pool into a high-precision review report.
+
+---
+
+# Review Output
+
+Every finding contains structured evidence.
+
+```yaml
+category: Functional
+
+severity: Critical
+
+confidence: 0.98
+
+spec_grounding:
+  - Checkout specification §3.2
+
+evidence:
+  - failing integration test
+  - execution trace
+  - reproduction command
 ```
 
-This provides high-quality supervision for correctness, regressions, missing requirements, and architectural violations.
+Findings are grouped into:
 
-However, it cannot reliably identify:
+- Functional
+- Security
+- Performance
+- Code Quality
+- Documentation
+- UI (optional)
 
-* incorrect decisions that were later corrected,
-* wasted exploration,
-* dead-end approaches,
-* the first point where the agent diverged from the plan,
-* why a particular change was made,
-* whether the agent is converging toward the intended solution.
+Each category contains:
 
-### Trajectory Review
+- Critical Problems
+- Important Problems
+- Enhancement Opportunities
 
-For agent training, the model should additionally review the **sequence of changes**:
+The reviewer also produces an overall non-critical quality score for autonomous review loops.
+
+---
+
+# Training Strategy
+
+## Stage 1 — Train Specialist Reviewers
+
+Each specialist is trained independently.
+
+Training combines supervised learning and reinforcement learning on datasets specific to its domain.
+
+Examples include:
+
+- real-world bugs,
+- vulnerability datasets,
+- mutation-testing datasets,
+- performance regressions,
+- maintainability improvements.
+
+Each specialist learns to maximize performance on its own review task.
+
+## Stage 2 — Train Confidence Calibration
+
+Every specialist is further trained with reinforcement learning to produce calibrated confidence.
+
+Rewards encourage:
+
+- high confidence on correct findings,
+- low confidence on uncertain findings.
+
+Penalties increase dramatically for confidently incorrect findings.
+
+Calibration is learned before specialists interact with each other.
+
+## Stage 3 — End-to-End Joint Optimization
+
+Once specialists are individually strong, the entire reviewer swarm is optimized jointly.
+
+This optimization adjusts:
+
+- prompts,
+- routing,
+- verifier aggregation,
+- model selection,
+- tool usage,
+- investigation depth,
+- compute allocation,
+- hyperparameters.
+
+The optimization target is **system-level review quality**, not individual model quality.
+
+The swarm learns how specialists collaborate to maximize overall defect discovery while minimizing costly false positives.
+
+---
+
+# Humans Become the Escalation Layer
+
+The ideal workflow is simple.
 
 ```text
-Specification + Plan + Diff₁ → Diff₂ → ... → Diffₙ
-                         ↓
-                   Review FM
+Claude Code writes code.
+
+Lunch Review investigates code.
+
+Humans resolve ambiguity.
 ```
 
-This allows the reviewer to provide **process-level supervision**:
+Humans are only involved when:
 
-* identify the first incorrect step,
-* explain why it diverged from the specification or plan,
-* distinguish productive exploration from wasted work,
-* identify missing investigations or tests,
-* recommend the next corrective action,
-* assess whether the trajectory is converging.
+1. the reviewer needs specification clarification,
+2. autonomous loops become stuck,
+3. a critical finding has insufficient confidence.
 
-This is particularly important because coding-agent RL has sparse objective feedback: a trajectory that receives `0 tests passed` could represent either a completely misguided attempt or a nearly-correct solution that failed on one final detail.
+Engineers stop reviewing every change and instead investigate the small fraction of changes that require human judgment.
 
-### Design Principle
+---
 
-The Review Foundation Model should therefore support **both final-state and process review**:
+# Why This Matters
 
-> **Diff review determines whether the implementation satisfies the specification. Trajectory review determines whether the agent's path toward that implementation was sound.**
+As AI agents generate increasingly large volumes of software, trustworthy verification becomes the scarce resource.
 
-This makes the model useful not only as a PR reviewer, but as a **process-supervision model for training coding agents**.
+Lunch Review is building the review equivalent of a coding foundation model: a system trained specifically to understand, investigate, verify, and prioritize software defects.
 
+The objective is simple:
 
-## First Users
-
-The product will win fastest in more mature repos with strong existing unit-test coverage, clear module boundaries, and high business risk (e.g., financial logic, smart contracts, core API services) where compute costs are easily justified by defect prevention.
+> **maximize discovery of real defects while making confidence reliable enough for autonomous software engineering.**

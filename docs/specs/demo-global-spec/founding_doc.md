@@ -4,48 +4,46 @@
 
 ## 1.1 What is FreeLunch?
 
-**FreeLunch is a venture studio/accelerator that provides scaleup infrastructure-as-a-service to the companies it builds and supports.**
+**FreeLunch is a meta-company. We spawn startups, and support them with our platforms forever. Our goal is to provide our startups with all the infra they need so thay can just focus on business-specific logic forever.** We want small teams to scale software-intensive companies without having to build/buy infrastructure or hire experts; while maintianing full visibility and control for engineers. 
 
-We partner with founders and pre-scale companies after they have reached, or are working toward, bootstrapped Product-Market Fit. Our goal is to let small teams scale software-intensive businesses without having to build large internal platform, DevOps, MLOps, and eventually other operational teams.
+Our core platform is a **human-centric software factory for applications at scale**. We are starting with support for engineering, but have future plans to support all facets of a company: finance, hr, supply chain, gaphical design, marketing, sales, technical upskilling, offices, and any other shared infrastructure.
 
-Our core product is an **AI-native developer platform for building and operating scalable applications**. Over time, FreeLunch may also provide ERP, technical upskilling, offices, and other shared infrastructure.
+### Similar Orgs
 
-The platforms are designed for **portability**:
+1. Business-as-a-Service (everything needed to go from idea to an operational digital business):
+- [NanoCorp](https://www.nanocorp.so/)
+- [Cofounder](https://cofounder.co/how-to/scale)
+- [Polsia](https://polsia.com/)
 
-* Customers retain standard artifacts and GitOps workflows.
-* Infrastructure remains inspectable and directly operable.
-* Platforms can eventually be detached/ejected automatically.
-* Portfolio companies can fork the platform internally, creating an inner-source ecosystem.
+2. Meta-companies (create/acquire and operate/support child comapnies):
+- [Long Lake](https://llmh.com/)
+- [Valsoft](https://www.valsoftcorp.com/) 
+- [Redesign Health](https://www.redesignhealth.com/)
 
-FreeLunch does **not** initially build its own coding agent or LLM. Instead, it turns existing coding agents such as Claude Code and OpenCode into complete software/AI engineering agents by giving them access to platform context, documentation, observability, and operational state.
+But these companies don't support well applications at scale neither focus on human understanding/control. They use AI but forget platform engineering is fundamental for guardrails, predictability, reproducibility, lower cost and human control.
 
 ## 1.2 Business Model
 
 ### Near Term
 
-FreeLunch monetizes through **platform engineering consulting** and custom developer-platform implementations for scaleups.
+- platform engineeerng consulting
+- software factory licensing
 
 ### Long Term
 
-FreeLunch becomes a **venture studio/accelerator**, using three main models:
-
-1. **Idea → company:** FreeLunch validates an idea with a founder, provides salary and infrastructure, and takes significant founding equity.
-2. **Pre-scale company:** Existing companies apply to join the accelerator in exchange for equity.
-3. **Co-building:** FreeLunch and a founder explore and validate an opportunity together before forming the company.
-
-FreeLunch also supports portfolio companies with fundraising through its VC network and participates in dilution alongside founders during future financing rounds.
+- spawn our own companies and scale the ones that had PMF
 
 ## 1.3 Product Vision
 
-FreeLunch is a **cloud-development IDE and internal developer platform** that combines application development, infrastructure, deployment, experimentation, and operations into one environment.
+FreeLunch's software foactory is called *freelunch-ide*. It is an **IDE-based internal developer platform for cloud applications** that supports the entire SDLC in a single place.
 
 The core analogy is:
 
-> **IDE + Internal Developer Platform as a single product**
+> **IDE + Internal Developer Platform as a single product, with AI Software Factory on top of it**
 
-Developers should be able to compose services and infrastructure visually, write application code, deploy through GitOps, observe the running system, and diagnose production issues without needing to become experts in the underlying Kubernetes/cloud-native ecosystem.
+Developers should be able to compose services and infrastructure visually, write application code, deploy through GitOps, observe the running system, and diagnose production issues without needing to become/hire experts in the underlying Kubernetes/cloud-native ecosystem.
 
-The platform provides a higher-level abstraction while preserving access to the underlying systems.
+The platform provides higher-level abstractions while preserving direct interaction with the underlying tools (e.g., K8s, IaC, etc).
 
 ### Core principles
 
@@ -268,23 +266,27 @@ FreeLunch composes these capabilities into a coherent developer experience.
 
 ---
 
-# 5. Personas
+# 5. Personas 
 
-### Platform Admin
+### Platform Admin Persona
 
 Owns the platform, organization configuration, identity, and emergency permissions.
 
-### Platform Engineer
+### Platform Engineer Persona
 
-Defines platform capabilities, policies, infrastructure, and deployment configuration.
+Defines platform capabilities, policies, infrastructure, and deployment configuration. 
 
-### Developer
+### Platform Lead Grant
+
+Grant that a Platform Engineers gets to be able to merge and request changes on Platform-level PRs.
+
+### Developer Persona
 
 Builds, deploys, observes, and operates applications through the platform.
 
-### Tech Lead
+### Tech Lead Grant
 
-A developer with additional responsibility for reviewing and merging changes.
+Grant that a Developer gets to be able to merge and request changes on Application-level PRs.
 
 ---
 
@@ -354,29 +356,23 @@ A developer with additional responsibility for reviewing and merging changes.
 
 The Demo does **not** attempt to solve the entire platform vision.
 
-### Application capabilities
+A list of things that won't be in the Demo:
 
 * Stateful services.
 * Database/queue lifecycle management.
 * DAG workflows.
 * GPU workloads.
 * Frontend application management.
-* Data engineering.
-* Full MLOps.
-* Confidential computing.
-* Distributed programming framework.
-
-### Infrastructure
-
 * Public-cloud deployment.
 * Multi-cloud.
 * On-premise clusters.
 * Embedded devices.
 * Remote Kubernetes development environments.
 * Full multi-cluster management.
-
-### Platform
-
+* Data engineering support.
+* MLOps support
+* Confidential computing.
+* Distributed programming framework.
 * Arbitrary new L1 abstraction types.
 * Fully tool-agnostic IaC.
 * Public/private reusable-block marketplace.
@@ -385,17 +381,18 @@ The Demo does **not** attempt to solve the entire platform vision.
 * Project management.
 * Agent management.
 * IDE action logging.
-* DORA/IDE analytics.
+* DORA analytics (for users) 
+* Platform Monitoring, Observability and Analytics (for us).
 * Budget enforcement and deployment cost gates.
-
-### Advanced product capabilities
-
 * A/B testing.
+* Alpha/Beta/Canary Deployments and Feature Flags
 * Time-travel/slow-motion trace replay.
 * System-wide experiment tracking.
 * DataOps promotion workflows.
 * Full OpenLineage integration.
 * Monitoring actions directly from IDE widgets.
+* DAST, Pentesting/Readteaming and Chaos Enigneering support.
+* Optimal Technical KPI Goal Definitions (automatically defined goals for latency, throughput, availability, precision, recall, etc to optimize business KPIs, optimize cost, while having a total dedication budget contraint that takes into account how hard is to improve each technical KPI)
 
 ---
 
