@@ -150,8 +150,7 @@ Docker security references: [Docker Engine security](https://docs.docker.com/eng
 - `OPENCODE_GO_SESSION_ID` is conversation-scoped: keep it stable for one OpenCode Go conversation and generate a new value for each new conversation. Preserve each native Claude Code/Codex session identifier as required by its client protocol.
 - The local OpenCode process must not receive the actual OpenCode Go subscription credential. The host-side Docker administrator remains trusted and may be able to inspect Docker-managed state and secrets.
 
-## Harness Settings JSON [for Outer Loop Agents or Humans]
-
+## Deny Rules (settings.json) [for Outer Loop Agents or Humans]
 
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
